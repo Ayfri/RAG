@@ -26,6 +26,8 @@
 		role: 'user' | 'assistant';
 		content: string;
 		timestamp: Date;
+		sources?: any;
+		documents?: any;
 	}
 
 	let { ragName }: Props = $props();
@@ -81,26 +83,62 @@
 			if (!reader) throw new Error('No response body');
 
 			const decoder = new TextDecoder();
+			let buffer = '';
+			let doneReading = false;
+			let foundSeparator = false;
 
-			while (true) {
+			while (!doneReading) {
 				const { done, value } = await reader.read();
-				if (done) break;
+				doneReading = done;
+				if (value) {
+					const chunk = decoder.decode(value);
+					buffer += chunk;
 
-				const chunk = decoder.decode(value);
+					// Check for separator
+					const sepIndex = buffer.indexOf('\n---\n');
+					if (sepIndex !== -1) {
+						// Everything before is the answer, after is the JSON
+						const answer = buffer.slice(0, sepIndex);
+						const jsonPart = buffer.slice(sepIndex + 5);
 
-				// Update the last assistant message
-				messages = messages.map((msg, index) =>
-					index === messages.length - 1
-						? { ...msg, content: msg.content + chunk }
-						: msg
-				);
+						// Update the assistant message with the answer
+						messages = messages.map((msg, index) =>
+							index === messages.length - 1
+								? { ...msg, content: answer }
+								: msg
+						);
 
-				// Auto-scroll to bottom
-				setTimeout(() => {
-					if (chatContainer) {
-						chatContainer.scrollTop = chatContainer.scrollHeight;
+						// Try to parse the JSON part
+						try {
+							const data = JSON.parse(jsonPart);
+							messages = messages.map((msg, index) =>
+								index === messages.length - 1
+									? { ...msg, sources: data.sources, documents: data.documents }
+									: msg
+							);
+						} catch (e) {
+							// Ignore JSON parse errors for now
+						}
+
+						foundSeparator = true;
+						doneReading = true;
+						break;
+					} else {
+						// No separator yet, just append chunk to content
+						messages = messages.map((msg, index) =>
+							index === messages.length - 1
+								? { ...msg, content: msg.content + chunk }
+								: msg
+						);
 					}
-				}, 0);
+
+					// Auto-scroll to bottom
+					setTimeout(() => {
+						if (chatContainer) {
+							chatContainer.scrollTop = chatContainer.scrollHeight;
+						}
+					}, 0);
+				}
 			}
 		} catch (err) {
 			// Update the last assistant message with error

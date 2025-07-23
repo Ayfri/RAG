@@ -1,18 +1,23 @@
 <script lang="ts">
-	import { Bot, Copy, Loader, RefreshCcw, Trash2, User } from '@lucide/svelte';
+	import { Bot, Copy, Loader, RefreshCcw, Trash2, User, FileText } from '@lucide/svelte';
 	import Markdown from '$lib/components/common/Markdown.svelte';
 
 	interface ChatMessage {
 		id: string;
 		role: 'user' | 'assistant';
 		content: string;
+		documents?: {
+			content: string;
+			source: string;
+		}[];
+		sources?: string[];
 		timestamp: Date;
 	}
 
 	interface Props {
-		message: ChatMessage;
-		isStreaming?: boolean;
 		isLastMessage?: boolean;
+		isStreaming?: boolean;
+		message: ChatMessage;
 		onDelete?: (id: string) => void;
 		onRegenerate?: (id: string) => void;
 	}
@@ -28,6 +33,29 @@
 			hour: '2-digit',
 			minute: '2-digit'
 		});
+	}
+
+	function isUrl(str: string) {
+		try {
+			const url = new URL(str);
+			return url.protocol !== 'file:';
+		} catch {
+			return false;
+		}
+	}
+
+	function isFilePath(str: string) {
+		try {
+			const url = new URL(str);
+			return url.protocol === 'file:';
+		} catch {
+			return false;
+		}
+	}
+
+	function getPreview(content: string, maxLength = 200) {
+		if (!content) return '';
+		return content.length > maxLength ? content.slice(0, maxLength) + '…' : content;
 	}
 </script>
 
@@ -77,6 +105,59 @@
 						<div class="flex items-center space-x-2 mt-3 pt-3 border-t border-slate-600">
 							<Loader class="w-4 h-4 animate-spin text-cyan-400" />
 							<span class="text-xs text-slate-400">Assistant is typing...</span>
+						</div>
+					{/if}
+					{#if message.sources || message.documents}
+						<div class="mt-4 pt-3 border-t border-slate-700 text-xs">
+							{#if message.sources && message.sources.length > 0}
+								<div class="flex flex-wrap gap-2 items-center mb-2">
+									<strong class="mr-2 text-slate-400">Sources:</strong>
+									{#each message.sources as source}
+										{#if typeof source === 'string'}
+											{#if isUrl(source)}
+												<a href={source} target="_blank" rel="noopener" class="inline-block bg-cyan-900/60 text-cyan-200 px-3 py-1 rounded-full font-mono hover:bg-cyan-800/80 hover:underline transition-all duration-150 shadow-sm border border-cyan-700">
+													{source}
+												</a>
+											{:else if isFilePath(source)}
+												<span class="inline-block bg-slate-800/80 text-slate-200 px-3 py-1 rounded-full font-mono border border-slate-700 shadow-sm">{source}</span>
+											{:else}
+												<span class="inline-block bg-slate-700/80 text-slate-100 px-3 py-1 rounded-full font-mono border border-slate-600 shadow-sm">{source}</span>
+											{/if}
+										{:else}
+											<span class="inline-block bg-slate-700/80 text-slate-100 px-3 py-1 rounded-full font-mono border border-slate-600 shadow-sm">{JSON.stringify(source)}</span>
+										{/if}
+									{/each}
+								</div>
+							{/if}
+							{#if message.documents && message.documents.length > 0}
+								<div class="space-y-3">
+									<strong class="text-slate-400">Files used ({message.documents.length}):</strong>
+									<ul class="space-y-1.5 mt-1">
+										{#each message.documents as doc}
+											{#if doc && doc.source !== '' && doc.content !== ''}
+												<li class="glass bg-slate-900/70 rounded-xl px-2.5 py-2 border border-slate-700 shadow-lg flex flex-col gap-1">
+													<div class="flex items-center gap-2">
+														<FileText class="w-4 h-4 text-cyan-400 flex-shrink-0" />
+														{#if isUrl(doc.source)}
+															<a href={doc.source} target="_blank" rel="noopener" class="font-mono text-cyan-300 hover:underline hover:text-cyan-200 transition-all duration-150">{doc.source}</a>
+														{:else if isFilePath(doc.source)}
+															<span class="font-mono text-slate-200 break-all text-[0.7rem]">{doc.source}</span>
+														{:else}
+															<span class="font-mono text-slate-100">{doc.source}</span>
+														{/if}
+													</div>
+													<details>
+														<summary class="cursor-pointer text-slate-400 italic select-none outline-none focus:ring-2 focus:ring-cyan-400 rounded">
+															{getPreview(doc.content)}
+														</summary>
+														<pre class="mt-1.5 text-slate-300 text-[0.65rem] bg-slate-900/60 rounded-lg p-2 border border-slate-700 whitespace-pre-wrap">{doc.content.slice(0, 5000).trim()}{doc.content.length > 5000 ? '…' : ''}</pre>
+													</details>
+												</li>
+											{/if}
+										{/each}
+									</ul>
+								</div>
+							{/if}
 						</div>
 					{/if}
 				{/if}

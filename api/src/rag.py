@@ -8,6 +8,8 @@ All indices and source documents are stored on the local filesystem:
 """
 
 import json
+import os
+import shutil
 from pathlib import Path
 from typing import AsyncGenerator
 
@@ -123,6 +125,40 @@ class RAGService:
 			Settings.embed_model = original_embed_model
 
 
+	def create_symlink(self, rag_name: str, target_path: str, link_name: str) -> Path:
+		"""
+		Create a symbolic link in the RAG's document directory.
+
+		:param rag_name: Name of the RAG instance
+		:param target_path: Path to the target file or directory
+		:param link_name: Name for the symbolic link
+		:return: Path to the created symbolic link
+		:raises FileNotFoundError: If target path doesn't exist
+		:raises FileExistsError: If link name already exists
+		"""
+		files_path = self._FILES_DIR / rag_name
+		files_path.mkdir(parents=True, exist_ok=True)
+
+		target = Path(target_path)
+		if not target.exists():
+			raise FileNotFoundError(f'Target path "{target_path}" does not exist.')
+
+		link_path = files_path / link_name
+		if link_path.exists():
+			raise FileExistsError(f'Link "{link_name}" already exists in RAG "{rag_name}".')
+
+		# Create symbolic link
+		if os.name == 'nt':  # Windows
+			if target.is_dir():
+				link_path.symlink_to(target, target_is_directory=True)
+			else:
+				link_path.symlink_to(target)
+		else:  # Unix-like systems
+			link_path.symlink_to(target)
+
+		return link_path
+
+
 	def delete_file(self, rag_name: str, filename: str) -> None:
 		"""
 		Delete a specific file from the RAG's document directory.
@@ -185,19 +221,40 @@ class RAGService:
 		return self._load_rag_config(rag_name)
 
 
-	def list_files(self, rag_name: str) -> list[str]:
+	def list_files(self, rag_name: str) -> list[dict]:
 		"""
-		List all files in the RAG's document directory.
+		List all files and directories in the RAG's document directory.
 
 		:param rag_name: Name of the RAG instance
-		:return: List of filenames in the RAG's document directory
+		:return: List of file/directory info with name, type, and link target (if symlink)
 		:raises FileNotFoundError: If the files directory doesn't exist
 		"""
 		files_path = self._FILES_DIR / rag_name
 		if not files_path.exists():
 			raise FileNotFoundError(f'Files directory for RAG "{rag_name}" not found.')
 
-		return [f.name for f in files_path.iterdir() if f.is_file()]
+		items = []
+		for item in files_path.iterdir():
+			item_info = {
+				'name': item.name,
+				'type': 'directory' if item.is_dir() else 'file',
+				'is_symlink': item.is_symlink()
+			}
+
+			if item.is_symlink():
+				try:
+					resolved_target = item.resolve()
+					item_info['target'] = str(item.readlink())
+					item_info['resolved_target_type'] = 'directory' if resolved_target.is_dir() else 'file'
+					if resolved_target.is_dir():
+						item_info['file_count'] = sum(1 for f in resolved_target.rglob('*') if f.is_file())
+				except OSError:
+					item_info['target'] = '<broken link>'
+					item_info['resolved_target_type'] = 'unknown'
+
+			items.append(item_info)
+
+		return sorted(items, key=lambda x: (x['type'], x['name'].lower()))
 
 
 	def list_rags(self) -> list[str]:
@@ -231,6 +288,36 @@ class RAGService:
 		query_engine = index.as_query_engine(llm=llm)
 		response = query_engine.query(query)
 		return str(response)
+
+
+	def save_directory(self, rag_name: str, directory_name: str, directory_content: dict) -> Path:
+		"""
+		Save a directory structure to the RAG's document directory.
+
+		:param rag_name: Name of the RAG instance
+		:param directory_name: Name for the saved directory
+		:param directory_content: Dictionary representing directory structure with file contents
+		:return: Path to the saved directory
+		"""
+		files_path = self._FILES_DIR / rag_name
+		files_path.mkdir(parents=True, exist_ok=True)
+
+		dir_path = files_path / directory_name
+		dir_path.mkdir(exist_ok=True)
+
+		def _create_structure(base_path: Path, structure: dict):
+			for name, content in structure.items():
+				item_path = base_path / name
+				if isinstance(content, dict):
+					# It's a subdirectory
+					item_path.mkdir(exist_ok=True)
+					_create_structure(item_path, content)
+				else:
+					# It's a file
+					item_path.write_bytes(content)
+
+		_create_structure(dir_path, directory_content)
+		return dir_path
 
 
 	def save_file(self, rag_name: str, filename: str, content: bytes) -> Path:

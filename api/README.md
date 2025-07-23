@@ -81,8 +81,10 @@ The `api/src/config.py` module automatically loads these variables on applicatio
 
 | Method | Path | Description |
 | ------ | ---- | ----------- |
-| `GET`  | `/rag/{rag_name}/files` | List all files in the RAG's document directory. |
+| `GET`  | `/rag/{rag_name}/files` | List all files and directories in the RAG's document directory. Returns detailed info including type and symlink targets. |
 | `POST` | `/rag/{rag_name}/files` | Upload a document to the RAG's files directory. |
+| `POST` | `/rag/{rag_name}/symlink` | Create a symbolic link to an external file or directory. |
+| `POST` | `/rag/{rag_name}/reindex` | Manually reindex the RAG from all current files and symlinks. |
 | `DELETE` | `/rag/{rag_name}/files/{filename}` | Delete a specific file from the RAG's document directory. |
 
 ## Configuration
@@ -127,8 +129,19 @@ $form = @{
 }
 Invoke-RestMethod -Method Post -Uri 'http://localhost:8000/rag/my-docs/files' -Form $form
 
-# Build an index from uploaded files
+# Create a symbolic link to external documents
+$symlinkData = @{
+    target_path = 'C:\Documents\MyProject'
+    link_name = 'project-docs'
+} | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri 'http://localhost:8000/rag/my-docs/symlink' `
+    -Body $symlinkData -ContentType 'application/json'
+
+# Build an index from uploaded files and symlinks
 Invoke-RestMethod -Method Post -Uri 'http://localhost:8000/rag/my-docs'
+
+# Manually reindex to include new files
+Invoke-RestMethod -Method Post -Uri 'http://localhost:8000/rag/my-docs/reindex'
 
 # Get current configuration
 Invoke-RestMethod -Method Get -Uri 'http://localhost:8000/rag/my-docs/config'

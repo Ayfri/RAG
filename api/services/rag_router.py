@@ -4,7 +4,7 @@ RAG API router containing all endpoints for managing RAG indices and documents.
 
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile, Form
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
@@ -24,49 +24,33 @@ class QueryPayload(BaseModel):
 	query: str
 
 
-class ConfigPayload(BaseModel):
+class SymlinkPayload(BaseModel):
 	"""
-	Request payload for RAG configuration operations.
+	Request payload for creating symbolic links.
 
-	:param chat_model: OpenAI model to use for chat completions
-	:param embedding_model: OpenAI model to use for embeddings
-	:param system_prompt: System prompt to guide the model's responses
+	:param target_path: Path to the target file or directory
+	:param link_name: Name for the symbolic link
 	"""
-	chat_model: str = 'gpt-4o-mini'
-	embedding_model: str = 'text-embedding-3-large'
-	system_prompt: str = 'You are a helpful assistant that answers questions based on the provided context. Be concise and accurate.'
+	target_path: str
+	link_name: str
 
 
 # ---------------------------------------------------------------------
-# OpenAI Models
+# RAG Management
 # ---------------------------------------------------------------------
 
-@router.get('/models')
-async def get_models():
+@router.get('', response_model=list[str])
+async def list_rags() -> list[str]:
 	"""
-	Retrieve available OpenAI models, filtered by deprecation status and categorized.
+	List every existing RAG index.
 
-	Returns models in three categories:
-	- chat: Models for text generation and conversation
-	- embedding: Models for creating embeddings
-	- thinking: Models specialized for reasoning (o1, o3, o4 series)
-
-	:return: Dictionary with categorized model lists
-	:raises HTTPException: 500 if OpenAI API fails
+	:return: List of RAG names
 	"""
-	try:
-		models = await get_openai_models()
-		return JSONResponse(content=models, status_code=200)
-	except Exception as e:
-		raise HTTPException(status_code=500, detail=f'Failed to fetch OpenAI models: {str(e)}')
+	return rag_service.list_rags()
 
 
-# ---------------------------------------------------------------------
-# RAG Configuration Management
-# ---------------------------------------------------------------------
-
-@router.get('/{rag_name}/config')
-async def get_rag_config(rag_name: str):
+@router.get('/{rag_name}/config', response_model=dict)
+async def get_rag_config(rag_name: str) -> dict:
 	"""
 	Get the configuration for a specific RAG.
 
@@ -74,39 +58,41 @@ async def get_rag_config(rag_name: str):
 	:return: RAG configuration as dictionary
 	:raises HTTPException: 404 if RAG not found
 	"""
-	if rag_name not in rag_service.list_rags():
-		raise HTTPException(status_code=404, detail='RAG not found')
-
 	try:
 		config = rag_service.get_rag_config(rag_name)
 		return config.to_dict()
-	except Exception as exc:
-		raise HTTPException(status_code=500, detail=f'Failed to get config: {str(exc)}') from exc
+	except FileNotFoundError as exc:
+		raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.put('/{rag_name}/config')
-async def update_rag_config(rag_name: str, config: ConfigPayload):
+@router.put('/{rag_name}/config', status_code=200)
+async def update_rag_config(rag_name: str, config_data: dict):
 	"""
 	Update the configuration for a specific RAG.
 
 	:param rag_name: Name of the RAG instance
-	:param config: New configuration settings
+	:param config_data: New configuration data
 	:return: JSON response confirming update
-	:raises HTTPException: 404 if RAG not found, 500 if update fails
+	:raises HTTPException: 404 if RAG not found, 400 if invalid config
 	"""
-	if rag_name not in rag_service.list_rags():
-		raise HTTPException(status_code=404, detail='RAG not found')
-
 	try:
-		rag_config = RAGConfig(
-			chat_model=config.chat_model,
-			embedding_model=config.embedding_model,
-			system_prompt=config.system_prompt
-		)
-		rag_service.update_rag_config(rag_name, rag_config)
-		return JSONResponse({'message': f'Configuration for RAG "{rag_name}" updated successfully.'})
-	except Exception as exc:
-		raise HTTPException(status_code=500, detail=f'Failed to update config: {str(exc)}') from exc
+		config = RAGConfig.from_dict(config_data)
+		rag_service.update_rag_config(rag_name, config)
+		return JSONResponse({'detail': 'Configuration updated successfully'})
+	except FileNotFoundError as exc:
+		raise HTTPException(status_code=404, detail=str(exc)) from exc
+	except (KeyError, ValueError) as exc:
+		raise HTTPException(status_code=400, detail=f'Invalid configuration: {str(exc)}') from exc
+
+
+@router.get('/models', response_model=dict)
+async def get_available_models() -> dict:
+	"""
+	Get all available OpenAI models for chat and embeddings.
+
+	:return: Dictionary containing available chat models and embedding models
+	"""
+	return await get_openai_models()
 
 
 # ---------------------------------------------------------------------
@@ -128,13 +114,13 @@ async def delete_file(rag_name: str, filename: str):
 		raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.get('/{rag_name}/files', response_model=list[str])
-async def list_files(rag_name: str) -> list[str]:
+@router.get('/{rag_name}/files', response_model=list[dict])
+async def list_files(rag_name: str) -> list[dict]:
 	"""
-	List all files in the RAG's document directory.
+	List all files and directories in the RAG's document directory.
 
 	:param rag_name: Name of the RAG instance
-	:return: List of filenames in the document directory
+	:return: List of file/directory info with name, type, and link target (if symlink)
 	:raises HTTPException: 404 if RAG not found
 	"""
 	try:
@@ -162,6 +148,32 @@ async def upload_file(rag_name: str, file: UploadFile = File(...)):
 		}, status_code=201)
 	except Exception as exc:
 		raise HTTPException(status_code=500, detail=f'Upload failed: {str(exc)}') from exc
+
+
+@router.post('/{rag_name}/symlink', status_code=201)
+async def create_symlink(rag_name: str, payload: SymlinkPayload):
+	"""
+	Create a symbolic link in the RAG's document directory.
+
+	:param rag_name: Name of the RAG instance
+	:param payload: Symbolic link creation request
+	:return: JSON response with symlink details
+	:raises HTTPException: 400 if target doesn't exist or link already exists, 500 if creation fails
+	"""
+	try:
+		link_path = rag_service.create_symlink(rag_name, payload.target_path, payload.link_name)
+		return JSONResponse({
+			'detail': 'Symbolic link created successfully',
+			'link_name': payload.link_name,
+			'target_path': payload.target_path,
+			'path': str(link_path)
+		}, status_code=201)
+	except FileNotFoundError as exc:
+		raise HTTPException(status_code=400, detail=str(exc)) from exc
+	except FileExistsError as exc:
+		raise HTTPException(status_code=400, detail=str(exc)) from exc
+	except Exception as exc:
+		raise HTTPException(status_code=500, detail=f'Symlink creation failed: {str(exc)}') from exc
 
 
 # ---------------------------------------------------------------------
@@ -236,6 +248,30 @@ async def create_rag(rag_name: str):
 		raise HTTPException(status_code=500, detail=f'Failed to create RAG: {e}')
 
 
+@router.post('/{rag_name}/reindex', status_code=200)
+async def reindex_rag(rag_name: str):
+	"""
+	Manually reindex a RAG from all files in its document directory.
+
+	This endpoint rebuilds the vector index using all files currently
+	in the RAG's document directory, including any recently added files
+	or symbolic links.
+
+	:param rag_name: Name of the RAG instance to reindex
+	:return: JSON response confirming reindexing
+	:raises HTTPException: 404 if RAG not found, 500 if reindexing fails
+	"""
+	if rag_name not in rag_service.list_rags():
+		raise HTTPException(status_code=404, detail='RAG not found')
+
+	try:
+		rag_service.create_rag(rag_name)  # create_rag already handles rebuilding
+		return JSONResponse({'message': f'RAG "{rag_name}" reindexed successfully.'})
+	except Exception as e:
+		print(f"Error reindexing RAG: {e}")  # Log the full error
+		raise HTTPException(status_code=500, detail=f'Failed to reindex RAG: {e}')
+
+
 @router.delete('/{rag_name}', status_code=204)
 async def delete_rag(rag_name: str):
 	"""
@@ -248,13 +284,3 @@ async def delete_rag(rag_name: str):
 		rag_service.delete_rag(rag_name)
 	except FileNotFoundError as exc:
 		raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
-@router.get('', response_model=list[str])
-async def list_rags() -> list[str]:
-	"""
-	Return every existing RAG name (folder under data/indices).
-
-	:return: List of available RAG instance names
-	"""
-	return rag_service.list_rags()

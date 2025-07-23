@@ -99,9 +99,12 @@ The web app will be available at `http://localhost:5173`.
 
 ### 📄 Document Management
 - Upload files via drag-and-drop or file picker
+- **Folder upload support**: Upload entire directories at once
+- **Symbolic link support**: Link to external files and directories
 - Support for PDF, TXT, DOCX, and Markdown files
 - View and delete documents in each RAG
-- Automatic index rebuilding after file changes
+- **Manual reindexing**: Rebuild indices on demand
+- Smart file listing with type indicators and symlink targets
 
 ### 🔍 Intelligent Querying
 - Ask questions about your documents
@@ -164,8 +167,11 @@ The web app will be available at `http://localhost:5173`.
 ### Managing Files
 
 - **Add files**: Use the "Add File" button in the Documents section
+- **Add folders**: Use the "Add Folder" button to upload entire directories
+- **Create symlinks**: Use the "Link" button to reference external files/folders
 - **Delete files**: Click the trash icon next to any file
-- **Auto-rebuild**: Indices automatically update when files change
+- **Manual reindex**: Use the "Reindex" button to rebuild the vector index
+- **File types**: Files, directories, and symbolic links are clearly distinguished
 
 ## 🔧 Development
 
@@ -202,8 +208,10 @@ uvicorn api.main:app --reload  # Development server with auto-reload
 | `PUT` | `/rag/{name}/config` | Update RAG configuration |
 | `POST` | `/rag/{name}/query` | Query RAG |
 | `POST` | `/rag/{name}/stream` | Stream query response |
-| `GET` | `/rag/{name}/files` | List RAG files |
+| `GET` | `/rag/{name}/files` | List RAG files and directories |
 | `POST` | `/rag/{name}/files` | Upload file |
+| `POST` | `/rag/{name}/symlink` | Create symbolic link |
+| `POST` | `/rag/{name}/reindex` | Manually reindex RAG |
 | `DELETE` | `/rag/{name}/files/{filename}` | Delete file |
 
 ## 🔒 Security Notes

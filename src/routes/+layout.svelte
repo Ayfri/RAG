@@ -4,6 +4,7 @@
 
 	import '../app.css';
 	import { getOpenAIModels } from '$lib/stores/openai-models.js';
+	import Notifications from '$lib/components/common/Notifications.svelte';
 
 	let { children } = $props();
 
@@ -20,4 +21,5 @@
 	});
 </script>
 
+<Notifications />
 {@render children()}

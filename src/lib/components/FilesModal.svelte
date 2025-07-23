@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { FileText, Trash2, Upload, RefreshCw, Link, FolderOpen, Loader } from '@lucide/svelte';
+	import { FileText, Trash2, Upload, RefreshCw, Link, FolderOpen, Loader, HardDrive, Clock, FileStack } from '@lucide/svelte';
 	import Button from '$lib/components/common/Button.svelte';
 	import FileInput from '$lib/components/common/FileInput.svelte';
 	import CreateSymlinkModal from '$lib/components/CreateSymlinkModal.svelte';
@@ -12,6 +12,8 @@
 		target?: string;
 		resolved_target_type?: 'file' | 'directory' | 'unknown';
 		file_count?: number;
+		size?: number;
+		last_modified?: number;
 	}
 
 	interface Props {
@@ -46,7 +48,7 @@
 
 	function getFileIcon(item: FileItem) {
 		if (item.type === 'directory') {
-			return item.is_symlink ? FolderOpen : FolderOpen;
+			return item.is_symlink ? Link : FolderOpen;
 		} else {
 			return item.is_symlink ? Link : FileText;
 		}
@@ -55,43 +57,58 @@
 	function handleSymlinkCreated() {
 		onSymlinkCreated();
 	}
+
+	function formatBytes(bytes: number, decimals = 2) {
+		if (bytes === 0) return '0 Bytes';
+		const k = 1024;
+		const dm = decimals < 0 ? 0 : decimals;
+		const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+		const i = Math.floor(Math.log(bytes) / Math.log(k));
+		return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+	}
+
+	function formatDate(timestamp: number) {
+		return new Date(timestamp * 1000).toLocaleString();
+	}
+
+	const totalSize = $derived(files.reduce((acc, file) => acc + (file.size ?? 0), 0));
 </script>
 
-<Modal title="Files" bind:open>
-	<div class="flex flex-col h-full -m-4">
-		<div class="p-4 border-b border-slate-600">
-			<div class="grid grid-cols-2 gap-2">
+<Modal title="Manage Files" bind:open size="2xl">
+	<div class="flex flex-col h-full -m-6">
+		<div class="p-4 border-b border-slate-700 bg-slate-800/50">
+			<div class="grid grid-cols-4 gap-3">
 				<Button
 					onclick={onReindex}
 					disabled={reindexing}
-					class="flex items-center justify-center space-x-1 px-2 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-lg cursor-pointer text-xs font-medium transition-all duration-200"
+					class="flex items-center justify-center space-x-2 px-3 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-lg cursor-pointer text-sm font-medium transition-all duration-200"
 					title="Manually reindex RAG"
 				>
 					{#if reindexing}
-						<Loader class="w-3 h-3 animate-spin" />
+						<Loader class="w-4 h-4 animate-spin" />
 						<span>Reindexing...</span>
 					{:else}
-						<RefreshCw class="w-3 h-3" />
-						<span>Reindex</span>
+						<RefreshCw class="w-4 h-4" />
+						<span>Reindex All</span>
 					{/if}
 				</Button>
 
 				<Button
 					onclick={() => showSymlinkModal = true}
-					class="flex items-center justify-center space-x-1 px-2 py-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-lg cursor-pointer text-xs font-medium transition-all duration-200"
+					class="flex items-center justify-center space-x-2 px-3 py-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-lg cursor-pointer text-sm font-medium transition-all duration-200"
 					title="Create symbolic link"
 				>
-					<Link class="w-3 h-3" />
-					<span>Link</span>
+					<Link class="w-4 h-4" />
+					<span>Create Link</span>
 				</Button>
 
-				<label class="flex items-center justify-center space-x-1 px-2 py-2 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white rounded-lg cursor-pointer text-xs font-medium transition-all duration-200">
+				<label class="flex items-center justify-center space-x-2 px-3 py-2 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white rounded-lg cursor-pointer text-sm font-medium transition-all duration-200">
 					{#if uploading}
-						<Loader class="w-3 h-3 animate-spin" />
+						<Loader class="w-4 h-4 animate-spin" />
 						<span>Uploading...</span>
 					{:else}
-						<Upload class="w-3 h-3" />
-						<span>Add File</span>
+						<Upload class="w-4 h-4" />
+						<span>Upload File</span>
 					{/if}
 					<FileInput
 						accept='.txt,.pdf,.docx,.md'
@@ -101,13 +118,13 @@
 					/>
 				</label>
 
-				<label class="flex items-center justify-center space-x-1 px-2 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg cursor-pointer text-xs font-medium transition-all duration-200">
+				<label class="flex items-center justify-center space-x-2 px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg cursor-pointer text-sm font-medium transition-all duration-200">
 					{#if uploading}
-						<Loader class="w-3 h-3 animate-spin" />
+						<Loader class="w-4 h-4 animate-spin" />
 						<span>Uploading...</span>
 					{:else}
-						<FolderOpen class="w-3 h-3" />
-						<span>Add Folder</span>
+						<FolderOpen class="w-4 h-4" />
+						<span>Upload Folder</span>
 					{/if}
 					<input
 						type="file"
@@ -121,54 +138,83 @@
 			</div>
 		</div>
 
-		<div class="flex-1 overflow-y-auto">
-			{#if loading}
-				<div class="p-6 text-center">
-					<Loader class="w-6 h-6 animate-spin text-cyan-400 mx-auto mb-2" />
-					<p class="text-slate-400 text-sm">Loading files...</p>
+		<div class="p-3 bg-slate-800 border-b border-slate-700 flex items-center justify-between text-xs text-slate-400">
+			<div class="flex items-center space-x-2">
+				<FileStack class="w-4 h-4" />
+				<span>{files.length} files</span>
+			</div>
+			<div class="flex items-center space-x-2">
+				<HardDrive class="w-4 h-4" />
+				<span>Total size: {formatBytes(totalSize)}</span>
+			</div>
+		</div>
+
+		{#if reindexing}
+			<div class="flex-1 flex flex-col items-center justify-center p-6 text-center bg-slate-900/50">
+				<Loader class="w-12 h-12 animate-spin text-orange-400" />
+				<h3 class="mt-4 text-lg font-semibold text-slate-200">Rebuilding Index</h3>
+				<p class="mt-1 text-sm text-slate-400">This may take a few moments. Please don't close this window.</p>
+				<div class="w-full max-w-md bg-slate-700 rounded-full h-2.5 mt-4">
+					<div class="bg-orange-500 h-2.5 rounded-full animate-pulse"></div>
 				</div>
-			{:else if files.length === 0}
-				<div class="p-6 text-center">
-					<FileText class="w-12 h-12 text-slate-600 mx-auto mb-3" />
-					<p class="text-slate-300 font-medium text-sm">No documents</p>
-					<p class="text-slate-500 text-xs mt-1">Upload files to get started</p>
-				</div>
-			{:else}
-				<div class="divide-y divide-slate-700">
-					{#each files as file}
-						{@const IconComponent = getFileIcon(file)}
-						<div class="p-3 hover:bg-slate-700/30 transition-all duration-200 group">
-							<div class="flex items-start justify-between">
-								<div class="flex items-start space-x-2 flex-1 min-w-0">
-									<IconComponent class="w-4 h-4 mt-0.5 flex-shrink-0 {file.is_symlink ? 'text-purple-400' : file.type === 'directory' ? 'text-blue-400' : 'text-cyan-400'}" />
-									<div class="min-w-0 flex-1">
-										<span class="text-slate-200 text-sm block truncate {file.is_symlink ? 'italic' : ''}">{file.name}</span>
-										{#if file.is_symlink && file.target}
-											<div class="text-xs text-slate-500 truncate">→ {file.target}</div>
-											{#if file.resolved_target_type === 'directory' && file.file_count !== undefined}
-												<div class="text-xs text-slate-500">({file.file_count} files)</div>
+			</div>
+		{:else}
+			<div class="flex-1 overflow-y-auto">
+				{#if loading}
+					<div class="p-6 text-center">
+						<Loader class="w-8 h-8 animate-spin text-cyan-400 mx-auto mb-4" />
+						<p class="text-slate-300 text-md">Loading files...</p>
+					</div>
+				{:else if files.length === 0}
+					<div class="p-6 text-center">
+						<FileText class="w-16 h-16 text-slate-600 mx-auto mb-4" />
+						<p class="text-slate-300 font-semibold text-lg">No Documents</p>
+						<p class="text-slate-500 text-sm mt-1">Upload files or folders to get started.</p>
+					</div>
+				{:else}
+					<div class="divide-y divide-slate-800">
+						{#each files as file}
+							{@const IconComponent = getFileIcon(file)}
+							<div class="p-4 hover:bg-slate-700/50 transition-all duration-200 group">
+								<div class="grid grid-cols-12 items-center gap-4">
+									<div class="col-span-6 flex items-center space-x-3">
+										<IconComponent class="w-5 h-5 flex-shrink-0 {file.is_symlink ? 'text-purple-400' : file.type === 'directory' ? 'text-blue-400' : 'text-cyan-400'}" />
+										<div class="min-w-0 flex-1">
+											<span class="text-slate-200 text-base font-medium block truncate {file.is_symlink ? 'italic' : ''}">{file.name}</span>
+											{#if file.is_symlink && file.target}
+												<div class="text-xs text-slate-500 truncate mt-1">→ {file.target}</div>
 											{/if}
-										{/if}
-										{#if file.type === 'directory' && !file.is_symlink}
-											<div class="text-xs text-slate-500">Directory</div>
-										{/if}
+										</div>
+									</div>
+
+									<div class="col-span-2 text-sm text-slate-400 flex items-center space-x-2">
+										<HardDrive class="w-4 h-4" />
+										<span>{file.size != null ? formatBytes(file.size) : 'N/A'}</span>
+									</div>
+
+									<div class="col-span-3 text-sm text-slate-400 flex items-center space-x-2">
+										<Clock class="w-4 h-4" />
+										<span>{file.last_modified ? formatDate(file.last_modified) : 'N/A'}</span>
+									</div>
+
+									<div class="col-span-1 flex justify-end">
+										<Button
+											onclick={() => onDeleteFile(file.name)}
+											class="p-2 text-slate-500 hover:text-red-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-200"
+											size="icon"
+											variant="danger"
+											title="Delete {file.type}"
+										>
+											<Trash2 class="w-4 h-4" />
+										</Button>
 									</div>
 								</div>
-								<Button
-									onclick={() => onDeleteFile(file.name)}
-									class="p-1 text-slate-500 hover:text-red-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-									size="icon"
-									variant="danger"
-									title="Delete {file.type}"
-								>
-									<Trash2 class="w-3 h-3" />
-								</Button>
 							</div>
-						</div>
-					{/each}
-				</div>
-			{/if}
-		</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/if}
 	</div>
 </Modal>
 

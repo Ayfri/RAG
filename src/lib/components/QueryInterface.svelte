@@ -4,6 +4,7 @@
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
 	import ChatInput from '$lib/components/ChatInput.svelte';
 	import FilesModal from '$lib/components/FilesModal.svelte';
+	import { notifications } from '$lib/stores/notifications';
 
 	interface Props {
 		ragName: string;
@@ -16,6 +17,8 @@
 		target?: string;
 		resolved_target_type?: 'file' | 'directory' | 'unknown';
 		file_count?: number;
+		size?: number;
+		last_modified?: number;
 	}
 
 	interface Message {
@@ -176,9 +179,10 @@
 
 			if (!res.ok) throw new Error('Failed to upload file');
 
+			notifications.success('File uploaded successfully!');
 			loadFiles();
 		} catch (err) {
-			alert(`Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+			notifications.error(`Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
 		} finally {
 			uploadingFile = false;
 			input.value = '';
@@ -206,9 +210,10 @@
 				if (!res.ok) throw new Error(`Failed to upload ${file.name}`);
 			}
 
+			notifications.success('Folder uploaded successfully!');
 			loadFiles();
 		} catch (err) {
-			alert(`Folder upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+			notifications.error(`Folder upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
 		} finally {
 			uploadingFile = false;
 			input.value = '';
@@ -216,29 +221,26 @@
 	}
 
 	async function deleteFile(filename: string) {
-		if (!confirm(`Delete ${filename}?`)) return;
-
 		try {
 			const res = await fetch(`/api/rag/${ragName}/files/${filename}`, { method: 'DELETE' });
 			if (!res.ok) throw new Error('Failed to delete file');
 
+			notifications.success(`Deleted ${filename}`);
 			loadFiles();
 		} catch (err) {
-			alert(`Delete failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+			notifications.error(`Delete failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
 		}
 	}
 
 	async function reindexRAG() {
-		if (!confirm('Reindex this RAG? This will rebuild the vector index from all current files.')) return;
-
 		try {
 			reindexing = true;
 			const res = await fetch(`/api/rag/${ragName}/reindex`, { method: 'POST' });
 			if (!res.ok) throw new Error('Failed to reindex RAG');
 
-			alert('RAG reindexed successfully!');
+			notifications.success('RAG reindexed successfully!');
 		} catch (err) {
-			alert(`Reindex failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+			notifications.error(`Reindex failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
 		} finally {
 			reindexing = false;
 		}

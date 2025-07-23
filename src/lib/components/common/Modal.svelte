@@ -8,9 +8,22 @@
 		children: any;
 		open: boolean;
 		title: string;
+		size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl';
+		class?: string;
 	}
 
-	let { title, children, open = $bindable(false) }: Props = $props();
+	let { title, children, open = $bindable(false), size = 'lg', class: extraClass = '' }: Props = $props();
+
+	const sizes = {
+		sm: 'max-w-sm',
+		md: 'max-w-md',
+		lg: 'max-w-lg',
+		xl: 'max-w-xl',
+		'2xl': 'max-w-2xl',
+		'3xl': 'max-w-3xl',
+		'4xl': 'max-w-4xl',
+		'5xl': 'max-w-5xl'
+	};
 </script>
 
 <svelte:window
@@ -25,7 +38,7 @@
 		aria-labelledby={title}
 	>
 		<div
-			class="glass rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+			class="glass rounded-2xl shadow-2xl w-full max-h-[90vh] overflow-y-auto {sizes[size]} {extraClass}"
 			transition:fly={{ y: 20, duration: 300, delay: 50 }}
 			onclick={(e) => e.stopPropagation()}
 		>

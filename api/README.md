@@ -21,7 +21,8 @@ Additional runtime data live outside the Git index:
 ```
 data/
 ├── files/<rag-name>/    # Source documents (any text-based format supported by LlamaIndex)
-└── indices/<rag-name>/  # Persisted vector index & metadata (auto-generated)
+├── indices/<rag-name>/  # Persisted vector index & metadata (auto-generated)
+└── configs/<rag-name>.json  # Per-RAG configuration files (auto-generated)
 ```
 
 The `data/` directory is listed in the project-level **.gitignore** so you never commit large embeddings.
@@ -62,6 +63,13 @@ The `api/src/config.py` module automatically loads these variables on applicatio
 | `POST` | `/rag/{rag_name}` | Build (or rebuild) an index from documents in `data/files/{rag_name}/`. Can be called even if the directory is empty. |
 | `DELETE` | `/rag/{rag_name}` | Delete a RAG index and all its associated files. |
 
+### RAG Configuration
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| `GET`  | `/rag/{rag_name}/config` | Get the configuration for a specific RAG (chat model, embedding model, system prompt). |
+| `PUT` | `/rag/{rag_name}/config` | Update the configuration for a specific RAG. |
+
 ### Query Operations
 
 | Method | Path | Description |
@@ -77,6 +85,38 @@ The `api/src/config.py` module automatically loads these variables on applicatio
 | `POST` | `/rag/{rag_name}/files` | Upload a document to the RAG's files directory. |
 | `DELETE` | `/rag/{rag_name}/files/{filename}` | Delete a specific file from the RAG's document directory. |
 
+## Configuration
+
+Each RAG instance can be individually configured with its own settings stored in `data/configs/{rag_name}.json`. The configuration includes:
+
+- **`chat_model`**: OpenAI model to use for generating responses (default: `gpt-4o-mini`)
+- **`embedding_model`**: OpenAI model to use for creating embeddings (default: `text-embedding-3-large`)
+- **`system_prompt`**: Custom system prompt to guide the model's responses
+
+### Available Models
+
+**Chat Models:**
+- `gpt-4o`
+- `gpt-4o-mini` (default)
+- `gpt-4-turbo`
+- `gpt-4`
+- `gpt-3.5-turbo`
+
+**Embedding Models:**
+- `text-embedding-3-large` (default)
+- `text-embedding-3-small`
+- `text-embedding-ada-002`
+
+### Configuration Example
+
+```json
+{
+  "chat_model": "gpt-4o-mini",
+  "embedding_model": "text-embedding-3-large",
+  "system_prompt": "You are a helpful assistant that answers questions based on the provided context. Be concise and accurate."
+}
+```
+
 ### Example
 
 ```powershell
@@ -89,6 +129,18 @@ Invoke-RestMethod -Method Post -Uri 'http://localhost:8000/rag/my-docs/files' -F
 
 # Build an index from uploaded files
 Invoke-RestMethod -Method Post -Uri 'http://localhost:8000/rag/my-docs'
+
+# Get current configuration
+Invoke-RestMethod -Method Get -Uri 'http://localhost:8000/rag/my-docs/config'
+
+# Update configuration
+$config = @{
+    chat_model = 'gpt-4o'
+    embedding_model = 'text-embedding-3-large'
+    system_prompt = 'You are an expert analyst. Provide detailed insights based on the documents.'
+} | ConvertTo-Json
+Invoke-RestMethod -Method Put -Uri 'http://localhost:8000/rag/my-docs/config' `
+    -Body $config -ContentType 'application/json'
 
 # Ask a question and get the full answer
 Invoke-RestMethod -Method Post -Uri 'http://localhost:8000/rag/my-docs/query' `
@@ -114,6 +166,8 @@ Invoke-RestMethod -Method Delete -Uri 'http://localhost:8000/rag/my-docs'
 ## Notes
 
 * Indices persist on disk; loading an existing RAG is instant.
+* Each RAG has its own configuration file that persists its model settings and system prompt.
+* Configuration changes are applied immediately to new queries and index operations.
 * The current implementation is kept intentionally small (<200 lines per file). Feel free to extend `RAGService` with new capabilities (metadata, permissions, etc.).
 * All code follows the repository coding guidelines (tabs, single quotes, english).
 * API documentation is available at `http://localhost:8000/docs` when running the server.

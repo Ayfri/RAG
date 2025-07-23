@@ -8,7 +8,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from src.rag import RAGService
+from src.rag import RAGConfig, RAGService
 
 router = APIRouter(prefix='/rag', tags=['RAG'])
 rag_service = RAGService()
@@ -21,6 +21,67 @@ class QueryPayload(BaseModel):
 	:param query: The question or prompt to send to the RAG system
 	"""
 	query: str
+
+
+class ConfigPayload(BaseModel):
+	"""
+	Request payload for RAG configuration operations.
+
+	:param chat_model: OpenAI model to use for chat completions
+	:param embedding_model: OpenAI model to use for embeddings
+	:param system_prompt: System prompt to guide the model's responses
+	"""
+	chat_model: str = 'gpt-4o-mini'
+	embedding_model: str = 'text-embedding-3-large'
+	system_prompt: str = 'You are a helpful assistant that answers questions based on the provided context. Be concise and accurate.'
+
+
+# ---------------------------------------------------------------------
+# RAG Configuration Management
+# ---------------------------------------------------------------------
+
+@router.get('/{rag_name}/config')
+async def get_rag_config(rag_name: str):
+	"""
+	Get the configuration for a specific RAG.
+
+	:param rag_name: Name of the RAG instance
+	:return: RAG configuration as dictionary
+	:raises HTTPException: 404 if RAG not found
+	"""
+	if rag_name not in rag_service.list_rags():
+		raise HTTPException(status_code=404, detail='RAG not found')
+
+	try:
+		config = rag_service.get_rag_config(rag_name)
+		return config.to_dict()
+	except Exception as exc:
+		raise HTTPException(status_code=500, detail=f'Failed to get config: {str(exc)}') from exc
+
+
+@router.put('/{rag_name}/config')
+async def update_rag_config(rag_name: str, config: ConfigPayload):
+	"""
+	Update the configuration for a specific RAG.
+
+	:param rag_name: Name of the RAG instance
+	:param config: New configuration settings
+	:return: JSON response confirming update
+	:raises HTTPException: 404 if RAG not found, 500 if update fails
+	"""
+	if rag_name not in rag_service.list_rags():
+		raise HTTPException(status_code=404, detail='RAG not found')
+
+	try:
+		rag_config = RAGConfig(
+			chat_model=config.chat_model,
+			embedding_model=config.embedding_model,
+			system_prompt=config.system_prompt
+		)
+		rag_service.update_rag_config(rag_name, rag_config)
+		return JSONResponse({'message': f'Configuration for RAG "{rag_name}" updated successfully.'})
+	except Exception as exc:
+		raise HTTPException(status_code=500, detail=f'Failed to update config: {str(exc)}') from exc
 
 
 # ---------------------------------------------------------------------

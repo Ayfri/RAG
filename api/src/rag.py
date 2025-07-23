@@ -4,18 +4,54 @@ RAG related utilities built on top of LlamaIndex.
 All indices and source documents are stored on the local filesystem:
 - data/files/<rag_name>/ : raw files to embed
 - data/indices/<rag_name>/ : vector indices & metadata
+- data/configs/<rag_name>.json : configuration per RAG
 """
 
+import json
 from pathlib import Path
 from typing import AsyncGenerator
 
 import openai
 from llama_index.core import SimpleDirectoryReader, StorageContext, VectorStoreIndex, Settings
 from llama_index.embeddings.openai import OpenAIEmbedding
+from llama_index.llms.openai import OpenAI
 
 from src.config import OPENAI_API_KEY
 
 openai.api_key = OPENAI_API_KEY
+
+
+class RAGConfig:
+	"""
+	Configuration class for individual RAG instances.
+	"""
+
+	def __init__(
+		self,
+		chat_model: str = 'gpt-4o-mini',
+		embedding_model: str = 'text-embedding-3-large',
+		system_prompt: str = 'You are a helpful assistant that answers questions based on the provided context. Be concise and accurate.'
+	):
+		self.chat_model = chat_model
+		self.embedding_model = embedding_model
+		self.system_prompt = system_prompt
+
+	@classmethod
+	def from_dict(cls, data: dict) -> 'RAGConfig':
+		"""Create RAGConfig from dictionary."""
+		return cls(
+			chat_model=data.get('chat_model', 'gpt-4o-mini'),
+			embedding_model=data.get('embedding_model', 'text-embedding-3-large'),
+			system_prompt=data.get('system_prompt', 'You are a helpful assistant that answers questions based on the provided context. Be concise and accurate.')
+		)
+
+	def to_dict(self) -> dict:
+		"""Convert RAGConfig to dictionary."""
+		return {
+			'chat_model': self.chat_model,
+			'embedding_model': self.embedding_model,
+			'system_prompt': self.system_prompt
+		}
 
 
 class RAGService:
@@ -28,6 +64,7 @@ class RAGService:
 
 	_FILES_DIR = Path('data/files')
 	_INDICES_DIR = Path('data/indices')
+	_CONFIGS_DIR = Path('data/configs')
 
 
 	def __init__(self):
@@ -36,12 +73,7 @@ class RAGService:
 		"""
 		self._FILES_DIR.mkdir(parents=True, exist_ok=True)
 		self._INDICES_DIR.mkdir(parents=True, exist_ok=True)
-
-		# Configure OpenAI API key for LlamaIndex
-		Settings.embed_model = OpenAIEmbedding(
-			api_key=OPENAI_API_KEY,
-			model='text-embedding-3-large',
-		)
+		self._CONFIGS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 	def create_rag(self, rag_name: str) -> None:
@@ -56,22 +88,39 @@ class RAGService:
 		files_path = self._FILES_DIR / rag_name
 		files_path.mkdir(parents=True, exist_ok=True) # Ensure directory exists
 
+		# Load or create configuration for this RAG
+		config = self._load_rag_config(rag_name)
+
+		# Configure embedding model for this specific RAG
+		embed_model = OpenAIEmbedding(
+			api_key=OPENAI_API_KEY,
+			model=config.embedding_model,
+		)
+
 		docs = []
 		if any(files_path.iterdir()): # Only load data if files exist
 			docs = SimpleDirectoryReader(str(files_path)).load_data()
 
-		index = VectorStoreIndex.from_documents(docs)
+		# Temporarily set the embedding model for this operation
+		original_embed_model = Settings.embed_model
+		Settings.embed_model = embed_model
 
-		# Persist on disk (overwrite)
-		persist_dir = self._INDICES_DIR / rag_name
-		if persist_dir.exists():
-			# remove previous index to avoid stale files
-			for child in persist_dir.iterdir():
-				child.unlink()
-		else:
-			persist_dir.mkdir(parents=True, exist_ok=True)
+		try:
+			index = VectorStoreIndex.from_documents(docs)
 
-		index.storage_context.persist(persist_dir=str(persist_dir))
+			# Persist on disk (overwrite)
+			persist_dir = self._INDICES_DIR / rag_name
+			if persist_dir.exists():
+				# remove previous index to avoid stale files
+				for child in persist_dir.iterdir():
+					child.unlink()
+			else:
+				persist_dir.mkdir(parents=True, exist_ok=True)
+
+			index.storage_context.persist(persist_dir=str(persist_dir))
+		finally:
+			# Restore original embedding model
+			Settings.embed_model = original_embed_model
 
 
 	def delete_file(self, rag_name: str, filename: str) -> None:
@@ -102,6 +151,7 @@ class RAGService:
 		"""
 		index_path = self._INDICES_DIR / rag_name
 		files_path = self._FILES_DIR / rag_name
+		config_path = self._CONFIGS_DIR / f'{rag_name}.json'
 
 		if not index_path.exists():
 			raise FileNotFoundError(f'RAG "{rag_name}" not found.')
@@ -119,6 +169,20 @@ class RAGService:
 				if child.is_file():
 					child.unlink()
 			files_path.rmdir()
+
+		# Remove config file if it exists
+		if config_path.exists():
+			config_path.unlink()
+
+
+	def get_rag_config(self, rag_name: str) -> RAGConfig:
+		"""
+		Get the configuration for a specific RAG.
+
+		:param rag_name: Name of the RAG instance
+		:return: RAGConfig instance
+		"""
+		return self._load_rag_config(rag_name)
 
 
 	def list_files(self, rag_name: str) -> list[str]:
@@ -155,7 +219,17 @@ class RAGService:
 		:raises FileNotFoundError: If the RAG index doesn't exist
 		"""
 		index = self._load_index(rag_name)
-		response = index.as_query_engine().query(query)
+		config = self._load_rag_config(rag_name)
+
+		# Configure LLM with RAG-specific settings
+		llm = OpenAI(
+			api_key=OPENAI_API_KEY,
+			model=config.chat_model,
+			system_prompt=config.system_prompt
+		)
+
+		query_engine = index.as_query_engine(llm=llm)
+		response = query_engine.query(query)
 		return str(response)
 
 
@@ -186,10 +260,35 @@ class RAGService:
 		:raises FileNotFoundError: If the RAG index doesn't exist
 		"""
 		index = self._load_index(rag_name)
-		query_engine = index.as_query_engine(streaming=True)
+		config = self._load_rag_config(rag_name)
+
+		# Configure LLM with RAG-specific settings
+		llm = OpenAI(
+			api_key=OPENAI_API_KEY,
+			model=config.chat_model,
+			system_prompt=config.system_prompt
+		)
+
+		query_engine = index.as_query_engine(llm=llm, streaming=True)
 		response = query_engine.query(query)
 		for chunk in response.response_gen:  # type: ignore[attr-defined]
 			yield chunk
+
+
+	def update_rag_config(self, rag_name: str, config: RAGConfig) -> None:
+		"""
+		Update the configuration for a specific RAG.
+
+		:param rag_name: Name of the RAG instance
+		:param config: New configuration
+		:raises FileNotFoundError: If the RAG doesn't exist
+		"""
+		index_path = self._INDICES_DIR / rag_name
+		if not index_path.exists():
+			raise FileNotFoundError(f'RAG "{rag_name}" not found.')
+
+		config_path = self._CONFIGS_DIR / f'{rag_name}.json'
+		config_path.write_text(json.dumps(config.to_dict(), indent=2))
 
 
 	def _load_index(self, rag_name: str) -> VectorStoreIndex:
@@ -203,5 +302,45 @@ class RAGService:
 		persist_dir = self._INDICES_DIR / rag_name
 		if not persist_dir.exists():
 			raise FileNotFoundError(f'No index found for RAG "{rag_name}".')
-		storage_context = StorageContext.from_defaults(persist_dir=str(persist_dir))
-		return VectorStoreIndex.from_storage(storage_context)  # type: ignore[attr-defined]
+
+		# Load RAG-specific config for embedding model
+		config = self._load_rag_config(rag_name)
+
+		# Set up embedding model for loading
+		embed_model = OpenAIEmbedding(
+			api_key=OPENAI_API_KEY,
+			model=config.embedding_model,
+		)
+
+		# Temporarily set the embedding model
+		original_embed_model = Settings.embed_model
+		Settings.embed_model = embed_model
+
+		try:
+			storage_context = StorageContext.from_defaults(persist_dir=str(persist_dir))
+			return VectorStoreIndex.from_storage(storage_context)  # type: ignore[attr-defined]
+		finally:
+			# Restore original embedding model
+			Settings.embed_model = original_embed_model
+
+
+	def _load_rag_config(self, rag_name: str) -> RAGConfig:
+		"""
+		Load configuration for a specific RAG, creating default if not exists.
+
+		:param rag_name: Name of the RAG instance
+		:return: RAGConfig instance
+		"""
+		config_path = self._CONFIGS_DIR / f'{rag_name}.json'
+
+		if config_path.exists():
+			try:
+				config_data = json.loads(config_path.read_text())
+				return RAGConfig.from_dict(config_data)
+			except (json.JSONDecodeError, KeyError) as e:
+				print(f'Warning: Invalid config file for RAG "{rag_name}": {e}. Using defaults.')
+
+		# Create default configuration
+		default_config = RAGConfig()
+		config_path.write_text(json.dumps(default_config.to_dict(), indent=2))
+		return default_config

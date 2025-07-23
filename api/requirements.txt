@@ -1,8 +1,10 @@
 # llama-index
+llama-index-agent-openai==0.4.12
 llama-index-core==0.12.52
 llama-index-embeddings-openai==0.3.1
 llama-index-llms-openai==0.4.7
 llama-index-readers-file==0.4.11
+llama-index-tools-duckduckgo==0.3.0
 
 # openai
 openai==1.97.1

@@ -11,17 +11,20 @@ import json
 import os
 import shutil
 from pathlib import Path
-from typing import AsyncGenerator
+from typing import AsyncGenerator, TypedDict
 
 import openai
-from llama_index.core import SimpleDirectoryReader, StorageContext, VectorStoreIndex, Settings
 from llama_index.embeddings.openai import OpenAIEmbedding
-from llama_index.llms.openai import OpenAI
+from llama_index.core import SimpleDirectoryReader, StorageContext, VectorStoreIndex, Settings
+from llama_index.core.agent.workflow import FunctionAgent, ToolCallResult, AgentOutput
+from llama_index.core.base.llms.types import TextBlock
 from llama_index.core.llms import ChatMessage
 from llama_index.core.memory import ChatMemoryBuffer
-from llama_index.core.chat_engine.types import ChatMode
+from llama_index.llms.openai import OpenAI
 from llama_index.core.readers.json import JSONReader
 from llama_index.core.schema import Document
+from llama_index.core.tools import RetrieverTool
+from llama_index.tools.duckduckgo import DuckDuckGoSearchToolSpec
 
 from src.config import OPENAI_API_KEY
 from llama_index.core import load_index_from_storage
@@ -320,37 +323,51 @@ class RAGService:
 		return [p.name for p in self._INDICES_DIR.iterdir() if p.is_dir()]
 
 
-	def query(self, rag_name: str, query: str, history: list[dict[str, str]] | None = None) -> str:
+	def get_agent(self, rag_name: str):
 		"""
-		Return the answer for query using the given rag_name.
-
-		:param rag_name: Name of the RAG instance to query
-		:param query: Question to ask the RAG
-		:param history: Conversation history
-		:return: Generated response as string
-		:raises FileNotFoundError: If the RAG index doesn't exist
+		Return a FunctionAgent for the given rag_name, with tools for local RAG and DuckDuckGo search.
 		"""
 		index = self._load_index(rag_name)
 		config = self._load_rag_config(rag_name)
-		history = history or []
 
-		# Configure LLM with RAG-specific settings
+		complete_system_prompt = f"""
+You are a helpful assistant that answers questions based on the provided context. Be concise and accurate.
+
+You have access to the following tools:
+- rag: Answer questions using the '{rag_name}' document index. Use a detailed plain text question as input.
+- DuckDuckGoSearch: Search the web for information. Use a detailed plain text question as input.
+
+If you are not sure about the answer, it has a big chance to be related to the documents you have access to, so you should use the {rag_name}_rag tool.
+
+User instructions:
+{config.system_prompt}
+""".strip()
+
 		llm = OpenAI(
 			api_key=OPENAI_API_KEY,
 			model=config.chat_model,
-			system_prompt=config.system_prompt
+			system_prompt=complete_system_prompt
 		)
 
-		chat_history = [ChatMessage(role=msg['role'], content=msg['content']) for msg in history]
-		memory = ChatMemoryBuffer.from_defaults(chat_history=chat_history)
+		# Local RAG tool
+		retriever = index.as_retriever(similarity_top_k=20)
+		rag_tool = RetrieverTool.from_defaults(
+			retriever=retriever,
+			name=f"rag",
+			description=f"Answer questions using the '{rag_name}' document index. Use a detailed plain text question as input."
+		)
 
-		chat_engine = index.as_chat_engine(
+		# DuckDuckGo tool
+		duckduckgo_tools = DuckDuckGoSearchToolSpec().to_tool_list()
+
+		agent = FunctionAgent(
+			tools=[rag_tool, *duckduckgo_tools],
 			llm=llm,
-			memory=memory,
-			chat_mode=ChatMode.CONDENSE_PLUS_CONTEXT
+			system_prompt=complete_system_prompt,
+			verbose=True,
+			show_tool_calls=True,
 		)
-		response = chat_engine.chat(query)
-		return str(response)
+		return agent
 
 
 	def save_directory(self, rag_name: str, directory_name: str, directory_content: dict) -> Path:
@@ -427,7 +444,6 @@ class RAGService:
 		chat_engine = index.as_chat_engine(
 			llm=llm,
 			memory=memory,
-			chat_mode=ChatMode.CONDENSE_PLUS_CONTEXT
 		)
 		response = await chat_engine.astream_chat(query)
 
@@ -478,7 +494,7 @@ class RAGService:
 
 		try:
 			storage_context = StorageContext.from_defaults(persist_dir=str(persist_dir))
-			return load_index_from_storage(storage_context)  # type: ignore[attr-defined]
+			return load_index_from_storage(storage_context, use_async=True)  # type: ignore[attr-defined]
 		finally:
 			# Restore original embedding model
 			Settings.embed_model = original_embed_model
@@ -517,3 +533,46 @@ class RAGService:
 				except OSError:
 					pass
 		return file_count, total_size
+
+	async def async_agent_stream(self, rag_name: str, query: str, history: list[ChatMessage] | None = None):
+		"""
+		Run the agent for the given rag_name, query, and history. Stream answer tokens and collect sources, documents, and chat history.
+		Returns (answer, sources, documents, chat_history)
+		"""
+
+		class Document(TypedDict):
+			content: str
+			source: str
+
+		agent = self.get_agent(rag_name)
+		history = history or []
+		answer = ""
+		sources: list[str] = []
+		documents: list[Document] = []
+		chat_history: list[ChatMessage] = history[:]
+
+		handler = agent.run(query, chat_history=history)
+		async for event in handler.stream_events():
+			# Stream answer tokens
+			if hasattr(event, 'delta') and event.delta:
+				answer += event.delta
+			# Collect sources/documents from ToolCallResult events
+			if isinstance(event, ToolCallResult):
+				if event.tool_name == 'DuckDuckGoSearch':
+					sources.append(event.tool_output.content)
+				elif 'rag' in event.tool_name:
+					blocks = event.tool_output.blocks
+					text_blocks = [block for block in blocks if isinstance(block, TextBlock)]
+
+					for block in text_blocks:
+						files = block.text.split('file_path: ')
+						# Each files starts with `file_path: C:\\.....\n\nreal_content_now`
+						documents.extend([{
+							'content': '\n\n'.join(file.split('\n\n')[1:]).strip(), # real content
+							'source': file.split('\n\n')[0] # file path
+						} for file in files])
+			# Optionally, collect chat history (user/assistant turns only)
+			if isinstance(event, AgentOutput):
+				chat_history.append(event.response)
+
+		return answer, sources, documents, chat_history

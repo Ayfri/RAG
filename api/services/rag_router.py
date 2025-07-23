@@ -3,11 +3,14 @@ RAG API router containing all endpoints for managing RAG indices and documents.
 """
 
 from typing import AsyncGenerator
+import json
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, Form
 from fastapi.responses import JSONResponse, StreamingResponse
+from llama_index.core.base.llms.types import ChatMessage as LLamaIndexChatMessage
 from pydantic import BaseModel, Field
-from typing import Literal, Optional
+from typing import Literal
+from workflows.events import Event
 
 from src.rag import RAGConfig, RAGService
 from src.openai_models import get_openai_models
@@ -34,7 +37,7 @@ class QueryPayload(BaseModel):
 	:param history: The conversation history
 	"""
 	query: str
-	history: Optional[list[ChatMessage]] = Field(default_factory=list)
+	history: list[ChatMessage] | None = Field(default_factory=list)
 
 
 class QueryResponse(BaseModel):
@@ -202,53 +205,31 @@ async def create_symlink(rag_name: str, payload: SymlinkPayload):
 # Query Operations
 # ---------------------------------------------------------------------
 
-@router.post('/{rag_name}/query', response_model=QueryResponse)
-async def query_rag(rag_name: str, payload: QueryPayload) -> QueryResponse:
-	"""
-	Return the full answer for payload.query using the specified RAG.
-
-	:param rag_name: Name of the RAG instance to query
-	:param payload: Query request containing the question
-	:return: Generated response as string
-	:raises HTTPException: 404 if RAG not found, 500 if query fails
-	"""
-	if rag_name not in rag_service.list_rags():
-		raise HTTPException(status_code=404, detail='RAG not found')
-
-	try:
-		response_content = rag_service.query(rag_name, payload.query, [msg.model_dump() for msg in (payload.history or [])])
-		return QueryResponse(content=response_content)
-	except Exception as exc:
-		raise HTTPException(status_code=500, detail=f'Query failed: {str(exc)}') from exc
-
 
 @router.post('/{rag_name}/stream')
 async def stream_rag(rag_name: str, payload: QueryPayload):
 	"""
-	Stream the answer for payload.query token-by-token using Server-Sent Events.
+	Stream the answer for payload.query token-by-token using Server-Sent Events, using the agentic workflow.
 
 	:param rag_name: Name of the RAG instance to query
 	:param payload: Query request containing the question
-	:return: Streaming response with text chunks
+	:return: Streaming response with text chunks, then a JSON with sources, documents, and chat_history
 	:raises HTTPException: 404 if RAG not found
 	"""
 	if rag_name not in rag_service.list_rags():
 		raise HTTPException(status_code=404, detail='RAG not found')
 
 	async def _generator() -> AsyncGenerator[str, None]:
-		"""
-		Internal generator for streaming response chunks.
-
-		:yield: Individual response tokens as strings
-		"""
+		history = [LLamaIndexChatMessage(role=msg.role, content=msg.content) for msg in (payload.history or [])]
 		try:
-			response_generator = rag_service.stream_query(rag_name, payload.query, [msg.model_dump() for msg in (payload.history or [])])
-			async for chunk in response_generator:
-				yield chunk
+			answer, sources, documents, chat_history = await rag_service.async_agent_stream(rag_name, payload.query, history)
+			# Stream the answer token by token
+			for token in answer:
+				yield token
+			yield '\n---\n'
+			yield json.dumps({'sources': sources, 'documents': documents, 'chat_history': [msg.model_dump() for msg in chat_history]})
 		except Exception as exc:
-			# Log the full exception for debugging
-			print(f'Error during stream generation: {exc}')
-			# Yield a final message to the client
+			print(f'Error during agent stream: {exc}')
 			yield f'Error: An unexpected error occurred during the stream. Please check the server logs.'
 
 	return StreamingResponse(_generator(), media_type='text/plain')

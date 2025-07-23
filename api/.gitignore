@@ -1,0 +1,9 @@
+# Data
+data/
+
+# Environments
+.venv
+venv
+
+# Python Cache
+*.pyc

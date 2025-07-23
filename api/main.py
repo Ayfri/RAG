@@ -7,7 +7,7 @@ for managing multiple RAG (Retrieval-Augmented Generation) instances.
 
 from fastapi import FastAPI
 
-from api.services.rag_router import router as rag_router
+from services.rag_router import router as rag_router
 
 
 # Initialize FastAPI app

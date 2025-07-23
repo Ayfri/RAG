@@ -8,7 +8,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from api.src.rag import RAGService
+from src.rag import RAGService
 
 router = APIRouter(prefix='/rag', tags=['RAG'])
 rag_service = RAGService()

@@ -117,14 +117,10 @@ class RAGService:
 		files = self.get_files(files_path)
 		symlinks = self.get_symlinks(files_path)
 
-		if not files and not symlinks:
-			# No files or symlinks to index
-			pass
-
 		# Load documents from symlinks
 		if symlinks:
 			for link_path in symlinks:
-				docs.extend(SimpleDirectoryReader(str(link_path), recursive=True, encoding='utf-8').load_data())
+				docs.extend(SimpleDirectoryReader(str(link_path), recursive=True, encoding='utf-8').load_data(show_progress=True))
 
 		# Load documents from files
 		if files:
@@ -132,7 +128,7 @@ class RAGService:
 				for file in files:
 					docs.extend(JSONReader().load_data(input_file=str(files_path / file)))
 			else:
-				docs.extend(SimpleDirectoryReader(str(files_path), recursive=True, encoding='utf-8').load_data())
+				docs.extend(SimpleDirectoryReader(str(files_path), recursive=True, encoding='utf-8').load_data(show_progress=True))
 
 		if not docs:
 			raise ValueError(f"No documents were loaded for RAG '{rag_name}'")
@@ -142,7 +138,8 @@ class RAGService:
 		Settings.embed_model = embed_model
 
 		try:
-			index = VectorStoreIndex.from_documents(docs)
+			print(f"Creating index for {rag_name} with {len(docs)} documents")
+			index = VectorStoreIndex.from_documents(docs, show_progress=True)
 
 			# Persist on disk (overwrite)
 			persist_dir = self._INDICES_DIR / rag_name

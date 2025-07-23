@@ -68,17 +68,54 @@
 		renderMarkdown();
 	});
 </script>
-
-<div class="prose prose-invert prose-sm max-w-none break-words overflow-wrap-anywhere
-	prose-h1:text-slate-100 prose-h2:text-slate-100 prose-h3:text-slate-100 prose-h4:text-slate-100
-	prose-a:text-cyan-400 prose-a:no-underline hover:prose-a:underline
-	prose-p:text-slate-300
-	prose-ul:text-slate-300 prose-ol:text-slate-300
-	prose-li:marker:text-cyan-400
-	prose-strong:text-slate-200
-	prose-code:bg-slate-700 prose-code:text-cyan-400 prose-code:font-normal prose-code:rounded-md prose-code:px-1.5 prose-code:py-1
-	prose-pre:hidden
-	prose-blockquote:border-l-4 prose-blockquote:border-slate-500 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-slate-400
-">
+<div class="markdown-content">
 	{@html htmlContent}
 </div>
+
+<style>
+	:global {
+		.markdown-content h1,
+		.markdown-content h2,
+		.markdown-content h3,
+		.markdown-content h4 {
+			color: var(--text-secondary);
+		}
+
+		.markdown-content a {
+			color: var(--accent-cyan);
+			text-decoration: none;
+		}
+
+		.markdown-content a:hover {
+			text-decoration: underline;
+		}
+
+		.markdown-content li::marker {
+			color: var(--accent-cyan);
+		}
+
+		.markdown-content strong {
+			color: var(--text-secondary);
+		}
+
+		.markdown-content code {
+			background-color: var(--bg-tertiary);
+			color: var(--accent-cyan);
+			border-radius: 0.375rem;
+			padding: 0.125rem 0.25rem;
+			font-size: 0.825rem;
+		}
+
+		.markdown-content pre code {
+			background: none;
+			color: unset;
+		}
+
+		.markdown-content blockquote {
+			border-left: 1rem solid var(--border-color);
+			padding-left: 1rem;
+			font-style: italic;
+			color: var(--text-muted);
+		}
+	}
+</style>

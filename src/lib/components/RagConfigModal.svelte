@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CheckCircle, Loader, RefreshCw, Settings } from '@lucide/svelte';
+	import { CheckCircle, Loader, RefreshCw, Save, Settings, X } from '@lucide/svelte';
 	import { getModelsLoadingState, loadOpenAIModels, openaiModels } from '$lib/stores/openai-models.js';
 	import Button from '$lib/components/common/Button.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
@@ -122,14 +122,16 @@
 				{/if}
 			</div>
 		</div>
-		<button
+		<Button
+			size="icon"
 			onclick={reloadModels}
 			disabled={$modelsState}
-			class="text-slate-400 hover:text-slate-200 hover:bg-slate-700 p-2 rounded-xl transition-all duration-200 cursor-pointer disabled:opacity-50"
+			class="group"
+			variant="secondary"
 			title="Reload OpenAI models"
 		>
-			<RefreshCw class={`w-5 h-5 ${$modelsState ? 'animate-spin' : ''}`} />
-		</button>
+			<RefreshCw class={`w-5 h-5 group-hover:rotate-45 ${$modelsState ? 'animate-spin' : ''}`} />
+		</Button>
 	</div>
 
 	{#if loading}
@@ -227,14 +229,16 @@
 
 			<!-- Actions -->
 			<div class="flex justify-end space-x-4 pt-6">
-				<Button type="button" onclick={onclose} variant="secondary">
-					Cancel
+				<Button class="group" type="button" onclick={onclose} variant="secondary">
+					<X class="w-5 h-5 group-hover:animate-shake transition-transform duration-200" />
+					<span>Cancel</span>
 				</Button>
-				<Button type="submit" disabled={saving}>
+				<Button class="group" type="submit" disabled={saving}>
 					{#if saving}
 						<Loader class="w-5 h-5 animate-spin" />
 						<span>Saving...</span>
 					{:else}
+						<Save class="w-5 h-5 group-hover:rotate-8 group-hover:scale-110 transition-transform duration-200" />
 						<span>Save Configuration</span>
 					{/if}
 				</Button>

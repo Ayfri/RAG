@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { X, Upload, File, Loader, CheckCircle } from '@lucide/svelte';
-	import { fly } from 'svelte/transition';
+	import { CheckCircle, File, Loader, Upload } from '@lucide/svelte';
+	import Button from './common/Button.svelte';
+	import Input from './common/Input.svelte';
+	import Modal from './common/Modal.svelte';
 
 	interface Props {
 		onclose: () => void;
@@ -92,153 +94,128 @@
 	}
 </script>
 
-<!-- Modal backdrop -->
-<div
-	class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-	transition:fly={{ y: 20, duration: 300, delay: 50 }}
->
-	<div class="glass rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-		<!-- Header -->
-		<div class="flex justify-between items-center p-6 border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700">
-			<h2 class="text-2xl font-bold text-slate-100">Create New RAG</h2>
-			<button onclick={onclose} class="text-slate-400 hover:text-slate-200 hover:bg-slate-700 p-2 rounded-xl transition-all duration-200 cursor-pointer">
-				<X class="w-6 h-6" />
-			</button>
-		</div>
+<Modal onclose={onclose} title="Create New RAG">
+	{#if step === 'name'}
+		<div class="space-y-6">
+			<div>
+				<label for="rag-name" class="block text-sm font-medium text-slate-200 mb-3">
+					RAG Name
+				</label>
+				<Input
+					id="rag-name"
+					bind:value={ragName}
+					placeholder="Enter a unique name for your RAG"
+					onkeydown={(e: KeyboardEvent) => e.key === 'Enter' && nextStep()}
+				/>
+				<p class="text-xs text-slate-500 mt-2">
+					Use letters, numbers, hyphens, and underscores only
+				</p>
+			</div>
 
-		<div class="p-6">
-			{#if step === 'name'}
-				<div class="space-y-6">
-					<div>
-						<label for="rag-name" class="block text-sm font-medium text-slate-200 mb-3">
-							RAG Name
-						</label>
-						<input
-							id="rag-name"
-							type="text"
-							bind:value={ragName}
-							placeholder="Enter a unique name for your RAG"
-							class="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200"
-							onkeydown={(e) => e.key === 'Enter' && nextStep()}
-						/>
-						<p class="text-xs text-slate-500 mt-2">
-							Use letters, numbers, hyphens, and underscores only
-						</p>
-					</div>
-
-					{#if error}
-						<div class="bg-red-900/50 border border-red-700 rounded-xl p-4">
-							<p class="text-red-200 text-sm">{error}</p>
-						</div>
-					{/if}
-
-					<div class="flex justify-end space-x-4 pt-4">
-						<button
-							onclick={onclose}
-							class="px-6 py-3 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded-xl transition-all duration-200 cursor-pointer"
-						>
-							Cancel
-						</button>
-						<button
-							onclick={nextStep}
-							disabled={!ragName.trim()}
-							class="px-6 py-3 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer"
-						>
-							Next
-						</button>
-					</div>
-				</div>
-
-			{:else if step === 'files'}
-				<div class="space-y-6">
-					<div>
-						<label class="block text-sm font-medium text-slate-200 mb-3">
-							Upload Documents (Optional)
-						</label>
-						<div
-							class="border-2 border-dashed border-slate-600 rounded-xl p-8 text-center transition-all duration-200 {dragOver ? 'border-cyan-400 bg-cyan-900/20' : 'hover:border-slate-500'}"
-							ondrop={handleDrop}
-							ondragover={handleDragOver}
-							ondragleave={handleDragLeave}
-						>
-							<Upload class="w-16 h-16 text-slate-500 mx-auto mb-4" />
-							<p class="text-slate-300 mb-3">
-								Drag and drop files here, or
-								<label class="text-cyan-400 hover:text-cyan-300 cursor-pointer font-medium">
-									browse
-									<input
-										type="file"
-										multiple
-										bind:files
-										class="hidden"
-										accept=".txt,.pdf,.docx,.md"
-									/>
-								</label>
-							</p>
-							<p class="text-xs text-slate-500">
-								Supports: PDF, TXT, DOCX, MD files
-							</p>
-						</div>
-
-						{#if files && files.length > 0}
-							<div class="mt-4 space-y-3">
-								<p class="text-sm font-medium text-slate-200">Selected files:</p>
-								<div class="space-y-2">
-									{#each Array.from(files) as file}
-										<div class="flex items-center space-x-3 p-3 bg-slate-700/50 rounded-lg">
-											<File class="w-5 h-5 text-cyan-400" />
-											<span class="text-slate-200 flex-1">{file.name}</span>
-											<span class="text-slate-500 text-sm">({Math.round(file.size / 1024)} KB)</span>
-										</div>
-									{/each}
-								</div>
-							</div>
-						{/if}
-					</div>
-
-					{#if error}
-						<div class="bg-red-900/50 border border-red-700 rounded-xl p-4">
-							<p class="text-red-200 text-sm">{error}</p>
-						</div>
-					{/if}
-
-					<div class="flex justify-between pt-4">
-						<button
-							onclick={previousStep}
-							class="px-6 py-3 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded-xl transition-all duration-200 cursor-pointer"
-						>
-							Back
-						</button>
-						<div class="space-x-4">
-							<button
-								onclick={onclose}
-								class="px-6 py-3 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded-xl transition-all duration-200 cursor-pointer"
-							>
-								Cancel
-							</button>
-							<button
-								onclick={handleSubmit}
-								disabled={loading}
-								class="px-6 py-3 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-3 transition-all duration-200 cursor-pointer"
-							>
-								{#if loading}
-									<Loader class="w-5 h-5 animate-spin" />
-									<span>Creating...</span>
-								{:else}
-									<span>Create RAG</span>
-								{/if}
-							</button>
-						</div>
-					</div>
-				</div>
-
-			{:else if step === 'creating'}
-				<div class="text-center py-12">
-					<CheckCircle class="w-20 h-20 text-cyan-400 mx-auto mb-6" />
-					<h3 class="text-2xl font-bold text-slate-100 mb-3">RAG Created Successfully!</h3>
-					<p class="text-slate-400 text-lg">Your RAG "{ragName}" is ready to use.</p>
+			{#if error}
+				<div class="bg-red-900/50 border border-red-700 rounded-xl p-4">
+					<p class="text-red-200 text-sm">{error}</p>
 				</div>
 			{/if}
+
+			<div class="flex justify-end space-x-4 pt-4">
+				<Button onclick={onclose} variant="secondary">
+					{#snippet children()}
+						Cancel
+					{/snippet}
+				</Button>
+				<Button onclick={nextStep} disabled={!ragName.trim()}>
+					{#snippet children()}
+						Next
+					{/snippet}
+				</Button>
+			</div>
 		</div>
-	</div>
-</div>
+
+	{:else if step === 'files'}
+		<div class="space-y-6">
+			<div>
+				<label class="block text-sm font-medium text-slate-200 mb-3">
+					Upload Documents (Optional)
+				</label>
+				<div
+					class="border-2 border-dashed border-slate-600 rounded-xl p-8 text-center transition-all duration-200 {dragOver ? 'border-cyan-400 bg-cyan-900/20' : 'hover:border-slate-500'}"
+					ondrop={handleDrop}
+					ondragover={handleDragOver}
+					ondragleave={handleDragLeave}
+				>
+					<Upload class="w-16 h-16 text-slate-500 mx-auto mb-4" />
+					<p class="text-slate-300 mb-3">
+						Drag and drop files here, or
+						<label class="text-cyan-400 hover:text-cyan-300 cursor-pointer font-medium">
+							browse
+							<input
+								type="file"
+								multiple
+								bind:files
+								class="hidden"
+								accept=".txt,.pdf,.docx,.md"
+							/>
+						</label>
+					</p>
+					<p class="text-xs text-slate-500">
+						Supports: PDF, TXT, DOCX, MD files
+					</p>
+				</div>
+
+				{#if files && files.length > 0}
+					<div class="mt-4 space-y-3">
+						<p class="text-sm font-medium text-slate-200">Selected files:</p>
+						<div class="space-y-2">
+							{#each Array.from(files) as file}
+								<div class="flex items-center space-x-3 p-3 bg-slate-700/50 rounded-lg">
+									<File class="w-5 h-5 text-cyan-400" />
+									<span class="text-slate-200 flex-1">{file.name}</span>
+									<span class="text-slate-500 text-sm">({Math.round(file.size / 1024)} KB)</span>
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/if}
+			</div>
+
+			{#if error}
+				<div class="bg-red-900/50 border border-red-700 rounded-xl p-4">
+					<p class="text-red-200 text-sm">{error}</p>
+				</div>
+			{/if}
+
+			<div class="flex justify-between pt-4">
+				<Button onclick={previousStep} variant="secondary">
+					{#snippet children()}
+						Back
+					{/snippet}
+				</Button>
+				<div class="space-x-4">
+					<Button onclick={onclose} variant="secondary">
+						{#snippet children()}
+							Cancel
+						{/snippet}
+					</Button>
+					<Button onclick={handleSubmit} disabled={loading}>
+						{#snippet children()}
+							{#if loading}
+								<Loader class="w-5 h-5 animate-spin" />
+								<span>Creating...</span>
+							{:else}
+								<span>Create RAG</span>
+							{/if}
+						{/snippet}
+					</Button>
+				</div>
+			</div>
+		</div>
+
+	{:else if step === 'creating'}
+		<div class="text-center py-12">
+			<CheckCircle class="w-20 h-20 text-cyan-400 mx-auto mb-6" />
+			<h3 class="text-2xl font-bold text-slate-100 mb-3">RAG Created Successfully!</h3>
+			<p class="text-slate-400 text-lg">Your RAG "{ragName}" is ready to use.</p>
+		</div>
+	{/if}
+</Modal>

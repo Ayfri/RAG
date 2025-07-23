@@ -106,7 +106,7 @@
 					{/if}
 
 					{#if isStreaming && isLastMessage}
-						<div class="flex items-center space-x-2 mt-3 pt-3 border-t border-slate-600">
+						<div class="flex items-center space-x-2">
 							<Loader class="w-4 h-4 animate-spin text-cyan-400" />
 							<span class="text-xs text-slate-400">Assistant is typing...</span>
 						</div>

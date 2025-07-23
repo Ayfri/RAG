@@ -14,8 +14,8 @@
 </script>
 
 <svelte:window
-	on:keydown={(e) => e.key === 'Escape' && (open = false)}
-	on:click={(e) => e.target === e.currentTarget && (open = false)}
+	onkeydown={(e) => e.key === 'Escape' && (open = false)}
+	onclick={(e) => e.target === e.currentTarget && (open = false)}
 />
 
 {#if open}

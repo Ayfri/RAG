@@ -66,7 +66,10 @@
 			const res = await fetch(`/api/rag/${ragName}/stream`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ query })
+				body: JSON.stringify({
+					query,
+					history: messages.slice(0, -2).map(({ role, content }) => ({ role, content }))
+				})
 			});
 
 			if (!res.ok) throw new Error('Failed to stream response');
@@ -107,6 +110,34 @@
 			loading = false;
 			streaming = false;
 		}
+	}
+
+	function handleDeleteMessage(id: string) {
+		const messageIndex = messages.findIndex(m => m.id === id);
+		if (messageIndex === -1) return;
+
+		const messageToDelete = messages[messageIndex];
+
+		if (messageToDelete.role === 'assistant' && messageIndex > 0) {
+			// Also delete the preceding user message
+			messages = messages.filter((_, i) => i !== messageIndex && i !== messageIndex - 1);
+		} else {
+			messages = messages.filter(m => m.id !== id);
+		}
+	}
+
+	async function handleRegenerateMessage(id: string) {
+		const messageIndex = messages.findIndex(m => m.id === id);
+		if (messageIndex === -1 || messages[messageIndex].role !== 'assistant') return;
+
+		const userMessageIndex = messageIndex - 1;
+		if (userMessageIndex < 0 || messages[userMessageIndex].role !== 'user') return;
+
+		const userMessage = messages[userMessageIndex];
+		messages = messages.slice(0, userMessageIndex); // Remove all messages from the user message to regenerate
+
+		currentMessage = userMessage.content;
+		await sendMessage();
 	}
 
 	function clearConversation() {
@@ -234,9 +265,9 @@
 	});
 </script>
 
-<div class="h-full flex flex-col">
+<div class="h-full flex flex-col gap-4">
 	<!-- Header -->
-	<div class="glass border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700 p-4 rounded-xl">
+	<header class="glass border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700 p-4 rounded-xl flex-shrink-0">
 		<div class="flex items-center justify-between">
 			<div class="flex items-center space-x-3">
 				<MessageSquare class="w-6 h-6 text-cyan-400" />
@@ -264,43 +295,44 @@
 				</Button>
 			</div>
 		</div>
-	</div>
+	</header>
 
-	<div class="flex-1 flex overflow-hidden">
-		<!-- Chat Area -->
-		<div class="flex-1 flex flex-col">
-			<!-- Messages -->
-			<div
-				bind:this={chatContainer}
-				class="flex-1 overflow-y-auto p-6 space-y-6"
-			>
-				{#if messages.length === 0}
-					<div class="flex flex-col items-center justify-center h-full text-center">
-						<Bot class="w-16 h-16 text-slate-600 mb-4" />
-						<h3 class="text-xl font-bold text-slate-300 mb-2">Start a conversation</h3>
-						<p class="text-slate-500 max-w-md">
-							Ask a question about your documents. The AI will analyze your content and provide a response based on available information.
-						</p>
-					</div>
-				{:else}
-					{#each messages as message (message.id)}
-						<ChatMessage
-							{message}
-							isStreaming={streaming}
-							isLastMessage={message === messages[messages.length - 1]}
-						/>
-					{/each}
-				{/if}
-			</div>
+	<main class="flex-1 flex flex-col overflow-hidden">
+		<!-- Messages -->
+		<div
+			bind:this={chatContainer}
+			class="flex-1 overflow-y-auto p-6 space-y-6"
+		>
+			{#if messages.length === 0}
+				<div class="flex flex-col items-center justify-center h-full text-center">
+					<Bot class="w-16 h-16 text-slate-600 mb-4" />
+					<h3 class="text-xl font-bold text-slate-300 mb-2">Start a conversation</h3>
+					<p class="text-slate-500 max-w-md">
+						Ask a question about your documents. The AI will analyze your content and provide a response based on available information.
+					</p>
+				</div>
+			{:else}
+				{#each messages as message (message.id)}
+					<ChatMessage
+						{message}
+						isStreaming={streaming}
+						isLastMessage={message === messages[messages.length - 1]}
+						onDelete={handleDeleteMessage}
+						onRegenerate={handleRegenerateMessage}
+					/>
+				{/each}
+			{/if}
+		</div>
 
-			<!-- Input Area -->
+		<!-- Input Area -->
+		<div class="px-4 pb-4 flex-shrink-0">
 			<ChatInput
 				bind:value={currentMessage}
 				loading={loading}
 				onSubmit={sendMessage}
 			/>
 		</div>
-	</div>
+	</main>
 </div>
 
 <FilesModal

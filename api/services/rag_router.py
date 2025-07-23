@@ -5,14 +5,14 @@ RAG API router containing all endpoints for managing RAG indices and documents.
 from typing import AsyncGenerator
 import json
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, Form
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from llama_index.core.base.llms.types import ChatMessage as LLamaIndexChatMessage
 from pydantic import BaseModel, Field
 from typing import Literal
-from workflows.events import Event
 
-from src.rag import RAGConfig, RAGService
+from src.rag_config import RAGConfig
+from src.rag import RAGService
 from src.openai_models import get_openai_models
 
 router = APIRouter(prefix='/rag', tags=['RAG'])

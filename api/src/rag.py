@@ -22,56 +22,13 @@ from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.llms.openai import OpenAI
 from llama_index.core.readers.json import JSONReader
 from llama_index.core.schema import Document
-from llama_index.core.tools import RetrieverTool, FunctionTool
-from regex import F
 
+from src.rag_config import RAGConfig
 from src.config import OPENAI_API_KEY
 from llama_index.core import load_index_from_storage
+from src.agent import get_agent
 
 openai.api_key = OPENAI_API_KEY
-
-
-class SearchResultUrl(TypedDict):
-	"""Search result from the web."""
-	title: str
-	url: str
-
-class SearchResult(TypedDict):
-	"""Search result from the web."""
-	content: str
-	urls: list[SearchResultUrl]
-
-class RAGConfig:
-	"""
-	Configuration class for individual RAG instances.
-	"""
-
-	def __init__(
-		self,
-		chat_model: str = 'gpt-4o-mini',
-		embedding_model: str = 'text-embedding-3-large',
-		system_prompt: str = 'You are a helpful assistant that answers questions based on the provided context. Be concise and accurate.'
-	):
-		self.chat_model = chat_model
-		self.embedding_model = embedding_model
-		self.system_prompt = system_prompt
-
-	@classmethod
-	def from_dict(cls, data: dict) -> 'RAGConfig':
-		"""Create RAGConfig from dictionary."""
-		return cls(
-			chat_model=data.get('chat_model', 'gpt-4o-mini'),
-			embedding_model=data.get('embedding_model', 'text-embedding-3-large'),
-			system_prompt=data.get('system_prompt', 'You are a helpful assistant that answers questions based on the provided context. Be concise and accurate.')
-		)
-
-	def to_dict(self) -> dict:
-		"""Convert RAGConfig to dictionary."""
-		return {
-			'chat_model': self.chat_model,
-			'embedding_model': self.embedding_model,
-			'system_prompt': self.system_prompt
-		}
 
 
 class RAGService:
@@ -334,77 +291,14 @@ class RAGService:
 
 	def get_agent(self, rag_name: str):
 		"""
-		Return a FunctionAgent for the given rag_name, with tools for local RAG and DuckDuckGo search.
+		Return a FunctionAgent for the given rag_name, with tools for local RAG, DuckDuckGo search, file read, and file list.
 		"""
 		config = self._load_rag_config(rag_name)
-
-		complete_system_prompt = f"""
-You are a helpful assistant that answers questions based on the provided context. Be concise and accurate.
-
-You have access to the following tools:
-- rag: Answer questions using the '{rag_name}' document index. Use a detailed plain text question as input.
-- DuckDuckGoSearch: Search the web for information. Use a detailed plain text question as input.
-
-If you are not sure about the answer, it has a big chance to be related to the documents you have access to, so you should use the {rag_name}_rag tool.
-
-User instructions:
-{config.system_prompt}
-""".strip()
-
-		llm = OpenAI(
-			api_key=OPENAI_API_KEY,
-			model=config.chat_model,
-			system_prompt=complete_system_prompt
+		return get_agent(
+			rag_name=rag_name,
+			config=config,
+			load_index=self._load_index
 		)
-
-		def search(query: str) -> SearchResult:
-			"""
-			Search the web for information.
-			"""
-			response = openai.chat.completions.create(
-				model="gpt-4o-search-preview",
-				messages=[{"role": "user", "content": query}],
-			)
-			result = SearchResult(
-				content=response.choices[0].message.content or "No answer found.",
-				urls=[
-					SearchResultUrl(
-						title=annotation.url_citation.title,
-						url=annotation.url_citation.url
-					)
-					for annotation in response.choices[0].message.annotations or []
-				]
-			)
-
-			print(result)
-
-			return result
-
-		# Online search tool
-		search_tool = FunctionTool.from_defaults(
-			fn=search,
-			name="search",
-			description="Search the web for information. Use a detailed plain text question as input.",
-		)
-
-		# Local RAG tool
-
-		index = self._load_index(rag_name)
-		retriever = index.as_retriever(similarity_top_k=20)
-		rag_tool = RetrieverTool.from_defaults(
-			retriever=retriever,
-			name=f"rag",
-			description=f"Answer questions using the '{rag_name}' document index. Use a detailed plain text question as input.",
-		)
-
-		agent = FunctionAgent(
-			tools=[rag_tool, search_tool],
-			llm=llm,
-			system_prompt=complete_system_prompt,
-			verbose=True,
-			show_tool_calls=True,
-		)
-		return agent
 
 
 	def save_directory(self, rag_name: str, directory_name: str, directory_content: dict) -> Path:
@@ -584,7 +478,7 @@ User instructions:
 		agent = self.get_agent(rag_name)
 		history = history or []
 		answer = ""
-		sources: list[SearchResult] = []
+		sources: list[dict] = []
 		documents: list[Document] = []
 		chat_history: list[ChatMessage] = history[:]
 

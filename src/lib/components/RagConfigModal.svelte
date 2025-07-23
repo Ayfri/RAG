@@ -3,6 +3,7 @@
 	import { getModelsLoadingState, loadOpenAIModels, openaiModels } from '$lib/stores/openai-models.js';
 	import Button from '$lib/components/common/Button.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
+	import Select from '$lib/components/common/Select.svelte';
 	import TextArea from '$lib/components/common/TextArea.svelte';
 
 	interface Props {
@@ -160,26 +161,25 @@
 				<label for="chat-model" class="block text-sm font-medium text-slate-200">
 					Chat Model
 				</label>
-				<select
-					id="chat-model"
-					bind:value={config.chat_model}
-					class="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 cursor-pointer"
-					disabled={$modelsState}
-				>
-					{#if $modelsState}
-						<option>Loading models...</option>
-					{:else}
-						{#each $openaiModels.chat.toSorted((a, b) => a.name.localeCompare(b.name)) as model}
-							<option value={model.id}>{model.name}</option>
-						{/each}
-						{#each $openaiModels.thinking as model}
-							<option value={model.id}>{model.name} (Reasoning)</option>
-						{/each}
-						{#if $openaiModels.chat.length === 0 && $openaiModels.thinking.length === 0}
-							<option value="gpt-4o-mini">GPT-4o Mini (fallback)</option>
-						{/if}
-					{/if}
-				</select>
+				{#if $modelsState}
+					<Select
+						id="chat-model"
+						bind:value={config.chat_model}
+						disabled={$modelsState}
+						options={[{ label: 'Loading models...', value: '' }]}
+					/>
+				{:else}
+					<Select
+						id="chat-model"
+						bind:value={config.chat_model}
+						disabled={$modelsState}
+						options={[
+							...$openaiModels.chat.toSorted((a, b) => a.name.localeCompare(b.name)).map(model => ({ label: model.name, value: model.id })),
+							...$openaiModels.thinking.map(model => ({ label: `${model.name} (Reasoning)`, value: model.id })),
+							...($openaiModels.chat.length === 0 && $openaiModels.thinking.length === 0 ? [{ label: 'GPT-4o Mini (fallback)', value: 'gpt-4o-mini' }] : [])
+						]}
+					/>
+				{/if}
 				<p class="text-xs text-slate-500">The OpenAI model used for generating responses.</p>
 			</div>
 
@@ -188,23 +188,24 @@
 				<label for="embedding-model" class="block text-sm font-medium text-slate-200">
 					Embedding Model
 				</label>
-				<select
-					id="embedding-model"
-					bind:value={config.embedding_model}
-					class="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 cursor-pointer"
-					disabled={$modelsState}
-				>
-					{#if $modelsState}
-						<option>Loading models...</option>
-					{:else}
-						{#each $openaiModels.embedding.toSorted((a, b) => a.name.localeCompare(b.name)) as model}
-							<option value={model.id}>{model.name}</option>
-						{/each}
-						{#if $openaiModels.embedding.length === 0}
-							<option value="text-embedding-3-large">Text Embedding 3 Large (fallback)</option>
-						{/if}
-					{/if}
-				</select>
+				{#if $modelsState}
+					<Select
+						id="embedding-model"
+						bind:value={config.embedding_model}
+						disabled={$modelsState}
+						options={[{ label: 'Loading models...', value: '' }]}
+					/>
+				{:else}
+					<Select
+						id="embedding-model"
+						bind:value={config.embedding_model}
+						disabled={$modelsState}
+						options={[
+							...$openaiModels.embedding.toSorted((a, b) => a.name.localeCompare(b.name)).map(model => ({ label: model.name, value: model.id })),
+							...($openaiModels.embedding.length === 0 ? [{ label: 'Text Embedding 3 Large (fallback)', value: 'text-embedding-3-large' }] : [])
+						]}
+					/>
+				{/if}
 				<p class="text-xs text-slate-500">The OpenAI model used for creating document embeddings.</p>
 			</div>
 

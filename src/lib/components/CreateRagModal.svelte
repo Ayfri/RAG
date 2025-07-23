@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CheckCircle, File, Loader, Upload } from '@lucide/svelte';
+	import { ArrowLeft, ArrowRight, CheckCircle, File, Loader, Plus, Upload, X } from '@lucide/svelte';
 	import Button from './common/Button.svelte';
 	import Input from './common/Input.svelte';
 	import Modal from './common/Modal.svelte';
@@ -120,14 +120,12 @@
 
 			<div class="flex justify-end space-x-4 pt-4">
 				<Button onclick={onclose} variant="secondary">
-					{#snippet children()}
-						Cancel
-					{/snippet}
+					<X class="w-5 h-5 group-hover:animate-shake transition-transform duration-200" />
+					<span>Cancel</span>
 				</Button>
-				<Button onclick={nextStep} disabled={!ragName.trim()}>
-					{#snippet children()}
-						Next
-					{/snippet}
+				<Button onclick={nextStep} disabled={!ragName.trim()} variant="primary">
+					<ArrowRight class="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
+					<span>Next</span>
 				</Button>
 			</div>
 		</div>
@@ -187,25 +185,22 @@
 
 			<div class="flex justify-between pt-4">
 				<Button onclick={previousStep} variant="secondary">
-					{#snippet children()}
-						Back
-					{/snippet}
+					<ArrowLeft class="w-5 h-5 group-hover:-translate-x-1 transition-transform duration-200" />
+					<span>Back</span>
 				</Button>
-				<div class="space-x-4">
+				<div class="space-x-4 flex items-center">
 					<Button onclick={onclose} variant="secondary">
-						{#snippet children()}
-							Cancel
-						{/snippet}
+						<X class="w-5 h-5 group-hover:animate-shake transition-transform duration-200" />
+						<span>Cancel</span>
 					</Button>
-					<Button onclick={handleSubmit} disabled={loading}>
-						{#snippet children()}
-							{#if loading}
-								<Loader class="w-5 h-5 animate-spin" />
-								<span>Creating...</span>
-							{:else}
-								<span>Create RAG</span>
-							{/if}
-						{/snippet}
+					<Button onclick={handleSubmit} disabled={loading} variant="primary">
+						{#if loading}
+							<Loader class="w-5 h-5 animate-spin" />
+							<span>Creating...</span>
+						{:else}
+							<Plus class="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
+						{/if}
+						<span>Create RAG</span>
 					</Button>
 				</div>
 			</div>

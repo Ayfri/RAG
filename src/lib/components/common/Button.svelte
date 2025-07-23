@@ -15,8 +15,8 @@
 	const baseClasses = 'transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
 
 	const sizeClasses = {
-		default: 'px-4 py-2 rounded-xl font-medium text-base flex items-center justify-center gap-2',
-		icon: 'p-1.5 rounded-lg'
+		default: 'px-4 py-2 rounded-xl font-medium text-base group flex items-center justify-center gap-2',
+		icon: 'p-1.5 rounded-lg group'
 	};
 
 	const variantClasses = {

@@ -59,7 +59,7 @@ The `api/src/config.py` module automatically loads these variables on applicatio
 | Method | Path | Description |
 | ------ | ---- | ----------- |
 | `GET`  | `/rag` | List every existing RAG index. |
-| `POST` | `/rag/{rag_name}` | Build (or rebuild) an index from documents in `data/files/{rag_name}/`. |
+| `POST` | `/rag/{rag_name}` | Build (or rebuild) an index from documents in `data/files/{rag_name}/`. Can be called even if the directory is empty. |
 | `DELETE` | `/rag/{rag_name}` | Delete a RAG index and all its associated files. |
 
 ### Query Operations

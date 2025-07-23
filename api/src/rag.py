@@ -37,15 +37,12 @@ class RAGService:
 		(Re)create an index from the documents located under data/files/<rag_name>/.
 
 		If an index already exists it gets overwritten.
+		If the input directory does not exist, it will be created.
 
 		:param rag_name: Name of the RAG instance
-		:raises FileNotFoundError: If the input directory for the RAG doesn't exist
 		"""
 		files_path = self._FILES_DIR / rag_name
-		if not files_path.exists():
-			raise FileNotFoundError(
-				f'No input directory found for RAG "{rag_name}". Expected {files_path}.'
-			)
+		files_path.mkdir(parents=True, exist_ok=True) # Ensure directory exists
 
 		# Load & embed documents
 		docs = SimpleDirectoryReader(str(files_path)).load_data()

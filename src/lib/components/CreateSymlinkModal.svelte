@@ -6,12 +6,11 @@
 
 	interface Props {
 		ragName: string;
-		isOpen: boolean;
-		onClose: () => void;
 		onSymlinkCreated: () => void;
+		open: boolean;
 	}
 
-	let { ragName, isOpen, onClose, onSymlinkCreated }: Props = $props();
+	let { ragName, onSymlinkCreated, open = $bindable(false) }: Props = $props();
 
 	let targetPath = $state('');
 	let linkName = $state('');
@@ -47,20 +46,10 @@
 			linkName = '';
 
 			onSymlinkCreated();
-			onClose();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Unknown error occurred';
 		} finally {
 			loading = false;
-		}
-	}
-
-	function handleClose() {
-		if (!loading) {
-			targetPath = '';
-			linkName = '';
-			error = '';
-			onClose();
 		}
 	}
 
@@ -73,8 +62,7 @@
 	}
 </script>
 
-{#if isOpen}
-	<Modal onclose={handleClose} title="Create Symbolic Link">
+<Modal title="Create Symbolic Link" bind:open>
 	<div class="space-y-6">
 		<div class="flex items-center space-x-3 text-slate-300 mb-4">
 			<Link class="w-5 h-5 text-cyan-400" />
@@ -139,7 +127,7 @@
 
 		<div class="flex justify-end space-x-3 pt-4 border-t border-slate-600">
 			<Button
-				onclick={handleClose}
+				onclick={() => open = false}
 				disabled={loading}
 				variant="secondary"
 				class="cursor-pointer"
@@ -156,5 +144,4 @@
 			</Button>
 		</div>
 	</div>
-	</Modal>
-{/if}
+</Modal>

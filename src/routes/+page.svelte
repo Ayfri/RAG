@@ -143,19 +143,15 @@
 	</div>
 
 	<!-- Create RAG Modal -->
-	{#if showCreateModal}
-		<CreateRagModal
-			onclose={() => showCreateModal = false}
-			oncreated={handleRagCreated}
-		/>
-	{/if}
+	<CreateRagModal
+		oncreated={handleRagCreated}
+		bind:open={showCreateModal}
+	/>
 
 	<!-- Config RAG Modal -->
-	{#if showConfigModal && configRagName}
-		<RagConfigModal
-			ragName={configRagName}
-			onclose={() => showConfigModal = false}
-			onupdated={handleConfigUpdated}
-		/>
-	{/if}
+	<RagConfigModal
+		ragName={configRagName}
+		onupdated={handleConfigUpdated}
+		bind:open={showConfigModal}
+	/>
 </div>

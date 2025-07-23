@@ -3,8 +3,7 @@
 	import Button from '$lib/components/common/Button.svelte';
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
 	import ChatInput from '$lib/components/ChatInput.svelte';
-	import FilesPanel from '$lib/components/FilesPanel.svelte';
-	import Modal from '$lib/components/common/Modal.svelte';
+	import FilesModal from '$lib/components/FilesModal.svelte';
 
 	interface Props {
 		ragName: string;
@@ -304,25 +303,19 @@
 	</div>
 </div>
 
-{#if showFilesModal}
-	<Modal
-		title="Documents"
-		onclose={() => showFilesModal = false}
-	>
-		<FilesPanel
-			{ragName}
-			{files}
-			loading={loadingFiles}
-			uploading={uploadingFile}
-			reindexing={reindexing}
-			onUploadFile={uploadFile}
-			onUploadFolder={uploadFolder}
-			onDeleteFile={deleteFile}
-			onReindex={reindexRAG}
-			onSymlinkCreated={handleSymlinkCreated}
-		/>
-	</Modal>
-{/if}
+<FilesModal
+	{ragName}
+	{files}
+	bind:open={showFilesModal}
+	loading={loadingFiles}
+	uploading={uploadingFile}
+	reindexing={reindexing}
+	onUploadFile={uploadFile}
+	onUploadFolder={uploadFolder}
+	onDeleteFile={deleteFile}
+	onReindex={reindexRAG}
+	onSymlinkCreated={handleSymlinkCreated}
+/>
 
 <style>
 	.prose {

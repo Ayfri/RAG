@@ -8,11 +8,11 @@
 
 	interface Props {
 		ragName: string;
-		onclose: () => void;
 		onupdated: () => void;
+		open: boolean;
 	}
 
-	let { ragName, onclose, onupdated }: Props = $props();
+	let { ragName, onupdated, open = $bindable(false) }: Props = $props();
 
 	interface RagConfig {
 		chat_model: string;
@@ -93,7 +93,7 @@
 			success = true;
 			setTimeout(() => {
 				onupdated();
-				onclose();
+				open = false;
 			}, 1500);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Unknown error';
@@ -107,7 +107,7 @@
 	});
 </script>
 
-<Modal onclose={onclose} title="Configure RAG">
+<Modal title="Configure RAG" bind:open>
 	<div class="flex justify-between items-start">
 		<div class="flex items-center space-x-3 mb-4">
 			<Settings class="w-6 h-6 text-cyan-400" />
@@ -230,7 +230,7 @@
 
 			<!-- Actions -->
 			<div class="flex justify-end space-x-4 pt-6">
-				<Button class="group" type="button" onclick={onclose} variant="secondary">
+				<Button class="group" type="button" onclick={() => open = false} variant="secondary">
 					<X class="w-5 h-5 group-hover:animate-shake transition-transform duration-200" />
 					<span>Cancel</span>
 				</Button>

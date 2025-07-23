@@ -5,11 +5,11 @@
 	import Modal from './common/Modal.svelte';
 
 	interface Props {
-		onclose: () => void;
 		oncreated: (event: CustomEvent<string>) => void;
+		open: boolean;
 	}
 
-	let { onclose, oncreated }: Props = $props();
+	let { oncreated, open = $bindable(false) }: Props = $props();
 
 	let ragName = $state('');
 	let files: FileList | null = $state(null);
@@ -94,7 +94,7 @@
 	}
 </script>
 
-<Modal onclose={onclose} title="Create New RAG">
+<Modal title="Create New RAG" bind:open>
 	{#if step === 'name'}
 		<div class="space-y-6">
 			<div>
@@ -119,7 +119,7 @@
 			{/if}
 
 			<div class="flex justify-end space-x-4 pt-4">
-				<Button onclick={onclose} variant="secondary">
+				<Button onclick={() => open = false} variant="secondary">
 					<X class="w-5 h-5 group-hover:animate-shake transition-transform duration-200" />
 					<span>Cancel</span>
 				</Button>
@@ -189,7 +189,7 @@
 					<span>Back</span>
 				</Button>
 				<div class="space-x-4 flex items-center">
-					<Button onclick={onclose} variant="secondary">
+					<Button onclick={() => open = false} variant="secondary">
 						<X class="w-5 h-5 group-hover:animate-shake transition-transform duration-200" />
 						<span>Cancel</span>
 					</Button>

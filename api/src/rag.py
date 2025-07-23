@@ -20,6 +20,8 @@ from llama_index.llms.openai import OpenAI
 from llama_index.core.llms import ChatMessage
 from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core.chat_engine.types import ChatMode
+from llama_index.core.readers.json import JSONReader
+from llama_index.core.schema import Document
 
 from src.config import OPENAI_API_KEY
 from llama_index.core import load_index_from_storage
@@ -82,6 +84,14 @@ class RAGService:
 		self._CONFIGS_DIR.mkdir(parents=True, exist_ok=True)
 
 
+	def get_files(self, input_path: Path) -> list[str]:
+		"""Return list of file names (not directories or symlinks) in input_path."""
+		return [f.name for f in input_path.iterdir() if f.is_file() and not f.is_symlink()]
+
+	def get_symlinks(self, input_path: Path) -> list[Path]:
+		"""Return list of symlink Paths in input_path."""
+		return [f for f in input_path.iterdir() if f.is_symlink()]
+
 	def create_rag(self, rag_name: str) -> None:
 		"""
 		(Re)create an index from the documents located under data/files/<rag_name>/.
@@ -103,9 +113,29 @@ class RAGService:
 			model=config.embedding_model,
 		)
 
-		docs = []
-		if any(files_path.iterdir()): # Only load data if files exist
-			docs = SimpleDirectoryReader(input_dir=str(files_path), recursive=True, encoding='utf-8').load_data()
+		docs: list[Document] = []
+		files = self.get_files(files_path)
+		symlinks = self.get_symlinks(files_path)
+
+		if not files and not symlinks:
+			# No files or symlinks to index
+			pass
+
+		# Load documents from symlinks
+		if symlinks:
+			for link_path in symlinks:
+				docs.extend(SimpleDirectoryReader(str(link_path), recursive=True, encoding='utf-8').load_data())
+
+		# Load documents from files
+		if files:
+			if all(file.endswith(".json") for file in files):
+				for file in files:
+					docs.extend(JSONReader().load_data(input_file=str(files_path / file)))
+			else:
+				docs.extend(SimpleDirectoryReader(str(files_path), recursive=True, encoding='utf-8').load_data())
+
+		if not docs:
+			raise ValueError(f"No documents were loaded for RAG '{rag_name}'")
 
 		# Temporarily set the embedding model for this operation
 		original_embed_model = Settings.embed_model
@@ -247,10 +277,8 @@ class RAGService:
 
 			try:
 				stat = item.stat()
-				item_info['size'] = stat.st_size
 				item_info['last_modified'] = stat.st_mtime
 			except OSError:
-				item_info['size'] = None
 				item_info['last_modified'] = None
 
 			if item.is_symlink():
@@ -259,10 +287,27 @@ class RAGService:
 					item_info['target'] = str(item.readlink())
 					item_info['resolved_target_type'] = 'directory' if resolved_target.is_dir() else 'file'
 					if resolved_target.is_dir():
-						item_info['file_count'] = sum(1 for f in resolved_target.rglob('*') if f.is_file())
+						file_count, total_size = self._get_dir_stats(resolved_target)
+						item_info['file_count'] = file_count
+						item_info['size'] = total_size
+					else:
+						try:
+							item_info['size'] = resolved_target.stat().st_size
+						except OSError:
+							item_info['size'] = None
 				except OSError:
 					item_info['target'] = '<broken link>'
 					item_info['resolved_target_type'] = 'unknown'
+			else:
+				if item.is_dir():
+					file_count, total_size = self._get_dir_stats(item)
+					item_info['file_count'] = file_count
+					item_info['size'] = total_size
+				else:
+					try:
+						item_info['size'] = item.stat().st_size
+					except OSError:
+						item_info['size'] = None
 
 			items.append(item_info)
 
@@ -462,3 +507,16 @@ class RAGService:
 		default_config = RAGConfig()
 		config_path.write_text(json.dumps(default_config.to_dict(), indent=2))
 		return default_config
+
+	def _get_dir_stats(self, path: Path) -> tuple[int, int]:
+		"""Return (file_count, total_size) for all files under path recursively."""
+		file_count = 0
+		total_size = 0
+		for f in path.rglob('*'):
+			if f.is_file():
+				file_count += 1
+				try:
+					total_size += f.stat().st_size
+				except OSError:
+					pass
+		return file_count, total_size

@@ -141,7 +141,8 @@
 		<div class="p-3 bg-slate-800 border-b border-slate-700 flex items-center justify-between text-xs text-slate-400">
 			<div class="flex items-center space-x-2">
 				<FileStack class="w-4 h-4" />
-				<span>{files.length} files</span>
+				<span>{files.length} entries</span>
+				<span class="ml-2 px-2 py-0.5 rounded-full bg-slate-700 text-xs text-slate-300">{files.reduce((acc, file) => acc + (file.file_count ?? 0), 0)} total files</span>
 			</div>
 			<div class="flex items-center space-x-2">
 				<HardDrive class="w-4 h-4" />
@@ -175,7 +176,7 @@
 					<div class="divide-y divide-slate-800">
 						{#each files as file}
 							{@const IconComponent = getFileIcon(file)}
-							<div class="p-4 hover:bg-slate-700/50 transition-all duration-200 group">
+							<div class="p-2.5 hover:bg-slate-700/50 transition-all duration-200 group">
 								<div class="grid grid-cols-12 items-center gap-4">
 									<div class="col-span-6 flex items-center space-x-3">
 										<IconComponent class="w-5 h-5 flex-shrink-0 {file.is_symlink ? 'text-purple-400' : file.type === 'directory' ? 'text-blue-400' : 'text-cyan-400'}" />
@@ -190,6 +191,9 @@
 									<div class="col-span-2 text-sm text-slate-400 flex items-center space-x-2">
 										<HardDrive class="w-4 h-4" />
 										<span>{file.size != null ? formatBytes(file.size) : 'N/A'}</span>
+										{#if (file.type === 'directory' || (file.is_symlink && file.resolved_target_type === 'directory')) && file.file_count != null}
+											<span class="ml-2 px-2 py-0.5 rounded-full bg-slate-700 text-xs text-slate-300">{file.file_count} files</span>
+										{/if}
 									</div>
 
 									<div class="col-span-3 text-sm text-slate-400 flex items-center space-x-2">

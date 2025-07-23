@@ -245,6 +245,14 @@ class RAGService:
 				'is_symlink': item.is_symlink()
 			}
 
+			try:
+				stat = item.stat()
+				item_info['size'] = stat.st_size
+				item_info['last_modified'] = stat.st_mtime
+			except OSError:
+				item_info['size'] = None
+				item_info['last_modified'] = None
+
 			if item.is_symlink():
 				try:
 					resolved_target = item.resolve()

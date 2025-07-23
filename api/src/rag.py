@@ -9,7 +9,13 @@ All indices and source documents are stored on the local filesystem:
 from pathlib import Path
 from typing import AsyncGenerator
 
-from llama_index.core import SimpleDirectoryReader, StorageContext, VectorStoreIndex
+import openai
+from llama_index.core import SimpleDirectoryReader, StorageContext, VectorStoreIndex, Settings
+from llama_index.embeddings.openai import OpenAIEmbedding
+
+from src.config import OPENAI_API_KEY
+
+openai.api_key = OPENAI_API_KEY
 
 
 class RAGService:
@@ -30,6 +36,12 @@ class RAGService:
 		"""
 		self._FILES_DIR.mkdir(parents=True, exist_ok=True)
 		self._INDICES_DIR.mkdir(parents=True, exist_ok=True)
+
+		# Configure OpenAI API key for LlamaIndex
+		Settings.embed_model = OpenAIEmbedding(
+			api_key=OPENAI_API_KEY,
+			model='text-embedding-3-large',
+		)
 
 
 	def create_rag(self, rag_name: str) -> None:

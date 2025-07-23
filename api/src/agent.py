@@ -1,11 +1,9 @@
 import openai
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Literal
 from llama_index.core.agent.workflow import FunctionAgent
 from llama_index.llms.openai import OpenAI
-from llama_index.core.tools import FunctionTool, RetrieverTool
 from src.config import OPENAI_API_KEY
-from llama_index.core.schema import NodeWithScore
 from llama_index.core import VectorStoreIndex
 from src.rag_config import RAGConfig
 
@@ -117,21 +115,39 @@ User instructions:
 	)
 
 
-	def rag_tool(rag_name: str, query: str) -> list[NodeWithScore]:
+	def rag_tool(rag_name: str, query: str, search_number: Literal["very_low", "low", "medium", "high"] = "medium") -> list[dict[str, str]]:
 		"""
-		Answer questions using the '{rag_name}' document index. Use a detailed plain text question as input.
+		Search relevant documents from the '{rag_name}' document index. Use a detailed search query as input.
+		Search number:
+		- very_low: 4 documents
+		- low: 10 documents
+		- medium: 30 documents
+		- high: 60 documents
 		"""
+		search_number_map = {
+			"very_low": 4,
+			"low": 10,
+			"medium": 30,
+			"high": 60
+		}
+
 		index = load_index(rag_name)
-		retriever = index.as_retriever(similarity_top_k=20)
+		retriever = index.as_retriever(similarity_top_k=search_number_map[search_number])
 
 		response = retriever.retrieve(query)
-		return response
+		return [
+			{
+				"content": node.text,
+				"source": node.node.metadata["file_path"],
+			}
+			for node in response
+		]
 
 
 	agent = FunctionAgent(
 		tools=[rag_tool, search, read_file_tool, list_files_tool],
 		llm=llm,
 		system_prompt=complete_system_prompt,
-		verbose=True,
+		# verbose=True,
 	)
 	return agent

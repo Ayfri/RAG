@@ -489,19 +489,12 @@ class RAGService:
 				answer += event.delta
 			# Collect sources/documents from ToolCallResult events
 			if isinstance(event, ToolCallResult):
+				print(f"Tool call: {event.tool_name}, params: {event.tool_kwargs}")
 				if event.tool_name.startswith('search'):
 					sources.append(event.tool_output.raw_output)
 				elif 'rag' in event.tool_name:
-					blocks = event.tool_output.blocks
-					text_blocks = [block for block in blocks if isinstance(block, TextBlock)]
+					documents.extend(event.tool_output.raw_output)
 
-					for block in text_blocks:
-						files = block.text.split('file_path: ')
-						# Each files starts with `file_path: C:\\.....\n\nreal_content_now`
-						documents.extend([{
-							'content': '\n\n'.join(file.split('\n\n')[1:]).strip(), # real content
-							'source': file.split('\n\n')[0] # file path
-						} for file in files])
 			# Optionally, collect chat history (user/assistant turns only)
 			if isinstance(event, AgentOutput):
 				chat_history.append(event.response)

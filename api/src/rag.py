@@ -105,7 +105,7 @@ class RAGService:
 
 		docs = []
 		if any(files_path.iterdir()): # Only load data if files exist
-			docs = SimpleDirectoryReader(str(files_path)).load_data()
+			docs = SimpleDirectoryReader(input_dir=str(files_path), recursive=True, encoding='utf-8').load_data()
 
 		# Temporarily set the embedding model for this operation
 		original_embed_model = Settings.embed_model

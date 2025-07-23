@@ -95,7 +95,7 @@
 <!-- Modal backdrop -->
 <div
 	class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-	in:fly={{ y: 20, duration: 300, delay: 50 }}
+	transition:fly={{ y: 20, duration: 300, delay: 50 }}
 >
 	<div class="glass rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
 		<!-- Header -->

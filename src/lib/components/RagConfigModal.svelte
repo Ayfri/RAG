@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { X, Settings, Loader, CheckCircle } from '@lucide/svelte';
+	import { X, Settings, Loader, CheckCircle, RefreshCw } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
+	import { openaiModels, loadOpenAIModels, getModelsLoadingState } from '$lib/stores/openai-models.js';
 
 	interface Props {
 		ragName: string;
@@ -27,24 +28,31 @@
 	let error = $state('');
 	let success = $state(false);
 
-	const openaiModels = [
-		'gpt-4o',
-		'gpt-4o-mini',
-		'gpt-4-turbo',
-		'gpt-4',
-		'gpt-3.5-turbo'
-	];
+	// Get loading state and models from stores
+	const modelsState = getModelsLoadingState();
 
-	const embeddingModels = [
-		'text-embedding-3-large',
-		'text-embedding-3-small',
-		'text-embedding-ada-002'
-	];
+	async function ensureModelsLoaded() {
+		try {
+			await loadOpenAIModels();
+		} catch (err) {
+			console.warn('Failed to load models:', err);
+		}
+	}
+
+	async function reloadModels() {
+		try {
+			await loadOpenAIModels(true);
+		} catch (err) {
+			console.warn('Failed to reload models:', err);
+		}
+	}
 
 	async function loadConfig() {
 		try {
 			loading = true;
 			error = '';
+
+			await ensureModelsLoaded();
 
 			const response = await fetch(`/api/rag/${ragName}/config`);
 
@@ -91,7 +99,6 @@
 		}
 	}
 
-	// Load config when component mounts
 	$effect(() => {
 		loadConfig();
 	});
@@ -100,18 +107,38 @@
 <!-- Modal backdrop -->
 <div
 	class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-	in:fly={{ y: 20, duration: 300, delay: 50 }}
+	transition:fly={{ y: 20, duration: 300, delay: 50 }}
 >
 	<div class="glass rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
 		<!-- Header -->
 		<div class="flex justify-between items-center p-6 border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700">
 			<div class="flex items-center space-x-3">
 				<Settings class="w-6 h-6 text-cyan-400" />
-				<h2 class="text-2xl font-bold text-slate-100">Configure RAG</h2>
+				<div>
+					<h2 class="text-2xl font-bold text-slate-100">Configure RAG</h2>
+					{#if $modelsState}
+						<p class="text-xs text-slate-400 flex items-center space-x-1">
+							<Loader class="w-3 h-3 animate-spin" />
+							<span>Loading latest models...</span>
+						</p>
+					{:else if $openaiModels.chat.length > 0 || $openaiModels.embedding.length > 0}
+						<p class="text-xs text-green-400">✓ Models loaded ({$openaiModels.chat.length + $openaiModels.thinking.length} chat, {$openaiModels.embedding.length} embedding)</p>
+					{/if}
+				</div>
 			</div>
-			<button onclick={onclose} class="text-slate-400 hover:text-slate-200 hover:bg-slate-700 p-2 rounded-xl transition-all duration-200 cursor-pointer">
-				<X class="w-6 h-6" />
-			</button>
+			<div class="flex items-center space-x-2">
+				<button
+					onclick={reloadModels}
+					disabled={$modelsState}
+					class="text-slate-400 hover:text-slate-200 hover:bg-slate-700 p-2 rounded-xl transition-all duration-200 cursor-pointer disabled:opacity-50"
+					title="Reload OpenAI models"
+				>
+					<RefreshCw class={`w-5 h-5 ${$modelsState ? 'animate-spin' : ''}`} />
+				</button>
+				<button onclick={onclose} class="text-slate-400 hover:text-slate-200 hover:bg-slate-700 p-2 rounded-xl transition-all duration-200 cursor-pointer">
+					<X class="w-6 h-6" />
+				</button>
+			</div>
 		</div>
 
 		<div class="p-6">
@@ -142,10 +169,21 @@
 							id="chat-model"
 							bind:value={config.chat_model}
 							class="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 cursor-pointer"
+							disabled={$modelsState}
 						>
-							{#each openaiModels as model}
-								<option value={model}>{model}</option>
-							{/each}
+							{#if $modelsState}
+								<option>Loading models...</option>
+							{:else}
+								{#each $openaiModels.chat.toSorted((a, b) => a.name.localeCompare(b.name)) as model}
+									<option value={model.id}>{model.name}</option>
+								{/each}
+								{#each $openaiModels.thinking as model}
+									<option value={model.id}>{model.name} (Reasoning)</option>
+								{/each}
+								{#if $openaiModels.chat.length === 0 && $openaiModels.thinking.length === 0}
+									<option value="gpt-4o-mini">GPT-4o Mini (fallback)</option>
+								{/if}
+							{/if}
 						</select>
 						<p class="text-xs text-slate-500">The OpenAI model used for generating responses.</p>
 					</div>
@@ -159,10 +197,18 @@
 							id="embedding-model"
 							bind:value={config.embedding_model}
 							class="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 cursor-pointer"
+							disabled={$modelsState}
 						>
-							{#each embeddingModels as model}
-								<option value={model}>{model}</option>
-							{/each}
+							{#if $modelsState}
+								<option>Loading models...</option>
+							{:else}
+								{#each $openaiModels.embedding.toSorted((a, b) => a.name.localeCompare(b.name)) as model}
+									<option value={model.id}>{model.name}</option>
+								{/each}
+								{#if $openaiModels.embedding.length === 0}
+									<option value="text-embedding-3-large">Text Embedding 3 Large (fallback)</option>
+								{/if}
+							{/if}
 						</select>
 						<p class="text-xs text-slate-500">The OpenAI model used for creating document embeddings.</p>
 					</div>

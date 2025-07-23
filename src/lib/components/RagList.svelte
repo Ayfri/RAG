@@ -44,7 +44,7 @@
 			<p class="text-slate-500 text-sm">Create your first RAG to get started</p>
 		</div>
 	{:else}
-		{#each rags as rag (rag)}
+		{#each rags.toSorted((a, b) => a.localeCompare(b)) as rag}
 			<div
 				class="p-4 hover:bg-slate-700/50 cursor-pointer transition-all duration-200 group {selectedRag === rag ? 'bg-gradient-to-r from-cyan-900/30 to-cyan-800/20 border-r-2 border-cyan-400' : ''}"
 				onclick={() => selectedRag = rag}

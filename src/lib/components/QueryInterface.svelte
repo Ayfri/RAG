@@ -244,7 +244,7 @@
 					<p class="text-slate-500 text-sm mt-1">Upload some files to get started</p>
 				</div>
 			{:else}
-				{#each files as file (file)}
+				{#each files.toSorted((a, b) => a.localeCompare(b)) as file}
 					<div class="p-4 flex items-center justify-between hover:bg-slate-700/30 transition-all duration-200 group">
 						<div class="flex items-center space-x-4">
 							<FileText class="w-6 h-6 text-cyan-400" />

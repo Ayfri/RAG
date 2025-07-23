@@ -6,7 +6,8 @@ from typing import AsyncGenerator
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, Form
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Literal, Optional
 
 from src.rag import RAGConfig, RAGService
 from src.openai_models import get_openai_models
@@ -15,13 +16,25 @@ router = APIRouter(prefix='/rag', tags=['RAG'])
 rag_service = RAGService()
 
 
+class ChatMessage(BaseModel):
+	"""
+	Represents a single message in the chat history.
+
+	:param role: The role of the message sender ('user' or 'assistant')
+	:param content: The content of the message
+	"""
+	role: Literal['user', 'assistant']
+	content: str
+
+
 class QueryPayload(BaseModel):
 	"""
 	Request payload for RAG query operations.
-
 	:param query: The question or prompt to send to the RAG system
+	:param history: The conversation history
 	"""
 	query: str
+	history: Optional[list[ChatMessage]] = Field(default_factory=list)
 
 
 class QueryResponse(BaseModel):
@@ -203,7 +216,7 @@ async def query_rag(rag_name: str, payload: QueryPayload) -> QueryResponse:
 		raise HTTPException(status_code=404, detail='RAG not found')
 
 	try:
-		response_content = rag_service.query(rag_name, payload.query)
+		response_content = rag_service.query(rag_name, payload.query, [msg.model_dump() for msg in (payload.history or [])])
 		return QueryResponse(content=response_content)
 	except Exception as exc:
 		raise HTTPException(status_code=500, detail=f'Query failed: {str(exc)}') from exc
@@ -229,10 +242,14 @@ async def stream_rag(rag_name: str, payload: QueryPayload):
 		:yield: Individual response tokens as strings
 		"""
 		try:
-			async for chunk in rag_service.stream_query(rag_name, payload.query):
+			response_generator = rag_service.stream_query(rag_name, payload.query, [msg.model_dump() for msg in (payload.history or [])])
+			async for chunk in response_generator:
 				yield chunk
 		except Exception as exc:
-			yield f'Error: {str(exc)}'
+			# Log the full exception for debugging
+			print(f'Error during stream generation: {exc}')
+			# Yield a final message to the client
+			yield f'Error: An unexpected error occurred during the stream. Please check the server logs.'
 
 	return StreamingResponse(_generator(), media_type='text/plain')
 

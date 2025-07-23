@@ -17,6 +17,9 @@ import openai
 from llama_index.core import SimpleDirectoryReader, StorageContext, VectorStoreIndex, Settings
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
+from llama_index.core.llms import ChatMessage
+from llama_index.core.memory import ChatMemoryBuffer
+from llama_index.core.chat_engine.types import ChatMode
 
 from src.config import OPENAI_API_KEY
 from llama_index.core import load_index_from_storage
@@ -267,17 +270,19 @@ class RAGService:
 		return [p.name for p in self._INDICES_DIR.iterdir() if p.is_dir()]
 
 
-	def query(self, rag_name: str, query: str) -> str:
+	def query(self, rag_name: str, query: str, history: list[dict[str, str]] | None = None) -> str:
 		"""
 		Return the answer for query using the given rag_name.
 
 		:param rag_name: Name of the RAG instance to query
 		:param query: Question to ask the RAG
+		:param history: Conversation history
 		:return: Generated response as string
 		:raises FileNotFoundError: If the RAG index doesn't exist
 		"""
 		index = self._load_index(rag_name)
 		config = self._load_rag_config(rag_name)
+		history = history or []
 
 		# Configure LLM with RAG-specific settings
 		llm = OpenAI(
@@ -286,8 +291,15 @@ class RAGService:
 			system_prompt=config.system_prompt
 		)
 
-		query_engine = index.as_query_engine(llm=llm)
-		response = query_engine.query(query)
+		chat_history = [ChatMessage(role=msg['role'], content=msg['content']) for msg in history]
+		memory = ChatMemoryBuffer.from_defaults(chat_history=chat_history)
+
+		chat_engine = index.as_chat_engine(
+			llm=llm,
+			memory=memory,
+			chat_mode=ChatMode.CONDENSE_PLUS_CONTEXT
+		)
+		response = chat_engine.chat(query)
 		return str(response)
 
 
@@ -338,17 +350,19 @@ class RAGService:
 		return file_path
 
 
-	async def stream_query(self, rag_name: str, query: str) -> AsyncGenerator[str, None]:
+	async def stream_query(self, rag_name: str, query: str, history: list[dict[str, str]] | None = None) -> AsyncGenerator[str, None]:
 		"""
 		Asynchronously yield the answer token-by-token.
 
 		:param rag_name: Name of the RAG instance to query
 		:param query: Question to ask the RAG
+		:param history: Conversation history
 		:yield: Individual response tokens as strings
 		:raises FileNotFoundError: If the RAG index doesn't exist
 		"""
 		index = self._load_index(rag_name)
 		config = self._load_rag_config(rag_name)
+		history = history or []
 
 		# Configure LLM with RAG-specific settings
 		llm = OpenAI(
@@ -357,9 +371,17 @@ class RAGService:
 			system_prompt=config.system_prompt
 		)
 
-		query_engine = index.as_query_engine(llm=llm, streaming=True)
-		response = query_engine.query(query)
-		for chunk in response.response_gen:  # type: ignore[attr-defined]
+		chat_history = [ChatMessage(role=msg['role'], content=msg['content']) for msg in history]
+		memory = ChatMemoryBuffer.from_defaults(chat_history=chat_history)
+
+		chat_engine = index.as_chat_engine(
+			llm=llm,
+			memory=memory,
+			chat_mode=ChatMode.CONDENSE_PLUS_CONTEXT
+		)
+		response = await chat_engine.astream_chat(query)
+
+		async for chunk in response.async_response_gen():
 			yield chunk
 
 

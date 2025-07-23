@@ -29,3 +29,8 @@ async def health_check():
 	:return: Status information about the API
 	"""
 	return {'status': 'healthy', 'message': 'Multi-RAG API is running'}
+
+
+if __name__ == '__main__':
+	import uvicorn
+	uvicorn.run(app, host='0.0.0.0', port=8000)

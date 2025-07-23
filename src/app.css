@@ -1,1 +1,52 @@
 @import "tailwindcss";
+
+/* Dark theme variables */
+:root {
+	--bg-primary: #0f172a;
+	--bg-secondary: #1e293b;
+	--bg-tertiary: #334155;
+	--text-primary: #f8fafc;
+	--text-secondary: #cbd5e1;
+	--text-muted: #64748b;
+	--accent-cyan: #06b6d4;
+	--accent-cyan-hover: #0891b2;
+	--accent-cyan-light: #67e8f9;
+	--border-color: #475569;
+	--shadow-color: rgba(0, 0, 0, 0.5);
+}
+
+body {
+	background-color: var(--bg-primary);
+	color: var(--text-primary);
+	font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+	width: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--accent-cyan);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--accent-cyan-hover);
+}
+
+/* Smooth transitions */
+* {
+	transition: all 0.2s ease-in-out;
+}
+
+/* Glass effect */
+.glass {
+	background: rgba(30, 41, 59, 0.7);
+	backdrop-filter: blur(10px);
+	border: 1px solid rgba(71, 85, 105, 0.3);
+}

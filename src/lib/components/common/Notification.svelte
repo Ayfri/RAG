@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { X, Info, CheckCircle, AlertTriangle, AlertCircle } from '@lucide/svelte';
+	import Button from '$lib/components/common/Button.svelte';
 
 	interface Props {
 		notification: Notification;
@@ -54,9 +55,9 @@
 		</p>
 	</div>
 	<div class="ml-4 flex-shrink-0 flex">
-		<button onclick={handleRemove} class="inline-flex rounded-md text-white hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white">
+		<Button onclick={handleRemove} variant="secondary">
 			<span class="sr-only">Close</span>
 			<X class="h-5 w-5" />
-		</button>
+		</Button>
 	</div>
 </div>

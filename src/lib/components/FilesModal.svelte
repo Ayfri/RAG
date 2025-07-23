@@ -74,9 +74,9 @@
 	const totalSize = $derived(files.reduce((acc, file) => acc + (file.size ?? 0), 0));
 </script>
 
-<Modal title="Manage Files" bind:open size="2xl">
-	<div class="flex flex-col h-full -m-6">
-		<div class="p-4 border-b border-slate-700 bg-slate-800/50">
+<Modal title="Manage Files" bind:open size="xl">
+	<div class="flex flex-col h-full">
+		<div class="p-4 border-b border-slate-700">
 			<div class="grid grid-cols-4 gap-3">
 				<Button
 					onclick={onReindex}

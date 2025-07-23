@@ -120,6 +120,8 @@
 </div>
 
 <style>
+	@import 'tailwindcss';
+
 	:global {
 		.markdown-content h1,
 		.markdown-content h2,
@@ -137,8 +139,22 @@
 			text-decoration: underline;
 		}
 
+		.markdown-content ul {
+			list-style-type: '-';
+			padding-left: 1.5rem;
+		}
+
+		.markdown-content ol {
+			list-style-type: decimal;
+			padding-left: 1.5rem;
+		}
+
+		.markdown-content li {
+			margin-bottom: 0.25rem;
+		}
+
 		.markdown-content li::marker {
-			color: var(--accent-cyan);
+			color: var(--color-slate-300);
 		}
 
 		.markdown-content strong {
@@ -156,6 +172,33 @@
 		.markdown-content pre code {
 			background: none;
 			color: unset;
+			counter-reset: line;
+			counter-increment: line 0;
+			display: block;
+			width: 100%;
+		}
+
+		.markdown-content pre code .line {
+			display: inline-block;
+			position: relative;
+			width: 100%;
+			transition: 0s;
+			z-index: 1;
+
+			&:hover {
+				background-color: color-mix(in srgb, var(--color-slate-950) 50%, transparent);
+				color: var(--accent-cyan);
+				border-radius: 0.375rem;
+			}
+		}
+
+		.markdown-content pre code .line::before {
+			color: var(--text-muted);
+			content: counter(line);
+			counter-increment: line;
+			display: inline-block;
+			margin-right: 1rem;
+			width: 1rem;
 		}
 
 		.markdown-content blockquote {

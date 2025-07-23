@@ -1,4 +1,10 @@
 import { createHighlighter, type Highlighter, type BundledLanguage, type BundledTheme } from 'shiki';
+import {
+	transformerCompactLineOptions,
+	transformerMetaHighlight,
+	transformerNotationDiff,
+	transformerNotationErrorLevel
+} from '@shikijs/transformers';
 
 // Single, alphabetically sorted list of supported languages
 const supportedLanguages: BundledLanguage[] = [
@@ -53,6 +59,13 @@ const themes: BundledTheme[] = ['github-dark', 'github-light'];
 
 let highlighterInstance: Highlighter | null = null;
 
+const shikiTransformers = [
+	transformerCompactLineOptions(), // active line numbers
+	transformerMetaHighlight(),
+	transformerNotationDiff(),
+	transformerNotationErrorLevel()
+];
+
 export async function getHighlighter(): Promise<Highlighter> {
 	if (!highlighterInstance) {
 		highlighterInstance = await createHighlighter({
@@ -81,13 +94,15 @@ export function highlightCode(code: string, lang: string, theme: BundledTheme = 
 		console.warn(`Language "${detectedLang}" not supported, falling back to plaintext`);
 		return highlighterInstance.codeToHtml(code, {
 			lang: 'text',
-			theme
+			theme,
+			transformers: shikiTransformers
 		});
 	}
 
 	return highlighterInstance.codeToHtml(code, {
 		lang: normalizedLang as BundledLanguage,
-		theme
+		theme,
+		transformers: shikiTransformers
 	});
 }
 

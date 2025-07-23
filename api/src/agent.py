@@ -5,6 +5,7 @@ from llama_index.core.agent.workflow import FunctionAgent
 from llama_index.llms.openai import OpenAI
 from llama_index.core.tools import FunctionTool, RetrieverTool
 from src.config import OPENAI_API_KEY
+from llama_index.core.schema import NodeWithScore
 from llama_index.core import VectorStoreIndex
 from src.rag_config import RAGConfig
 
@@ -21,7 +22,7 @@ class SearchResult(dict):
 
 def search(query: str) -> SearchResult:
 	"""
-	Search the web for information.
+	Search the web for information. Use a detailed plain text question as input.
 	"""
 	response = openai.chat.completions.create(
 		model="gpt-4o-search-preview",
@@ -42,7 +43,7 @@ def search(query: str) -> SearchResult:
 
 def read_file_tool(rel_path: str) -> str:
 	"""
-	Read the content of a specific file in data/files.
+	Read the content of a specific file in data/files. Input: relative file path from data/files.
 	"""
 	base = Path("data/files")
 	file_path = base / rel_path
@@ -54,9 +55,9 @@ def read_file_tool(rel_path: str) -> str:
 		return f"Error reading file: {e}"
 
 
-def list_files_tool(rel_dir: str) -> list[str]:
+def list_files_tool(rel_dir: str, max_depth: int = 1) -> list[str]:
 	"""
-	List files, folders and symlinks in a directory in data/files.
+	List files, folders and symlinks in a directory in data/files. Input: relative directory path from data/files.
 	"""
 	base = Path("data/files")
 	dir_path = base / rel_dir
@@ -65,18 +66,23 @@ def list_files_tool(rel_dir: str) -> list[str]:
 
 	files: list[str] = []
 	for f in dir_path.iterdir():
+		if max_depth > 0:
+			if f.is_dir():
+				files.extend(list_files_tool(str(f.relative_to(base)), max_depth - 1))
+			continue
+
 		size = f.stat().st_size
 		formatted_size = f"{size / 1024:.2f} KB" if size < 1024 else f"{size / 1024 / 1024:.2f} MB"
 
+		path = f.relative_to(base)
 		if f.is_file():
-			files.append(f"{f.name} (file, {formatted_size})")
+			files.append(f"{path} (file, {formatted_size})")
 		elif f.is_dir():
-			files.append(f"{f.name} (folder, {formatted_size})")
+			files.append(f"{path} (folder, {formatted_size})")
 		elif f.is_symlink():
-			files.append(f"{f.name} (symlink, {formatted_size})")
+			files.append(f"{path} (symlink, {formatted_size})")
 
 	return sorted(files)
-
 
 
 def get_agent(
@@ -110,34 +116,20 @@ User instructions:
 		system_prompt=complete_system_prompt
 	)
 
-	search_tool = FunctionTool.from_defaults(
-		fn=search,
-		name="search",
-		description="Search the web for information. Use a detailed plain text question as input.",
-	)
 
-	read_file_tool_obj = FunctionTool.from_defaults(
-		fn=read_file_tool,
-		name="read_file",
-		description="Read the content of a specific file in data/files. Input: relative file path from data/files.",
-	)
+	def rag_tool(rag_name: str, query: str) -> list[NodeWithScore]:
+		"""
+		Answer questions using the '{rag_name}' document index. Use a detailed plain text question as input.
+		"""
+		index = load_index(rag_name)
+		retriever = index.as_retriever(similarity_top_k=20)
 
-	list_files_tool_obj = FunctionTool.from_defaults(
-		fn=list_files_tool,
-		name="list_files",
-		description="List files in a directory in data/files. Input: relative directory path from data/files.",
-	)
+		response = retriever.retrieve(query)
+		return response
 
-	index = load_index(rag_name)
-	retriever = index.as_retriever(similarity_top_k=20)
-	rag_tool = RetrieverTool.from_defaults(
-		retriever=retriever,
-		name=f"rag",
-		description=f"Answer questions using the '{rag_name}' document index. Use a detailed plain text question as input.",
-	)
 
 	agent = FunctionAgent(
-		tools=[rag_tool, search_tool, read_file_tool_obj, list_files_tool_obj],
+		tools=[rag_tool, search, read_file_tool, list_files_tool],
 		llm=llm,
 		system_prompt=complete_system_prompt,
 		verbose=True,

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { FolderOpen, Loader, Settings, Trash2 } from '@lucide/svelte';
-	import Button from './common/Button.svelte';
+	import Button from '$lib/components/common/Button.svelte';
 
 	interface Props {
 		loading: boolean;
@@ -67,9 +67,7 @@
 							}}
 							title="Configure RAG"
 						>
-							{#snippet children()}
-								<Settings class="w-4 h-4" />
-							{/snippet}
+							<Settings class="w-4 h-4" />
 						</Button>
 						<Button
 							size="icon"
@@ -81,13 +79,11 @@
 							disabled={deletingRag === rag}
 							title="Delete RAG"
 						>
-							{#snippet children()}
-								{#if deletingRag === rag}
-									<Loader class="w-4 h-4 animate-spin" />
-								{:else}
-									<Trash2 class="w-4 h-4" />
-								{/if}
-							{/snippet}
+							{#if deletingRag === rag}
+								<Loader class="w-4 h-4 animate-spin" />
+							{:else}
+								<Trash2 class="w-4 h-4" />
+							{/if}
 						</Button>
 					</div>
 				</div>

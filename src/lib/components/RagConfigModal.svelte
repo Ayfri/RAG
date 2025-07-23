@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { CheckCircle, Loader, RefreshCw, Settings } from '@lucide/svelte';
 	import { getModelsLoadingState, loadOpenAIModels, openaiModels } from '$lib/stores/openai-models.js';
-	import Button from './common/Button.svelte';
-	import Modal from './common/Modal.svelte';
-	import TextArea from './common/TextArea.svelte';
+	import Button from '$lib/components/common/Button.svelte';
+	import Modal from '$lib/components/common/Modal.svelte';
+	import TextArea from '$lib/components/common/TextArea.svelte';
 
 	interface Props {
 		ragName: string;
@@ -231,14 +231,12 @@
 					Cancel
 				</Button>
 				<Button type="submit" disabled={saving}>
-					{#snippet children()}
-						{#if saving}
-							<Loader class="w-5 h-5 animate-spin" />
-							<span>Saving...</span>
-						{:else}
-							<span>Save Configuration</span>
-						{/if}
-					{/snippet}
+					{#if saving}
+						<Loader class="w-5 h-5 animate-spin" />
+						<span>Saving...</span>
+					{:else}
+						<span>Save Configuration</span>
+					{/if}
 				</Button>
 			</div>
 		</form>

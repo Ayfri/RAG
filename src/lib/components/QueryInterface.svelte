@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { Send, Loader, FileText, Trash2, Upload, Zap } from '@lucide/svelte';
+	import Button from '$lib/components/common/Button.svelte';
+	import TextArea from '$lib/components/common/TextArea.svelte';
+	import FileInput from '$lib/components/common/FileInput.svelte';
 
 	interface Props {
 		ragName: string;
@@ -145,26 +148,26 @@
 					<label for="query" class="block text-sm font-medium text-slate-200 mb-3">
 						Ask a question about your documents
 					</label>
-					<textarea
+					<TextArea
 						id="query"
 						bind:value={query}
 						placeholder="What would you like to know about your documents?"
-						class="w-full px-4 py-4 bg-slate-700 border border-slate-600 rounded-xl text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none transition-all duration-200"
-						rows="4"
+						rows={4}
 						onkeydown={(e) => {
 							if (e.key === 'Enter' && !e.shiftKey) {
 								e.preventDefault();
 								submitQuery();
 							}
 						}}
-					></textarea>
+					/>
 				</div>
 
 				<div class="flex space-x-4">
-					<button
+					<Button
 						onclick={() => submitQuery(false)}
 						disabled={!query.trim() || loading}
 						class="group flex items-center space-x-3 px-6 py-3 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-cyan-500/25 cursor-pointer"
+						variant="primary"
 					>
 						{#if loading && !streaming}
 							<Loader class="w-5 h-5 animate-spin" />
@@ -172,9 +175,9 @@
 							<Send class="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
 						{/if}
 						<span>Ask</span>
-					</button>
+					</Button>
 
-					<button
+					<Button
 						onclick={() => submitQuery(true)}
 						disabled={!query.trim() || loading}
 						class="group flex items-center space-x-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-green-500/25 cursor-pointer"
@@ -185,7 +188,7 @@
 							<Zap class="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
 						{/if}
 						<span>Stream</span>
-					</button>
+					</Button>
 				</div>
 			</div>
 		</div>
@@ -221,12 +224,11 @@
 						<Upload class="w-5 h-5 group-hover:-translate-y-1 transition-transform duration-200" />
 						<span>Add File</span>
 					{/if}
-					<input
-						type="file"
-						class="hidden"
-						onchange={uploadFile}
-						accept=".txt,.pdf,.docx,.md"
+					<FileInput
+						accept='.txt,.pdf,.docx,.md'
 						disabled={uploadingFile}
+						id='file-input'
+						onchange={uploadFile}
 					/>
 				</label>
 			</div>
@@ -250,13 +252,13 @@
 							<FileText class="w-6 h-6 text-cyan-400" />
 							<span class="text-slate-200 group-hover:text-cyan-300 transition-colors">{file}</span>
 						</div>
-						<button
+						<Button
 							onclick={() => deleteFile(file)}
 							class="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-all duration-200 cursor-pointer"
 							title="Delete file"
 						>
 							<Trash2 class="w-5 h-5" />
-						</button>
+						</Button>
 					</div>
 				{/each}
 			{/if}

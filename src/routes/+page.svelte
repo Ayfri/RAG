@@ -53,32 +53,32 @@
 <div class="min-h-screen bg-slate-900">
 	<!-- Header -->
 	<header class="bg-slate-800 border-b border-slate-700 shadow-xl">
-		<div class="max-w-7xl mx-auto px-6 lg:px-8">
-			<div class="flex justify-between items-center py-6">
-				<div class="flex items-center space-x-4">
-					<div class="p-2 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl">
-						<Database class="w-8 h-8 text-white" />
+		<div class="max-w-7xl mx-auto px-4 lg:px-6">
+			<div class="flex justify-between items-center py-4">
+				<div class="flex items-center space-x-3">
+					<div class="p-1.5 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl">
+						<Database class="w-7 h-7 text-white" />
 					</div>
 					<div>
-						<h1 class="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-cyan-200 bg-clip-text text-transparent">
+						<h1 class="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-cyan-200 bg-clip-text text-transparent">
 							RAG Application
 						</h1>
-						<p class="text-slate-400 text-sm">Retrieval-Augmented Generation made simple</p>
+						<p class="text-slate-400 text-xs">Retrieval-Augmented Generation made simple</p>
 					</div>
 				</div>
 				<button
 					onclick={() => showCreateModal = true}
-					class="group flex items-center space-x-3 px-6 py-3 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-cyan-500/25 cursor-pointer"
+					class="group flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-cyan-500/25 cursor-pointer"
 				>
-					<Plus class="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
-					<span>New RAG</span>
+					<Plus class="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" />
+					<span class="text-base">New RAG</span>
 				</button>
 			</div>
 		</div>
 	</header>
 
 	<!-- Main Content -->
-	<div class="max-w-7xl mx-auto px-6 lg:px-8 py-8">
+	<div class="max-w-7xl mx-auto px-4 lg:px-6 py-6">
 		{#if error}
 			<div class="mb-8 bg-red-900/50 border border-red-700 rounded-xl p-6 flex items-center space-x-4">
 				<div class="p-2 bg-red-800 rounded-lg">
@@ -95,9 +95,9 @@
 			<!-- RAG List Sidebar -->
 			<div class="lg:col-span-1">
 				<div class="glass rounded-2xl shadow-2xl overflow-hidden">
-					<div class="p-6 border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700">
-						<h2 class="text-xl font-bold text-slate-100 flex items-center space-x-3">
-							<Search class="w-6 h-6 text-cyan-400" />
+					<div class="p-4 border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700">
+						<h2 class="text-lg font-bold text-slate-100 flex items-center space-x-2">
+							<Search class="w-5 h-5 text-cyan-400" />
 							<span>Available RAGs</span>
 						</h2>
 					</div>
@@ -116,21 +116,21 @@
 				{#if selectedRag}
 					<QueryInterface ragName={selectedRag} />
 				{:else}
-					<div class="glass rounded-2xl shadow-2xl p-12 text-center">
-						<Database class="w-24 h-24 text-slate-600 mx-auto mb-6" />
-						<h3 class="text-2xl font-bold text-slate-200 mb-4">Select a RAG to Query</h3>
-						<p class="text-slate-400 text-lg max-w-md mx-auto leading-relaxed">
+					<div class="glass rounded-2xl shadow-2xl p-8 text-center">
+						<Database class="w-20 h-20 text-slate-600 mx-auto mb-4" />
+						<h3 class="text-xl font-bold text-slate-200 mb-2">Select a RAG to Query</h3>
+						<p class="text-slate-400 text-base max-w-md mx-auto leading-relaxed">
 							Choose a RAG from the sidebar to start asking questions about your documents.
 							Each RAG contains its own set of documents and can be queried independently.
 						</p>
 						{#if rags.length === 0 && !loading}
-							<div class="mt-8">
+							<div class="mt-6">
 								<button
 									onclick={() => showCreateModal = true}
-									class="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-cyan-500/25 cursor-pointer"
+									class="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-cyan-500/25 cursor-pointer"
 								>
-									<Plus class="w-6 h-6" />
-									<span>Create Your First RAG</span>
+									<Plus class="w-5 h-5" />
+									<span class="text-base">Create Your First RAG</span>
 								</button>
 							</div>
 						{/if}

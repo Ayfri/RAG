@@ -6,16 +6,17 @@
 		onclick?: (e: MouseEvent) => void;
 		size?: 'default' | 'icon';
 		type?: 'button' | 'submit' | 'reset';
+		title?: string;
 		variant?: 'primary' | 'secondary' | 'danger' | 'default';
 	}
 
-	let { disabled, onclick, variant = 'primary', size = 'default', type = 'button', class: className, children, ...rest }: Props = $props();
+	let { disabled, onclick, variant = 'primary', size = 'default', type = 'button', class: className, children, title, ...rest }: Props = $props();
 
 	const baseClasses = 'transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
 
 	const sizeClasses = {
-		default: 'px-6 py-3 rounded-xl font-medium',
-		icon: 'p-2 rounded-lg'
+		default: 'px-4 py-2 rounded-xl font-medium text-base',
+		icon: 'p-1.5 rounded-lg'
 	};
 
 	const variantClasses = {
@@ -31,6 +32,7 @@
 	{disabled}
 	{onclick}
 	{type}
+	{title}
 	{...rest}
 >
 	{@render children?.()}

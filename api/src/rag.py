@@ -19,6 +19,7 @@ from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
 
 from src.config import OPENAI_API_KEY
+from llama_index.core import load_index_from_storage
 
 openai.api_key = OPENAI_API_KEY
 
@@ -405,7 +406,7 @@ class RAGService:
 
 		try:
 			storage_context = StorageContext.from_defaults(persist_dir=str(persist_dir))
-			return VectorStoreIndex.from_storage(storage_context)  # type: ignore[attr-defined]
+			return load_index_from_storage(storage_context)  # type: ignore[attr-defined]
 		finally:
 			# Restore original embedding model
 			Settings.embed_model = original_embed_model

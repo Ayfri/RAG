@@ -4,6 +4,7 @@
 	import TextArea from '$lib/components/common/TextArea.svelte';
 	import FileInput from '$lib/components/common/FileInput.svelte';
 	import CreateSymlinkModal from '$lib/components/CreateSymlinkModal.svelte';
+	import Markdown from '$lib/components/common/Markdown.svelte';
 
 	interface Props {
 		ragName: string;
@@ -68,7 +69,7 @@
 
 				if (!res.ok) throw new Error('Failed to get response');
 				const data = await res.json();
-				response = data.response || data.answer || 'No response received';
+				response = data.content || 'No response received';
 			}
 		} catch (err) {
 			response = `Error: ${err instanceof Error ? err.message : 'Unknown error'}`;
@@ -271,7 +272,7 @@
 			</div>
 			<div class="p-6">
 				<div class="bg-slate-800/50 rounded-xl p-6 border border-slate-600">
-					<pre class="whitespace-pre-wrap text-slate-200 font-mono text-sm leading-relaxed">{response}</pre>
+					<Markdown content={response} />
 				</div>
 			</div>
 		</div>

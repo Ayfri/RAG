@@ -24,6 +24,15 @@ class QueryPayload(BaseModel):
 	query: str
 
 
+class QueryResponse(BaseModel):
+	"""
+	Response payload for RAG query operations.
+
+	:param content: The answer from the RAG system
+	"""
+	content: str
+
+
 class SymlinkPayload(BaseModel):
 	"""
 	Request payload for creating symbolic links.
@@ -180,8 +189,8 @@ async def create_symlink(rag_name: str, payload: SymlinkPayload):
 # Query Operations
 # ---------------------------------------------------------------------
 
-@router.post('/{rag_name}/query', response_model=str)
-async def query_rag(rag_name: str, payload: QueryPayload) -> str:
+@router.post('/{rag_name}/query', response_model=QueryResponse)
+async def query_rag(rag_name: str, payload: QueryPayload) -> QueryResponse:
 	"""
 	Return the full answer for payload.query using the specified RAG.
 
@@ -194,7 +203,8 @@ async def query_rag(rag_name: str, payload: QueryPayload) -> str:
 		raise HTTPException(status_code=404, detail='RAG not found')
 
 	try:
-		return rag_service.query(rag_name, payload.query)
+		response_content = rag_service.query(rag_name, payload.query)
+		return QueryResponse(content=response_content)
 	except Exception as exc:
 		raise HTTPException(status_code=500, detail=f'Query failed: {str(exc)}') from exc
 

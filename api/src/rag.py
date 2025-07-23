@@ -9,7 +9,6 @@ All indices and source documents are stored on the local filesystem:
 
 import json
 import os
-import shutil
 from pathlib import Path
 from typing import AsyncGenerator, TypedDict
 
@@ -23,14 +22,24 @@ from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.llms.openai import OpenAI
 from llama_index.core.readers.json import JSONReader
 from llama_index.core.schema import Document
-from llama_index.core.tools import RetrieverTool
-from llama_index.tools.duckduckgo import DuckDuckGoSearchToolSpec
+from llama_index.core.tools import RetrieverTool, FunctionTool
+from regex import F
 
 from src.config import OPENAI_API_KEY
 from llama_index.core import load_index_from_storage
 
 openai.api_key = OPENAI_API_KEY
 
+
+class SearchResultUrl(TypedDict):
+	"""Search result from the web."""
+	title: str
+	url: str
+
+class SearchResult(TypedDict):
+	"""Search result from the web."""
+	content: str
+	urls: list[SearchResultUrl]
 
 class RAGConfig:
 	"""
@@ -327,7 +336,6 @@ class RAGService:
 		"""
 		Return a FunctionAgent for the given rag_name, with tools for local RAG and DuckDuckGo search.
 		"""
-		index = self._load_index(rag_name)
 		config = self._load_rag_config(rag_name)
 
 		complete_system_prompt = f"""
@@ -349,19 +357,48 @@ User instructions:
 			system_prompt=complete_system_prompt
 		)
 
+		def search(query: str) -> SearchResult:
+			"""
+			Search the web for information.
+			"""
+			response = openai.chat.completions.create(
+				model="gpt-4o-search-preview",
+				messages=[{"role": "user", "content": query}],
+			)
+			result = SearchResult(
+				content=response.choices[0].message.content or "No answer found.",
+				urls=[
+					SearchResultUrl(
+						title=annotation.url_citation.title,
+						url=annotation.url_citation.url
+					)
+					for annotation in response.choices[0].message.annotations or []
+				]
+			)
+
+			print(result)
+
+			return result
+
+		# Online search tool
+		search_tool = FunctionTool.from_defaults(
+			fn=search,
+			name="search",
+			description="Search the web for information. Use a detailed plain text question as input.",
+		)
+
 		# Local RAG tool
+
+		index = self._load_index(rag_name)
 		retriever = index.as_retriever(similarity_top_k=20)
 		rag_tool = RetrieverTool.from_defaults(
 			retriever=retriever,
 			name=f"rag",
-			description=f"Answer questions using the '{rag_name}' document index. Use a detailed plain text question as input."
+			description=f"Answer questions using the '{rag_name}' document index. Use a detailed plain text question as input.",
 		)
 
-		# DuckDuckGo tool
-		duckduckgo_tools = DuckDuckGoSearchToolSpec().to_tool_list()
-
 		agent = FunctionAgent(
-			tools=[rag_tool, *duckduckgo_tools],
+			tools=[rag_tool, search_tool],
 			llm=llm,
 			system_prompt=complete_system_prompt,
 			verbose=True,
@@ -547,7 +584,7 @@ User instructions:
 		agent = self.get_agent(rag_name)
 		history = history or []
 		answer = ""
-		sources: list[str] = []
+		sources: list[SearchResult] = []
 		documents: list[Document] = []
 		chat_history: list[ChatMessage] = history[:]
 
@@ -558,8 +595,8 @@ User instructions:
 				answer += event.delta
 			# Collect sources/documents from ToolCallResult events
 			if isinstance(event, ToolCallResult):
-				if event.tool_name == 'DuckDuckGoSearch':
-					sources.append(event.tool_output.content)
+				if event.tool_name.startswith('search'):
+					sources.append(event.tool_output.raw_output)
 				elif 'rag' in event.tool_name:
 					blocks = event.tool_output.blocks
 					text_blocks = [block for block in blocks if isinstance(block, TextBlock)]

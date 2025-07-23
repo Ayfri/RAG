@@ -5,6 +5,7 @@
 	import ChatInput from '$lib/components/ChatInput.svelte';
 	import FilesModal from '$lib/components/FilesModal.svelte';
 	import { notifications } from '$lib/stores/notifications';
+	import type { SearchResult, RagDocument } from '$lib/types.d.ts';
 
 	interface Props {
 		ragName: string;
@@ -22,12 +23,12 @@
 	}
 
 	interface Message {
+		content: string;
+		documents?: RagDocument[];
 		id: string;
 		role: 'user' | 'assistant';
-		content: string;
+		sources?: SearchResult[];
 		timestamp: Date;
-		sources?: any;
-		documents?: any;
 	}
 
 	let { ragName }: Props = $props();
@@ -113,7 +114,11 @@
 							const data = JSON.parse(jsonPart);
 							messages = messages.map((msg, index) =>
 								index === messages.length - 1
-									? { ...msg, sources: data.sources, documents: data.documents }
+									? {
+										...msg,
+										documents: data.documents,
+										sources: data.sources // sources is now a list of SearchResult objects
+									}
 									: msg
 							);
 						} catch (e) {

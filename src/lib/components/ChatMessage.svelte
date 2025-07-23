@@ -1,23 +1,21 @@
 <script lang="ts">
 	import { Bot, Copy, Loader, RefreshCcw, Trash2, User, FileText } from '@lucide/svelte';
 	import Markdown from '$lib/components/common/Markdown.svelte';
+	import type { SearchResult, SearchResultUrl, RagDocument } from '$lib/types.d.ts';
 
-	interface ChatMessage {
+	interface Message {
+		content: string;
+		documents?: RagDocument[];
 		id: string;
 		role: 'user' | 'assistant';
-		content: string;
-		documents?: {
-			content: string;
-			source: string;
-		}[];
-		sources?: string[];
+		sources?: SearchResult[];
 		timestamp: Date;
 	}
 
 	interface Props {
 		isLastMessage?: boolean;
 		isStreaming?: boolean;
-		message: ChatMessage;
+		message: Message;
 		onDelete?: (id: string) => void;
 		onRegenerate?: (id: string) => void;
 	}
@@ -100,32 +98,40 @@
 				{#if message.role === 'user'}
 					<p class="whitespace-pre-wrap break-words">{message.content}</p>
 				{:else}
-					<Markdown content={message.content} />
+					{@const hasUrls = message.sources?.some((source) => source.urls.length > 0)}
+					{@const hasDocuments = message.documents && message.documents.length > 0}
+
+					{#if message.content.length > 0}
+						<Markdown content={message.content} />
+					{/if}
+
 					{#if isStreaming && isLastMessage}
 						<div class="flex items-center space-x-2 mt-3 pt-3 border-t border-slate-600">
 							<Loader class="w-4 h-4 animate-spin text-cyan-400" />
 							<span class="text-xs text-slate-400">Assistant is typing...</span>
 						</div>
 					{/if}
-					{#if message.sources || message.documents}
+
+					{#if hasUrls || hasDocuments}
 						<div class="mt-4 pt-3 border-t border-slate-700 text-xs">
 							{#if message.sources && message.sources.length > 0}
-								<div class="flex flex-wrap gap-2 items-center mb-2">
-									<strong class="mr-2 text-slate-400">Sources:</strong>
-									{#each message.sources as source}
-										{#if typeof source === 'string'}
-											{#if isUrl(source)}
-												<a href={source} target="_blank" rel="noopener" class="inline-block bg-cyan-900/60 text-cyan-200 px-3 py-1 rounded-full font-mono hover:bg-cyan-800/80 hover:underline transition-all duration-150 shadow-sm border border-cyan-700">
-													{source}
-												</a>
-											{:else if isFilePath(source)}
-												<span class="inline-block bg-slate-800/80 text-slate-200 px-3 py-1 rounded-full font-mono border border-slate-700 shadow-sm">{source}</span>
-											{:else}
-												<span class="inline-block bg-slate-700/80 text-slate-100 px-3 py-1 rounded-full font-mono border border-slate-600 shadow-sm">{source}</span>
+								<div class="space-y-3 mb-2">
+									{#each message.sources.filter((source) => source.urls.length > 0) as source}
+										<div class="mb-2">
+											{#if source.urls && source.urls.length > 0}
+												<div class="flex flex-wrap gap-2 items-center mt-1">
+													{#each source.urls.toSorted((a: SearchResultUrl, b: SearchResultUrl) => a.title.localeCompare(b.title)) as url}
+														{#if isUrl(url.url)}
+															<a href={url.url} target="_blank" rel="noopener" class="inline-block bg-cyan-900/60 text-cyan-200 px-3 py-1 rounded-full font-mono hover:bg-cyan-800/80 hover:underline transition-all duration-150 shadow-sm border border-cyan-700">
+																{url.title}
+															</a>
+														{:else}
+															<span class="inline-block bg-slate-700/80 text-slate-100 px-3 py-1 rounded-full font-mono border border-slate-600 shadow-sm">{url.url}</span>
+														{/if}
+													{/each}
+												</div>
 											{/if}
-										{:else}
-											<span class="inline-block bg-slate-700/80 text-slate-100 px-3 py-1 rounded-full font-mono border border-slate-600 shadow-sm">{JSON.stringify(source)}</span>
-										{/if}
+										</div>
 									{/each}
 								</div>
 							{/if}

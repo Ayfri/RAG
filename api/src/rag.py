@@ -44,8 +44,10 @@ class RAGService:
 		files_path = self._FILES_DIR / rag_name
 		files_path.mkdir(parents=True, exist_ok=True) # Ensure directory exists
 
-		# Load & embed documents
-		docs = SimpleDirectoryReader(str(files_path)).load_data()
+		docs = []
+		if any(files_path.iterdir()): # Only load data if files exist
+			docs = SimpleDirectoryReader(str(files_path)).load_data()
+
 		index = VectorStoreIndex.from_documents(docs)
 
 		# Persist on disk (overwrite)

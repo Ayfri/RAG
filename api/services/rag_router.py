@@ -144,11 +144,10 @@ async def create_rag(rag_name: str):
 	"""
 	try:
 		rag_service.create_rag(rag_name)
-		return JSONResponse({'detail': f'RAG "{rag_name}" created successfully'}, status_code=201)
-	except FileNotFoundError as exc:
-		raise HTTPException(status_code=404, detail=str(exc)) from exc
-	except Exception as exc:
-		raise HTTPException(status_code=500, detail=f'Failed to create RAG: {str(exc)}') from exc
+		return JSONResponse(status_code=200, content={'message': f'RAG "{rag_name}" created/rebuilt successfully.'})
+	except Exception as e:
+		print(f"Error creating RAG: {e}") # Log the full error
+		raise HTTPException(status_code=500, detail=f'Failed to create RAG: {e}')
 
 
 @router.delete('/{rag_name}', status_code=204)

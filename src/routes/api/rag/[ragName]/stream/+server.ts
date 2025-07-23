@@ -1,8 +1,9 @@
 import { error } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
 
 const API_BASE_URL = 'http://localhost:8000';
 
-export async function POST({ params, request }: { params: { ragName: string }; request: Request }) {
+export const POST: RequestHandler = async ({ params, request }) => {
 	try {
 		const body = await request.json();
 

@@ -7,6 +7,7 @@ A modern **Retrieval-Augmented Generation (RAG)** application with a **FastAPI**
 - **Frontend**: SvelteKit + TypeScript + TailwindCSS
 - **Backend**: FastAPI + LlamaIndex + OpenAI
 - **Database**: File-based vector storage
+- **Configuration**: Per-RAG JSON configuration files
 
 ## 📁 Project Structure
 
@@ -29,7 +30,8 @@ RAG/
 │       └── components/    # Reusable Svelte components
 ├── data/                  # Runtime data (not in Git)
 │   ├── files/<rag-name>/  # Source documents
-│   └── indices/<rag-name>/ # Vector indices
+│   ├── indices/<rag-name>/ # Vector indices
+│   └── configs/<rag-name>.json # Per-RAG configurations
 ├── package.json           # Frontend dependencies
 └── README.md              # This file
 ```
@@ -87,6 +89,13 @@ The web app will be available at `http://localhost:5173`.
 - Create new RAG indices from uploaded documents
 - List all available RAGs
 - Delete RAGs and their associated data
+- **Configure individual RAG settings** (OpenAI models, system prompts)
+
+### ⚙️ RAG Configuration
+- **Per-RAG model selection**: Choose different OpenAI chat models (GPT-4o, GPT-4o-mini, etc.)
+- **Custom embedding models**: Select from various OpenAI embedding models
+- **System prompt customization**: Define how the AI should respond for each RAG
+- **Persistent settings**: Configuration stored in JSON files per RAG
 
 ### 📄 Document Management
 - Upload files via drag-and-drop or file picker
@@ -99,12 +108,14 @@ The web app will be available at `http://localhost:5173`.
 - Real-time streaming responses
 - Standard and streaming query modes
 - Clean, readable response formatting
+- **Context-aware responses** based on per-RAG system prompts
 
 ### 🎨 Modern UI
 - Responsive design with TailwindCSS
 - Dark/light theme support
 - Intuitive file management
 - Real-time loading states and error handling
+- **Configuration modal** for easy RAG customization
 
 ## 🛠️ Technology Stack
 
@@ -131,12 +142,24 @@ The web app will be available at `http://localhost:5173`.
 3. Upload one or more documents (PDF, TXT, DOCX, MD)
 4. Wait for the vector index to be created
 
+### Configuring a RAG
+
+1. Click the **settings icon** (⚙️) next to any RAG in the sidebar
+2. Choose your preferred **OpenAI chat model** (GPT-4o, GPT-4o-mini, etc.)
+3. Select an **embedding model** for document processing
+4. Customize the **system prompt** to define the AI's behavior
+5. Save your configuration
+
+**Available Models:**
+- **Chat**: gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4, gpt-3.5-turbo
+- **Embeddings**: text-embedding-3-large, text-embedding-3-small, text-embedding-ada-002
+
 ### Querying Documents
 
 1. Select a RAG from the sidebar
 2. Type your question in the query box
 3. Choose **"Ask"** for a complete response or **"Stream"** for real-time output
-4. View the AI-generated answer based on your documents
+4. View the AI-generated answer based on your documents and configuration
 
 ### Managing Files
 
@@ -175,6 +198,8 @@ uvicorn api.main:app --reload  # Development server with auto-reload
 | `GET` | `/rag` | List all RAGs |
 | `POST` | `/rag/{name}` | Create/rebuild RAG |
 | `DELETE` | `/rag/{name}` | Delete RAG |
+| `GET` | `/rag/{name}/config` | Get RAG configuration |
+| `PUT` | `/rag/{name}/config` | Update RAG configuration |
 | `POST` | `/rag/{name}/query` | Query RAG |
 | `POST` | `/rag/{name}/stream` | Stream query response |
 | `GET` | `/rag/{name}/files` | List RAG files |

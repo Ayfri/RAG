@@ -1,8 +1,9 @@
 import { json, error } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
 
 const API_BASE_URL = 'http://localhost:8000';
 
-export async function DELETE({ params }: { params: { ragName: string; filename: string } }) {
+export const DELETE: RequestHandler = async ({ params }) => {
 	try {
 		const response = await fetch(`${API_BASE_URL}/rag/${params.ragName}/files/${params.filename}`, {
 			method: 'DELETE'

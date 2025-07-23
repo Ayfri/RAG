@@ -1,8 +1,9 @@
 import { json, error } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
 
 const API_BASE_URL = 'http://localhost:8000';
 
-export async function GET({ params }: { params: { ragName: string } }) {
+export const GET: RequestHandler = async ({ params }) => {
 	try {
 		const response = await fetch(`${API_BASE_URL}/rag/${params.ragName}/files`);
 
@@ -19,7 +20,7 @@ export async function GET({ params }: { params: { ragName: string } }) {
 	}
 };
 
-export async function POST({ params, request }: { params: { ragName: string }; request: Request }) {
+export const POST: RequestHandler = async ({ params, request }) => {
 	try {
 		const formData = await request.formData();
 

@@ -1,14 +1,15 @@
 <script lang="ts">
-	import { Trash2, Loader, FolderOpen, AlertCircle } from '@lucide/svelte';
+	import { Trash2, Loader, FolderOpen, AlertCircle, Settings } from '@lucide/svelte';
 
 	interface Props {
 		rags: string[];
 		loading: boolean;
 		selectedRag: string | null;
+		onconfig: (ragName: string) => void;
 		ondelete: () => void;
 	}
 
-	let { rags, loading, selectedRag = $bindable(), ondelete }: Props = $props();
+	let { rags, loading, selectedRag = $bindable(), onconfig, ondelete }: Props = $props();
 
 	let deletingRag = $state('');
 
@@ -55,21 +56,33 @@
 						</h3>
 						<p class="text-slate-500 text-xs mt-1">Click to query this RAG</p>
 					</div>
-					<button
-						onclick={(e) => {
-							e.stopPropagation();
-							deleteRag(rag);
-						}}
-						disabled={deletingRag === rag}
-						class="ml-3 p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-all duration-200 disabled:opacity-50 cursor-pointer"
-						title="Delete RAG"
-					>
-						{#if deletingRag === rag}
-							<Loader class="w-4 h-4 animate-spin" />
-						{:else}
-							<Trash2 class="w-4 h-4" />
-						{/if}
-					</button>
+					<div class="flex items-center space-x-2 ml-3">
+						<button
+							onclick={(e) => {
+								e.stopPropagation();
+								onconfig(rag);
+							}}
+							class="p-2 text-slate-500 hover:text-cyan-400 hover:bg-cyan-900/20 rounded-lg transition-all duration-200 cursor-pointer"
+							title="Configure RAG"
+						>
+							<Settings class="w-4 h-4" />
+						</button>
+						<button
+							onclick={(e) => {
+								e.stopPropagation();
+								deleteRag(rag);
+							}}
+							disabled={deletingRag === rag}
+							class="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-all duration-200 disabled:opacity-50 cursor-pointer"
+							title="Delete RAG"
+						>
+							{#if deletingRag === rag}
+								<Loader class="w-4 h-4 animate-spin" />
+							{:else}
+								<Trash2 class="w-4 h-4" />
+							{/if}
+						</button>
+					</div>
 				</div>
 			</div>
 		{/each}

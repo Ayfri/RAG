@@ -265,7 +265,7 @@
 	});
 </script>
 
-<div class="h-full flex flex-col gap-4">
+<div class="h-full max-h-screen flex flex-col gap-4 overflow-hidden">
 	<!-- Header -->
 	<header class="glass border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700 p-4 rounded-xl flex-shrink-0">
 		<div class="flex items-center justify-between">
@@ -297,11 +297,11 @@
 		</div>
 	</header>
 
-	<main class="flex-1 flex flex-col overflow-hidden">
+	<main class="flex-1 flex flex-col min-h-0 overflow-hidden">
 		<!-- Messages -->
 		<div
 			bind:this={chatContainer}
-			class="flex-1 overflow-y-auto p-6 space-y-6"
+			class="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-6 min-h-0"
 		>
 			{#if messages.length === 0}
 				<div class="flex flex-col items-center justify-center h-full text-center">

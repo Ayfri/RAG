@@ -39,7 +39,7 @@
 			<Bot class="w-5 h-5 text-white" />
 		{/if}
 	</div>
-	<div class="flex-1 max-w-3xl">
+	<div class="flex-1 w-0">
 		<div class="flex items-center gap-2 mb-2 {message.role === 'user' ? 'justify-end' : ''}">
 			<span class="text-sm font-medium text-slate-300">
 				{message.role === 'user' ? 'You' : 'Assistant'}
@@ -68,9 +68,9 @@
 			<div class="p-4 rounded-2xl {message.role === 'user'
 				? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-white'
 				: 'bg-slate-800/50 border border-slate-600'
-			} flex-1">
+			} flex-1 min-w-0 break-words">
 				{#if message.role === 'user'}
-					<p class="whitespace-pre-wrap">{message.content}</p>
+					<p class="whitespace-pre-wrap break-words">{message.content}</p>
 				{:else}
 					<Markdown content={message.content} />
 					{#if isStreaming && isLastMessage}

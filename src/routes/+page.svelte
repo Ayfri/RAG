@@ -51,10 +51,10 @@
 	onMount(loadRags);
 </script>
 
-<div class="min-h-screen bg-slate-900">
+<div class="h-screen bg-slate-900 flex flex-col">
 	<!-- Header -->
-	<header class="bg-slate-800 border-b border-slate-700 shadow-xl">
-		<div class="max-w-7xl mx-auto px-4 lg:px-6">
+	<header class="bg-slate-800 border-b border-slate-700 shadow-xl flex-shrink-0">
+		<div class="px-4 lg:px-6">
 			<div class="flex justify-between items-center py-4">
 				<div class="flex items-center space-x-3">
 					<div class="p-1.5 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl">
@@ -79,7 +79,7 @@
 	</header>
 
 	<!-- Main Content -->
-	<div class="max-w-7xl mx-auto px-4 lg:px-6 py-6">
+	<main class="px-4 lg:px-6 py-6 w-full flex-1 overflow-hidden flex flex-col">
 		{#if error}
 			<div class="mb-8 bg-red-900/50 border border-red-700 rounded-xl p-6 flex items-center space-x-4">
 				<div class="p-2 bg-red-800 rounded-lg">
@@ -92,10 +92,10 @@
 			</div>
 		{/if}
 
-		<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+		<div class="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1 min-h-0">
 			<!-- RAG List Sidebar -->
 			<div class="lg:col-span-1">
-				<div class="glass rounded-2xl shadow-2xl overflow-hidden">
+				<div class="glass rounded-2xl shadow-2xl overflow-hidden h-full">
 					<div class="p-4 border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700">
 						<h2 class="text-lg font-bold text-slate-100 flex items-center space-x-2">
 							<Search class="w-5 h-5 text-cyan-400" />
@@ -113,7 +113,7 @@
 			</div>
 
 			<!-- Query Interface -->
-			<div class="lg:col-span-2">
+			<div class="lg:col-span-2 h-full min-h-0">
 				{#if selectedRag}
 					<QueryInterface ragName={selectedRag} />
 				{:else}
@@ -140,7 +140,7 @@
 				{/if}
 			</div>
 		</div>
-	</div>
+	</main>
 
 	<!-- Create RAG Modal -->
 	<CreateRagModal

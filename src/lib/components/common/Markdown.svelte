@@ -69,7 +69,7 @@
 	});
 </script>
 
-<div class="prose prose-invert prose-sm max-w-none
+<div class="prose prose-invert prose-sm max-w-none break-words overflow-wrap-anywhere
 	prose-h1:text-slate-100 prose-h2:text-slate-100 prose-h3:text-slate-100 prose-h4:text-slate-100
 	prose-a:text-cyan-400 prose-a:no-underline hover:prose-a:underline
 	prose-p:text-slate-300

@@ -86,63 +86,71 @@
 			const decoder = new TextDecoder();
 			let buffer = '';
 			let doneReading = false;
-			let foundSeparator = false;
 
 			while (!doneReading) {
 				const { done, value } = await reader.read();
-				doneReading = done;
+				if (done) {
+					doneReading = true;
+				}
 				if (value) {
 					const chunk = decoder.decode(value);
 					buffer += chunk;
 
-					// Check for separator
-					const sepIndex = buffer.indexOf('\n---\n');
-					if (sepIndex !== -1) {
-						// Everything before is the answer, after is the JSON
-						const answer = buffer.slice(0, sepIndex);
-						const jsonPart = buffer.slice(sepIndex + 5);
-
-						// Update the assistant message with the answer
-						messages = messages.map((msg, index) =>
-							index === messages.length - 1
-								? { ...msg, content: answer }
-								: msg
-						);
-
-						// Try to parse the JSON part
-						try {
-							const data = JSON.parse(jsonPart);
-							messages = messages.map((msg, index) =>
-								index === messages.length - 1
-									? {
-										...msg,
-										documents: data.documents,
-										sources: data.sources // sources is now a list of SearchResult objects
-									}
-									: msg
-							);
-						} catch (e) {
-							// Ignore JSON parse errors for now
-						}
-
-						foundSeparator = true;
-						doneReading = true;
-						break;
-					} else {
-						// No separator yet, just append chunk to content
-						messages = messages.map((msg, index) =>
-							index === messages.length - 1
-								? { ...msg, content: msg.content + chunk }
-								: msg
-						);
-					}
-
-					// Auto-scroll to bottom
+					// Auto-scroll to bottom as we receive data
 					setTimeout(() => {
 						if (chatContainer) {
 							chatContainer.scrollTop = chatContainer.scrollHeight;
 						}
 					}, 0);
+
+					// While streaming, show the content up to the last separator (if any), otherwise all
+					const lastSepIndex = buffer.lastIndexOf('\n---\n');
+					if (lastSepIndex === -1) {
+						// No separator yet, just show all as answer
+						messages = messages.map((msg, index) =>
+							index === messages.length - 1
+								? { ...msg, content: buffer }
+								: msg
+						);
+					} else {
+						// Show only the answer part (before the last separator)
+						const answer = buffer.slice(0, lastSepIndex);
+						messages = messages.map((msg, index) =>
+							index === messages.length - 1
+								? { ...msg, content: answer }
+								: msg
+						);
+					}
+				}
+			}
+
+			// After the stream is done, process the last separator and JSON
+			const lastSepIndex = buffer.lastIndexOf('\n---\n');
+			if (lastSepIndex !== -1) {
+				const answer = buffer.slice(0, lastSepIndex);
+				const jsonPart = buffer.slice(lastSepIndex + 5);
+
+				// Update the assistant message with the final answer
+				messages = messages.map((msg, index) =>
+					index === messages.length - 1
+						? { ...msg, content: answer }
+						: msg
+				);
+
+				// Try to parse the JSON part
+				try {
+					const data = JSON.parse(jsonPart);
+					messages = messages.map((msg, index) =>
+						index === messages.length - 1
+							? {
+								...msg,
+								documents: data.documents,
+								sources: data.sources
+							}
+							: msg
+					);
+				} catch (e) {
+					// Ignore JSON parse errors for now
 				}
 			}
 		} catch (err) {

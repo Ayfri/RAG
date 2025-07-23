@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from src.rag import RAGConfig, RAGService
+from src.openai_models import get_openai_models
 
 router = APIRouter(prefix='/rag', tags=['RAG'])
 rag_service = RAGService()
@@ -34,6 +35,30 @@ class ConfigPayload(BaseModel):
 	chat_model: str = 'gpt-4o-mini'
 	embedding_model: str = 'text-embedding-3-large'
 	system_prompt: str = 'You are a helpful assistant that answers questions based on the provided context. Be concise and accurate.'
+
+
+# ---------------------------------------------------------------------
+# OpenAI Models
+# ---------------------------------------------------------------------
+
+@router.get('/models')
+async def get_models():
+	"""
+	Retrieve available OpenAI models, filtered by deprecation status and categorized.
+
+	Returns models in three categories:
+	- chat: Models for text generation and conversation
+	- embedding: Models for creating embeddings
+	- thinking: Models specialized for reasoning (o1, o3, o4 series)
+
+	:return: Dictionary with categorized model lists
+	:raises HTTPException: 500 if OpenAI API fails
+	"""
+	try:
+		models = await get_openai_models()
+		return JSONResponse(content=models, status_code=200)
+	except Exception as e:
+		raise HTTPException(status_code=500, detail=f'Failed to fetch OpenAI models: {str(e)}')
 
 
 # ---------------------------------------------------------------------

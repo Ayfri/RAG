@@ -149,9 +149,11 @@
 	/>
 
 	<!-- Config RAG Modal -->
-	<RagConfigModal
-		ragName={configRagName}
-		onupdated={handleConfigUpdated}
-		bind:open={showConfigModal}
-	/>
+	{#if configRagName}
+		<RagConfigModal
+			ragName={configRagName}
+			onupdated={handleConfigUpdated}
+			bind:open={showConfigModal}
+		/>
+	{/if}
 </div>

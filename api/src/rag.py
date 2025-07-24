@@ -99,15 +99,15 @@ class RAGService:
 			else:
 				docs.extend(SimpleDirectoryReader(str(files_path), recursive=True, encoding='utf-8').load_data(show_progress=True))
 
-		if not docs:
-			raise ValueError(f"No documents were loaded for RAG '{rag_name}'")
+		# If no documents are found, still create and persist an empty index.
+		# This allows initializing a RAG with no documents without error.
 
-		# Temporarily set the embedding model for this operation
 		original_embed_model = Settings.embed_model
 		Settings.embed_model = embed_model
 
 		try:
 			print(f"Creating index for {rag_name} with {len(docs)} documents")
+			# VectorStoreIndex.from_documents([]) will create an empty index.
 			index = VectorStoreIndex.from_documents(docs, show_progress=True)
 
 			# Persist on disk (overwrite)

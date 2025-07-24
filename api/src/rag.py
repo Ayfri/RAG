@@ -10,14 +10,15 @@ All indices and source documents are stored on the local filesystem:
 import json
 import os
 from pathlib import Path
+import textwrap
 from typing import AsyncGenerator, TypedDict
 
 import openai
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.core import SimpleDirectoryReader, StorageContext, VectorStoreIndex, Settings
-from llama_index.core.agent.workflow import FunctionAgent, ToolCallResult, AgentOutput
-from llama_index.core.base.llms.types import TextBlock
+from llama_index.core.agent.workflow import ToolCallResult, AgentOutput
 from llama_index.core.llms import ChatMessage
+from llama_index.core.response_synthesizers import ResponseMode
 from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.llms.openai import OpenAI
 from llama_index.core.readers.json import JSONReader
@@ -42,6 +43,7 @@ class RAGService:
 	_FILES_DIR = Path('data/files')
 	_INDICES_DIR = Path('data/indices')
 	_CONFIGS_DIR = Path('data/configs')
+	_RESUMES_DIR = Path('data/resumes')
 
 
 	def __init__(self):
@@ -51,6 +53,7 @@ class RAGService:
 		self._FILES_DIR.mkdir(parents=True, exist_ok=True)
 		self._INDICES_DIR.mkdir(parents=True, exist_ok=True)
 		self._CONFIGS_DIR.mkdir(parents=True, exist_ok=True)
+		self._RESUMES_DIR.mkdir(parents=True, exist_ok=True)
 
 
 	def get_files(self, input_path: Path) -> list[str]:
@@ -120,6 +123,31 @@ class RAGService:
 				persist_dir.mkdir(parents=True, exist_ok=True)
 
 			index.storage_context.persist(persist_dir=str(persist_dir))
+
+			print(f"Index created for {rag_name} with {len(docs)} documents, generating summary...")
+
+			# Generate and save project summary
+			summary_llm = OpenAI(
+				api_key=OPENAI_API_KEY,
+				model="o4-mini",
+				reasoning_effort="high",
+			)
+			query_engine = index.as_query_engine(
+				llm=summary_llm,
+				response_mode=ResponseMode.COMPACT_ACCUMULATE,
+				similarity_top_k=30,
+			)
+
+			summary_prompt = """
+				Summarize the project based on the provided documents. Focus on key functionalities, architecture, and purpose. Pin any important information.
+				Use markdown formatting, be exhaustive and complete.
+			"""
+			summary_response = query_engine.query(textwrap.dedent(summary_prompt).strip())
+			summary_path = self._RESUMES_DIR / f'{rag_name}.md'
+			summary_path.write_text(str(summary_response), encoding='utf-8')
+
+			print(f"Generated and saved summary for {rag_name} at {summary_path}")
+
 		finally:
 			# Restore original embedding model
 			Settings.embed_model = original_embed_model
@@ -210,6 +238,10 @@ class RAGService:
 		if config_path.exists():
 			config_path.unlink()
 
+		summary_path = self._RESUMES_DIR / f'{rag_name}.md'
+		if summary_path.exists():
+			summary_path.unlink()
+
 
 	def get_rag_config(self, rag_name: str) -> RAGConfig:
 		"""
@@ -294,10 +326,17 @@ class RAGService:
 		Return a FunctionAgent for the given rag_name, with tools for local RAG, DuckDuckGo search, file read, and file list.
 		"""
 		config = self._load_rag_config(rag_name)
+
+		summary_path = self._RESUMES_DIR / f'{rag_name}.md'
+		project_summary = ''
+		if summary_path.exists():
+			project_summary = summary_path.read_text(encoding='utf-8')
+
 		return get_agent(
 			rag_name=rag_name,
 			config=config,
-			load_index=self._load_index
+			project_summary=project_summary,
+			load_index=self._load_index,
 		)
 
 

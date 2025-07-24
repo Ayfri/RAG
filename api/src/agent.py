@@ -86,23 +86,30 @@ def list_files_tool(rel_dir: str, max_depth: int = 1) -> list[str]:
 def get_agent(
 	rag_name: str,
 	config: RAGConfig,
+	project_summary: str,
 	load_index: Callable[[str], VectorStoreIndex],
 ):
 	"""
 	Return a FunctionAgent for the given rag_name, with tools for local RAG, DuckDuckGo search, file read, and file list.
-	- config: RAGConfig instance
-	- load_index: function to load the index for rag_name
 	"""
+
 	complete_system_prompt = f"""
-You are a helpful assistant that answers questions based on the provided context. Be concise and accurate.
+You are a helpful assistant that answers questions based on the provided context. Be accurate and do not hallucinate or make up information.
 
 You have access to the following tools:
-- rag: Answer questions using the '{rag_name}' document index. Use a detailed plain text question as input.
-- DuckDuckGoSearch: Search the web for information. Use a detailed plain text question as input.
+- rag: Search relevant documents using the '{rag_name}' documents index. Use a short sentence as input.
+- duckduckgo_search: Search the web for information. Use a short sentence as input.
 - read_file: Read the content of a specific file in data/files. Input: relative file path from data/files.
 - list_files: List files in a directory in data/files. Input: relative directory path from data/files.
 
 If you are not sure about the answer, it has a big chance to be related to the documents you have access to, so you should use the {rag_name}_rag tool.
+
+Project name: {rag_name}
+--------------------------------
+
+Project summary:
+{project_summary}
+--------------------------------
 
 User instructions:
 {config.system_prompt}

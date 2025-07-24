@@ -136,16 +136,16 @@
 					{/if}
 
 					{#if hasUrls || hasDocuments}
-						<div class="mt-4 pt-3 border-t border-slate-700 text-xs">
+						<div class="mt-4 pt-3 border-t border-slate-700 text-[0.7rem]">
 							{#if message.sources && message.sources.length > 0}
 								<div class="space-y-3 mb-2">
 									{#each message.sources.filter((source) => source.urls.length > 0) as source}
 										<div class="mb-2">
 											{#if source.urls && source.urls.length > 0}
-												<div class="flex flex-wrap gap-2 items-center mt-1">
+												<div class="flex flex-wrap gap-1 items-center mt-1">
 													{#each source.urls.toSorted((a: SearchResultUrl, b: SearchResultUrl) => a.title.localeCompare(b.title)) as url}
 														{#if isUrl(url.url)}
-															<a href={url.url} target="_blank" rel="noopener" class="inline-block bg-cyan-900/60 text-cyan-200 px-3 py-1 rounded-full font-mono hover:bg-cyan-800/80 hover:underline transition-all duration-150 shadow-sm border border-cyan-700">
+															<a href={url.url} target="_blank" rel="noopener" class="inline-block bg-cyan-900/60 text-cyan-200 px-2 py-0.5 rounded-full font-mono hover:bg-cyan-800/80 hover:underline transition-all duration-150 shadow-sm border border-cyan-700">
 																{url.title}
 															</a>
 														{:else}

@@ -4,8 +4,10 @@
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
 	import ChatInput from '$lib/components/ChatInput.svelte';
 	import FilesModal from '$lib/components/FilesModal.svelte';
+	import Select from '$lib/components/common/Select.svelte';
 	import { notifications } from '$lib/stores/notifications';
-	import type { SearchResult, RagDocument } from '$lib/types.d.ts';
+	import { openAIModels } from '$lib/stores/openai-models';
+	import type { SearchResult, RagDocument, OpenAIModel } from '$lib/types.d.ts';
 
 	interface Props {
 		ragName: string;
@@ -32,6 +34,8 @@
 	}
 
 	let { ragName }: Props = $props();
+	let allOpenAIModels: OpenAIModel[] = $state([]);
+	let selectedModel = $state('');
 
 	let currentMessage = $state('');
 	let messages: Message[] = $state([]);
@@ -297,14 +301,41 @@
 		}
 	}
 
+	async function loadRagConfig() {
+		try {
+			const res = await fetch(`/api/rag/${ragName}/config`);
+			if (!res.ok) throw new Error('Failed to load RAG config');
+			const config = await res.json();
+			selectedModel = config.chat_model;
+		} catch (err) {
+			console.error('Failed to load RAG config:', err);
+			notifications.error(`Failed to load RAG config: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		}
+	}
+
+	async function updateRagConfig(newModel: string) {
+		try {
+			const res = await fetch(`/api/rag/${ragName}/config`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ chat_model: newModel })
+			});
+			if (!res.ok) throw new Error('Failed to update RAG config');
+		} catch (err) {
+			console.error('Failed to update RAG config:', err);
+			notifications.error(`Failed to update chat model: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		}
+	}
+
 	function handleSymlinkCreated() {
 		loadFiles();
 	}
 
-	// Load files when component mounts or ragName changes
+	// Load files and RAG config when component mounts or ragName changes
 	$effect(() => {
 		if (ragName) {
 			loadFiles();
+			loadRagConfig();
 		}
 	});
 
@@ -314,6 +345,23 @@
 			setTimeout(() => {
 				chatContainer.scrollTop = chatContainer.scrollHeight;
 			}, 100);
+		}
+	});
+
+	// Subscribe to OpenAI models store
+	$effect(() => {
+		const unsubscribe = openAIModels.subscribe(models => {
+			allOpenAIModels = [...models.chat, ...models.thinking].filter(model =>
+				(model.id.startsWith('gpt')) ||
+				(model.id.startsWith('o') && !model.id.includes('deep-research'))
+			); // Filter for chat/thinking models, excluding 'deep-research' o-models
+		});
+		return unsubscribe;
+	});
+
+	$effect(() => {
+		if (selectedModel) {
+			updateRagConfig(selectedModel);
 		}
 	});
 </script>
@@ -329,6 +377,12 @@
 				</h2>
 			</div>
 			<div class="flex items-center space-x-3">
+				<Select
+					options={allOpenAIModels.map(model => ({ label: model.name, value: model.id }))}
+					bind:value={selectedModel}
+					placeholder="Select Chat Model"
+					class="w-48"
+				/>
 				<Button
 					onclick={() => showFilesModal = true}
 					class="group flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white rounded-xl cursor-pointer text-sm font-medium transition-all duration-200 shadow-lg"

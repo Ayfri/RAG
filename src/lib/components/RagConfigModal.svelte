@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { CheckCircle, Loader, RefreshCw, Save, Settings, X } from '@lucide/svelte';
-	import { getModelsLoadingState, loadOpenAIModels, openaiModels } from '$lib/stores/openai-models.js';
+	import { openAIModels } from '$lib/stores/openai-models.js';
 	import Button from '$lib/components/common/Button.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import Select from '$lib/components/common/Select.svelte';
 	import TextArea from '$lib/components/common/TextArea.svelte';
+	import type { OpenAIModel } from '$lib/types.d.ts';
 
 	interface Props {
 		ragName: string;
@@ -31,20 +32,9 @@
 	let error = $state('');
 	let success = $state(false);
 
-	// Get loading state and models from stores
-	const modelsState = getModelsLoadingState();
-
-	async function ensureModelsLoaded() {
-		try {
-			await loadOpenAIModels();
-		} catch (err) {
-			console.warn('Failed to load models:', err);
-		}
-	}
-
 	async function reloadModels() {
 		try {
-			await loadOpenAIModels(true);
+			await fetch('/api/models', { headers: { 'Cache-Control': 'no-cache' } });
 		} catch (err) {
 			console.warn('Failed to reload models:', err);
 		}
@@ -54,8 +44,6 @@
 		try {
 			loading = true;
 			error = '';
-
-			await ensureModelsLoaded();
 
 			const response = await fetch(`/api/rag/${ragName}/config`);
 
@@ -113,25 +101,25 @@
 			<Settings class="w-6 h-6 text-cyan-400" />
 			<div>
 				<h2 class="text-2xl font-bold text-slate-100">Configure RAG</h2>
-				{#if $modelsState}
+				{#if $openAIModels.chat.length === 0 && $openAIModels.embedding.length === 0}
 					<p class="text-xs text-slate-400 flex items-center space-x-1">
 						<Loader class="w-3 h-3 animate-spin" />
 						<span>Loading latest models...</span>
 					</p>
-				{:else if $openaiModels.chat.length > 0 || $openaiModels.embedding.length > 0}
-					<p class="text-xs text-green-400">✓ Models loaded ({$openaiModels.chat.length + $openaiModels.thinking.length} chat, {$openaiModels.embedding.length} embedding)</p>
+				{:else}
+					<p class="text-xs text-green-400">✓ Models loaded ({$openAIModels.chat.length + $openAIModels.thinking.length} chat, {$openAIModels.embedding.length} embedding)</p>
 				{/if}
 			</div>
 		</div>
 		<Button
 			size="icon"
 			onclick={reloadModels}
-			disabled={$modelsState}
+			disabled={false}
 			class="group"
 			variant="secondary"
 			title="Reload OpenAI models"
 		>
-			<RefreshCw class={`w-5 h-5 group-hover:rotate-45 ${$modelsState ? 'animate-spin' : ''}`} />
+			<RefreshCw class={`w-5 h-5 group-hover:rotate-45 ${false ? 'animate-spin' : ''}`} />
 		</Button>
 	</div>
 
@@ -161,22 +149,22 @@
 				<label for="chat-model" class="block text-sm font-medium text-slate-200">
 					Chat Model
 				</label>
-				{#if $modelsState}
+				{#if $openAIModels.chat.length === 0 && $openAIModels.thinking.length === 0}
 					<Select
 						id="chat-model"
 						bind:value={config.chat_model}
-						disabled={$modelsState}
+						disabled={true}
 						options={[{ label: 'Loading models...', value: '' }]}
 					/>
 				{:else}
 					<Select
 						id="chat-model"
 						bind:value={config.chat_model}
-						disabled={$modelsState}
+						disabled={false}
 						options={[
-							...$openaiModels.chat.toSorted((a, b) => a.name.localeCompare(b.name)).map(model => ({ label: model.name, value: model.id })),
-							...$openaiModels.thinking.map(model => ({ label: `${model.name} (Reasoning)`, value: model.id })),
-							...($openaiModels.chat.length === 0 && $openaiModels.thinking.length === 0 ? [{ label: 'GPT-4o Mini (fallback)', value: 'gpt-4o-mini' }] : [])
+							...$openAIModels.chat.toSorted((a: OpenAIModel, b: OpenAIModel) => a.name.localeCompare(b.name)).map((model: OpenAIModel) => ({ label: model.name, value: model.id })),
+							...$openAIModels.thinking.filter((model: OpenAIModel) => !model.id.includes('deep-research')).toSorted((a: OpenAIModel, b: OpenAIModel) => a.name.localeCompare(b.name)).map((model: OpenAIModel) => ({ label: `${model.name} (Reasoning)`, value: model.id })),
+							...($openAIModels.chat.length === 0 && $openAIModels.thinking.length === 0 ? [{ label: 'GPT-4o Mini (fallback)', value: 'gpt-4o-mini' }] : [])
 						]}
 					/>
 				{/if}
@@ -188,21 +176,21 @@
 				<label for="embedding-model" class="block text-sm font-medium text-slate-200">
 					Embedding Model
 				</label>
-				{#if $modelsState}
+				{#if $openAIModels.embedding.length === 0}
 					<Select
 						id="embedding-model"
 						bind:value={config.embedding_model}
-						disabled={$modelsState}
+						disabled={true}
 						options={[{ label: 'Loading models...', value: '' }]}
 					/>
 				{:else}
 					<Select
 						id="embedding-model"
 						bind:value={config.embedding_model}
-						disabled={$modelsState}
+						disabled={false}
 						options={[
-							...$openaiModels.embedding.toSorted((a, b) => a.name.localeCompare(b.name)).map(model => ({ label: model.name, value: model.id })),
-							...($openaiModels.embedding.length === 0 ? [{ label: 'Text Embedding 3 Large (fallback)', value: 'text-embedding-3-large' }] : [])
+							...$openAIModels.embedding.filter((model: OpenAIModel) => !model.id.includes('deep-research')).toSorted((a: OpenAIModel, b: OpenAIModel) => a.name.localeCompare(b.name)).map((model: OpenAIModel) => ({ label: model.name, value: model.id })),
+							...($openAIModels.embedding.length === 0 ? [{ label: 'Text Embedding 3 Large (fallback)', value: 'text-embedding-3-large' }] : [])
 						]}
 					/>
 				{/if}

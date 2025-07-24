@@ -1,4 +1,6 @@
-<script lang="ts">
+<script lang='ts'>
+	import { ChevronDown } from '@lucide/svelte';
+
 	interface Option {
 		label: string;
 		value: string;
@@ -14,7 +16,16 @@
 		value?: string;
 	}
 
-	let { disabled, id, onchange, options, placeholder, value = $bindable(), class: className, ...rest }: Props = $props();
+	let {
+		class: className,
+		disabled,
+		id,
+		onchange,
+		options,
+		placeholder,
+		value = $bindable(),
+		...rest
+	}: Props = $props();
 
 	function handleChange(e: Event) {
 		const target = e.target as HTMLSelectElement;
@@ -23,18 +34,23 @@
 	}
 </script>
 
-<select
-	class="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 cursor-pointer {className}"
-	{disabled}
-	{id}
-	bind:value={value}
-	onchange={handleChange}
-	{...rest}
->
-	{#if placeholder}
-		<option value="" disabled>{placeholder}</option>
-	{/if}
-	{#each options.toSorted((a, b) => a.label.localeCompare(b.label)) as option}
-		<option value={option.value}>{option.label}</option>
-	{/each}
-</select>
+<div class='relative w-full {className ?? ""}'>
+	<select
+		class='w-full appearance-none rounded-xl border border-slate-600 bg-slate-700/50 py-3 pl-4 pr-10 text-slate-100 transition-all duration-200 hover:bg-slate-700/80 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer'
+		{disabled}
+		{id}
+		bind:value
+		on:change={handleChange}
+		{...rest}
+	>
+		{#if placeholder}
+			<option value='' disabled>{placeholder}</option>
+		{/if}
+		{#each options.toSorted((a, b) => a.label.localeCompare(b.label)) as option}
+			<option class='bg-slate-800 text-white' value={option.value}>{option.label}</option>
+		{/each}
+	</select>
+	<div class='pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400'>
+		<ChevronDown class='h-5 w-5' />
+	</div>
+</div>

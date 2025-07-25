@@ -38,7 +38,8 @@
 	});
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Enter' && !e.shiftKey) {
+		const onMobile = window.innerWidth < 768;
+		if (e.key === 'Enter' && !e.shiftKey && !onMobile) {
 			e.preventDefault();
 			onSubmit();
 		}
@@ -64,7 +65,7 @@
 			/>
 			<div class="flex items-center justify-between">
 				<div class="text-xs text-slate-400">
-					Press <span class="font-bold">Shift + Enter</span> to submit
+					Press <span class="font-bold">Enter</span> to submit
 				</div>
 				{#if value.length > 0}
 					<div class="text-xs text-slate-400">

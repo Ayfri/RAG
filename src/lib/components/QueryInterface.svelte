@@ -366,10 +366,53 @@
 	});
 </script>
 
-<div class="h-full max-h-screen flex flex-col gap-4 overflow-hidden">
+<div class="h-full max-h-screen flex flex-col gap-2 md:gap-4 overflow-hidden">
 	<!-- Header -->
-	<header class="glass border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700 p-4 rounded-xl flex-shrink-0">
-		<div class="flex items-center justify-between">
+	<header class="glass border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700 p-3 md:p-4 rounded-xl flex-shrink-0">
+		<!-- Mobile: Stack everything vertically -->
+		<div class="flex flex-col space-y-3 md:hidden">
+			<!-- Title row -->
+			<div class="flex items-center space-x-3">
+				<MessageSquare class="w-5 h-5 md:w-6 md:h-6 text-cyan-400" />
+				<h2 class="text-lg md:text-xl font-bold text-slate-100 truncate">
+					Chat with <span class="text-cyan-400">{ragName}</span>
+				</h2>
+			</div>
+
+			<!-- Model selector row -->
+			<div class="w-full">
+				<Select
+					options={allOpenAIModels.map(model => ({ label: model.name, value: model.id }))}
+					bind:value={selectedModel}
+					placeholder="Select Chat Model"
+					class="w-full"
+				/>
+			</div>
+
+			<!-- Buttons row -->
+			<div class="flex items-center justify-between space-x-2">
+				<Button
+					onclick={() => showFilesModal = true}
+					class="group flex items-center space-x-1.5 px-2.5 py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white rounded-lg cursor-pointer text-xs font-medium transition-all duration-200 shadow-lg flex-1 justify-center min-h-[40px]"
+					title="Toggle files panel"
+				>
+					<FileText size={18} />
+					<span>Files ({files.length})</span>
+				</Button>
+				<Button
+					onclick={clearConversation}
+					disabled={messages.length === 0}
+					class="group flex items-center space-x-1.5 px-2.5 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg cursor-pointer text-xs font-medium transition-all duration-200 shadow-lg hover:shadow-red-500/25 flex-1 justify-center min-h-[40px]"
+					title="Clear conversation"
+				>
+					<Trash2 size={18} />
+					<span>Clear</span>
+				</Button>
+			</div>
+		</div>
+
+		<!-- Desktop: Keep original horizontal layout -->
+		<div class="hidden md:flex items-center justify-between">
 			<div class="flex items-center space-x-3">
 				<MessageSquare class="w-6 h-6 text-cyan-400" />
 				<h2 class="text-xl font-bold text-slate-100">
@@ -408,13 +451,13 @@
 		<!-- Messages -->
 		<div
 			bind:this={chatContainer}
-			class="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-6 min-h-0"
+			class="flex-1 overflow-y-auto overflow-x-hidden p-3 md:p-6 space-y-4 md:space-y-6 min-h-0"
 		>
 			{#if messages.length === 0}
-				<div class="flex flex-col items-center justify-center h-full text-center">
-					<Bot class="w-16 h-16 text-slate-600 mb-4" />
-					<h3 class="text-xl font-bold text-slate-300 mb-2">Start a conversation</h3>
-					<p class="text-slate-500 max-w-md">
+				<div class="flex flex-col items-center justify-center h-full text-center px-4">
+					<Bot class="w-12 h-12 md:w-16 md:h-16 text-slate-600 mb-4" />
+					<h3 class="text-lg md:text-xl font-bold text-slate-300 mb-2">Start a conversation</h3>
+					<p class="text-slate-500 max-w-md text-sm md:text-base">
 						Ask a question about your documents. The AI will analyze your content and provide a response based on available information.
 					</p>
 				</div>
@@ -432,7 +475,7 @@
 		</div>
 
 		<!-- Input Area -->
-		<div class="px-4 pb-4 flex-shrink-0">
+		<div class="px-3 md:px-4 pb-3 md:pb-4 flex-shrink-0">
 			<ChatInput
 				bind:value={currentMessage}
 				loading={loading}

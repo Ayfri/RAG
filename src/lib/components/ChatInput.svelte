@@ -51,8 +51,8 @@
 	}
 </script>
 
-<div class="border-t border-slate-600 py-4 px-1">
-	<form onsubmit={handleSubmit} class="flex space-x-3 items-start">
+<div class="border-t border-slate-600 py-2 md:py-4 px-1">
+	<form onsubmit={handleSubmit} class="flex space-x-1 md:space-x-3 items-start">
 		<div class="flex flex-col gap-1 w-full">
 			<TextArea
 				bind:value

@@ -5,9 +5,9 @@
 	import Button from '$lib/components/common/Button.svelte';
 
 	const sizes = {
-		sm: 'max-w-lg',
-		lg: 'max-w-2xl',
-		xl: 'max-w-6xl'
+		sm: 'max-w-lg sm:max-w-[90vw] md:max-w-[70vw]',
+		lg: 'max-w-2xl sm:max-w-[90vw] md:max-w-[75vw]',
+		xl: 'max-w-6xl sm:max-w-[95vw] md:max-w-[80vw]'
 	} as const;
 
 	interface Props {
@@ -28,7 +28,7 @@
 
 {#if open}
 	<div
-		class="absolute inset-0 flex items-center justify-center z-50 w-screen h-screen bg-black/50 backdrop-blur-sm"
+		class="absolute inset-0 flex items-center justify-center z-50 w-screen h-screen bg-black/50 backdrop-blur-sm px-4"
 		aria-modal="true"
 		aria-labelledby={title}
 	>

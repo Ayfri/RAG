@@ -373,7 +373,7 @@
 		<div class="flex flex-col space-y-3 md:hidden">
 			<!-- Title row -->
 			<div class="flex items-center space-x-3">
-				<MessageSquare class="w-5 h-5 md:w-6 md:h-6 text-cyan-400" />
+				<MessageSquare size={18} class="text-cyan-400" />
 				<h2 class="text-lg md:text-xl font-bold text-slate-100 truncate">
 					Chat with <span class="text-cyan-400">{ragName}</span>
 				</h2>
@@ -414,7 +414,7 @@
 		<!-- Desktop: Keep original horizontal layout -->
 		<div class="hidden md:flex items-center justify-between">
 			<div class="flex items-center space-x-3">
-				<MessageSquare class="w-6 h-6 text-cyan-400" />
+				<MessageSquare size={24} class="text-cyan-400" />
 				<h2 class="text-xl font-bold text-slate-100">
 					Chat with <span class="text-cyan-400">{ragName}</span>
 				</h2>
@@ -428,19 +428,19 @@
 				/>
 				<Button
 					onclick={() => showFilesModal = true}
-					class="group flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white rounded-xl cursor-pointer text-sm font-medium transition-all duration-200 shadow-lg"
+					class="flex items-center whitespace-nowrap bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800"
 					title="Toggle files panel"
 				>
-					<FileText class="w-4 h-4" />
+					<FileText size={18} />
 					<span>Files ({files.length})</span>
 				</Button>
 				<Button
 					onclick={clearConversation}
 					disabled={messages.length === 0}
-					class="group flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl cursor-pointer text-sm font-medium transition-all duration-200 shadow-lg hover:shadow-red-500/25"
+					class="flex items-center bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 hover:shadow-red-500/25"
 					title="Clear conversation"
 				>
-					<Trash2 class="w-4 h-4" />
+					<Trash2 size={18} />
 					<span>Clear</span>
 				</Button>
 			</div>
@@ -455,7 +455,7 @@
 		>
 			{#if messages.length === 0}
 				<div class="flex flex-col items-center justify-center h-full text-center px-4">
-					<Bot class="w-12 h-12 md:w-16 md:h-16 text-slate-600 mb-4" />
+					<Bot size={64} class="text-slate-600 mb-4" />
 					<h3 class="text-lg md:text-xl font-bold text-slate-300 mb-2">Start a conversation</h3>
 					<p class="text-slate-500 max-w-md text-sm md:text-base">
 						Ask a question about your documents. The AI will analyze your content and provide a response based on available information.

@@ -19,10 +19,10 @@
 	};
 
 	const colors = {
-		info: 'bg-blue-500',
-		success: 'bg-green-500',
-		warning: 'bg-yellow-500',
-		error: 'bg-red-500'
+		info: 'bg-blue-800/80 text-blue-100 border border-blue-700',
+		success: 'bg-green-800/80 text-green-100 border border-green-700',
+		warning: 'bg-yellow-800/80 text-yellow-100 border border-yellow-700',
+		error: 'bg-red-800/80 text-red-100 border border-red-700'
 	};
 
 	let timeoutId: number;
@@ -44,20 +44,20 @@
 <div
 	in:fly={{ y: -20, duration: 300 }}
 	out:fly={{ x: '100%', duration: 200 }}
-	class="notification flex items-start p-4 rounded-lg shadow-lg text-white {colors[notification.type]}"
+	class="notification flex items-center p-3 rounded-lg shadow-md text-sm {colors[notification.type]} space-x-3 w-80"
 >
 	<div class="flex-shrink-0">
-		<Icon class="w-6 h-6" />
+		<Icon class="w-5 h-5" />
 	</div>
-	<div class="ml-3 flex-1">
-		<p class="text-sm font-medium">
+	<div class="flex-1">
+		<p class="font-medium">
 			{notification.message}
 		</p>
 	</div>
-	<div class="ml-4 flex-shrink-0 flex">
-		<Button onclick={handleRemove} variant="secondary">
+	<div class="flex-shrink-0">
+		<Button onclick={handleRemove} variant="ghost" size="icon" class="text-white/70 hover:text-white hover:bg-white/10">
 			<span class="sr-only">Close</span>
-			<X class="h-5 w-5" />
+			<X class="h-4 w-4" />
 		</Button>
 	</div>
 </div>

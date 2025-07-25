@@ -95,9 +95,20 @@ Each RAG instance can be individually configured with its own settings stored in
 - **`embedding_model`**: OpenAI model to use for creating embeddings (default: `text-embedding-3-large`)
 - **`system_prompt`**: Custom system prompt to guide the model's responses
 
+- **`file_filters`**: (Optional) A dictionary specifying include and exclude glob patterns for specific folders or symlinks within the RAG's document directory.
+  - The keys of this dictionary should be the names of the folders or symlinks (e.g., `"my-folder"`, `"my-symlink"`).
+  - A special key `"_base"` can be used to apply filters directly to files in the root of the RAG's `data/files/{rag_name}/` directory.
+  - Each value is an object with two optional keys:
+    - **`include`**: A list of glob patterns for files to include (default: `["**/*"]`). Files must match at least one include pattern to be processed.
+    - **`exclude`**: A list of glob patterns for files to exclude (default: `[]`). Files matching any exclude pattern will be ignored.
+
 ### Available Models
 
 **Chat Models:**
+- `o3-mini`
+- `o4-mini`
+- `o3`
+- `gpt-4.1`
 - `gpt-4o`
 - `gpt-4o-mini` (default)
 - `gpt-4-turbo`
@@ -115,7 +126,20 @@ Each RAG instance can be individually configured with its own settings stored in
 {
   "chat_model": "gpt-4o-mini",
   "embedding_model": "text-embedding-3-large",
-  "system_prompt": "You are a helpful assistant that answers questions based on the provided context. Be concise and accurate."
+  "system_prompt": "You are a helpful assistant that answers questions based on the provided context. Be concise and accurate.",
+  "file_filters": {
+    "_base": {
+      "include": ["*.md", "*.txt"],
+      "exclude": ["*.tmp"]
+    },
+    "my-project-docs": {
+      "include": ["**/*.py"],
+      "exclude": ["venv/**"]
+    },
+    "old-docs-symlink": {
+      "exclude": ["*.bak"]
+    }
+  }
 }
 ```
 

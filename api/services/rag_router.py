@@ -5,7 +5,7 @@ RAG API router containing all endpoints for managing RAG indices and documents.
 from typing import AsyncGenerator
 import json
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from llama_index.core.base.llms.types import ChatMessage as LLamaIndexChatMessage
 from pydantic import BaseModel, Field
@@ -55,9 +55,28 @@ class SymlinkPayload(BaseModel):
 
 	:param target_path: Path to the target file or directory
 	:param link_name: Name for the symbolic link
+	:param include_patterns: List of include glob patterns (optional)
+	:param exclude_patterns: List of exclude glob patterns (optional)
 	"""
 	target_path: str
 	link_name: str
+	include_patterns: list[str] | None = Field(default_factory=lambda: ['**/*'])
+	exclude_patterns: list[str] | None = Field(default_factory=list)
+
+
+class FolderPayload(BaseModel):
+	"""
+	Request payload for creating folders.
+
+	:param type: Type of operation ('folder')
+	:param name: Name of the folder to create
+	:param include_patterns: List of include glob patterns (optional)
+	:param exclude_patterns: List of exclude glob patterns (optional)
+	"""
+	type: Literal['folder']
+	name: str
+	include_patterns: list[str] | None = Field(default_factory=lambda: ['**/*'])
+	exclude_patterns: list[str] | None = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------
@@ -155,30 +174,69 @@ async def list_files(rag_name: str) -> list[dict]:
 
 
 @router.post('/{rag_name}/files', status_code=201)
-async def upload_file(rag_name: str, file: UploadFile = File(...)):
+async def upload_file_or_create_folder(rag_name: str, request: Request, file: UploadFile = File(None)):
 	"""
-	Upload a document to the RAG's files directory.
+	Upload a document to the RAG's files directory or create a folder with filters.
 
 	:param rag_name: Name of the RAG instance
-	:param file: File to upload
-	:return: JSON response with upload details
-	:raises HTTPException: 500 if upload fails
+	:param request: HTTP request object
+	:param file: File to upload (for file uploads)
+	:return: JSON response with upload/creation details
+	:raises HTTPException: 400 for invalid requests, 500 if operation fails
 	"""
-	try:
-		file_path = rag_service.save_file(rag_name, file.filename or 'unnamed_file', file.file.read())
-		return JSONResponse({
-			'detail': f'File uploaded successfully',
-			'filename': file.filename,
-			'path': str(file_path)
-		}, status_code=201)
-	except Exception as exc:
-		raise HTTPException(status_code=500, detail=f'Upload failed: {str(exc)}') from exc
+	# Handle file upload (multipart/form-data) - check file presence first
+	if file is not None and file.filename:
+		try:
+			file_path = rag_service.save_file(rag_name, file.filename or 'unnamed_file', await file.read())
+			return JSONResponse({
+				'detail': f'File uploaded successfully',
+				'filename': file.filename,
+				'path': str(file_path)
+			}, status_code=201)
+		except Exception as exc:
+			raise HTTPException(status_code=500, detail=f'Upload failed: {str(exc)}') from exc
+
+	# Handle folder creation (JSON request)
+	content_type = request.headers.get('content-type', '')
+	if content_type.startswith('application/json'):
+		try:
+			body = await request.json()
+			folder_data = FolderPayload.model_validate(body)
+
+			# Create the folder
+			folder_path = rag_service.create_folder(rag_name, folder_data.name)
+
+			# Update RAG configuration with file filters
+			try:
+				config = rag_service.get_rag_config(rag_name)
+			except FileNotFoundError:
+				config = RAGConfig()
+
+			config.file_filters[folder_data.name] = {
+				'include': folder_data.include_patterns or ['**/*'],
+				'exclude': folder_data.exclude_patterns or []
+			}
+
+			rag_service.update_rag_config(rag_name, config)
+
+			return JSONResponse({
+				'detail': f'Folder created successfully with file filters',
+				'folder_name': folder_data.name,
+				'path': str(folder_path),
+				'filters': config.file_filters[folder_data.name]
+			}, status_code=201)
+
+		except Exception as exc:
+			raise HTTPException(status_code=500, detail=f'Folder creation failed: {str(exc)}') from exc
+
+	else:
+		raise HTTPException(status_code=400, detail='Invalid request: must provide either file for upload or JSON data for folder creation')
 
 
 @router.post('/{rag_name}/symlink', status_code=201)
 async def create_symlink(rag_name: str, payload: SymlinkPayload):
 	"""
-	Create a symbolic link in the RAG's document directory.
+	Create a symbolic link in the RAG's document directory with file filters.
 
 	:param rag_name: Name of the RAG instance
 	:param payload: Symbolic link creation request
@@ -187,11 +245,26 @@ async def create_symlink(rag_name: str, payload: SymlinkPayload):
 	"""
 	try:
 		link_path = rag_service.create_symlink(rag_name, payload.target_path, payload.link_name)
+
+		# Update RAG configuration with file filters
+		try:
+			config = rag_service.get_rag_config(rag_name)
+		except FileNotFoundError:
+			config = RAGConfig()
+
+		config.file_filters[payload.link_name] = {
+			'include': payload.include_patterns or ['**/*'],
+			'exclude': payload.exclude_patterns or []
+		}
+
+		rag_service.update_rag_config(rag_name, config)
+
 		return JSONResponse({
-			'detail': 'Symbolic link created successfully',
+			'detail': 'Symbolic link created successfully with file filters',
 			'link_name': payload.link_name,
 			'target_path': payload.target_path,
-			'path': str(link_path)
+			'path': str(link_path),
+			'filters': config.file_filters[payload.link_name]
 		}, status_code=201)
 	except FileNotFoundError as exc:
 		raise HTTPException(status_code=400, detail=str(exc)) from exc

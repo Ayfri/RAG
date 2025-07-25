@@ -1,8 +1,10 @@
 <script lang="ts">
-	import { FileText, Trash2, Upload, RefreshCw, Link, FolderOpen, Loader, HardDrive, Clock, FileStack } from '@lucide/svelte';
+	import { FileText, Trash2, Upload, RefreshCw, Link, FolderOpen, Loader, HardDrive, Clock, FileStack, Settings, FolderPlus } from '@lucide/svelte';
 	import Button from '$lib/components/common/Button.svelte';
 	import FileInput from '$lib/components/common/FileInput.svelte';
 	import CreateSymlinkModal from '$lib/components/CreateSymlinkModal.svelte';
+	import UploadFolderModal from '$lib/components/UploadFolderModal.svelte';
+	import ConfigureFiltersModal from '$lib/components/ConfigureFiltersModal.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 
 	interface FileItem {
@@ -45,6 +47,9 @@
 	}: Props = $props();
 
 	let showSymlinkModal = $state(false);
+	let showFiltersModal = $state(false);
+	let showUploadFolderModal = $state(false);
+	let selectedFolder = $state<string | null>(null);
 
 	function getFileIcon(item: FileItem) {
 		if (item.type === 'directory') {
@@ -124,25 +129,15 @@
 					/>
 				</label>
 
-				<label class="flex items-center justify-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg cursor-pointer text-xs sm:text-sm font-medium transition-all duration-200">
-					{#if uploading}
-						<Loader size={16} class="animate-spin sm:w-[18px] sm:h-[18px]" />
-						<span class="hidden sm:inline">Uploading...</span>
-						<span class="sm:hidden">Upload</span>
-					{:else}
-						<FolderOpen size={16} class="sm:w-[18px] sm:h-[18px]" />
-						<span class="hidden sm:inline">Upload Folder</span>
-						<span class="sm:hidden">Folder</span>
-					{/if}
-					<input
-						type="file"
-						webkitdirectory
-						disabled={uploading}
-						id='folder-input'
-						onchange={onUploadFolder}
-						class="hidden"
-					/>
-				</label>
+				<Button
+					onclick={() => showUploadFolderModal = true}
+					class="flex items-center justify-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg cursor-pointer text-xs sm:text-sm font-medium transition-all duration-200"
+					title="Upload a folder"
+				>
+					<FolderPlus size={16} class="sm:w-[18px] sm:h-[18px]" />
+					<span class="hidden sm:inline">Upload Folder</span>
+					<span class="sm:hidden">Folder</span>
+				</Button>
 			</div>
 		</div>
 
@@ -213,21 +208,33 @@
 												</div>
 											</div>
 										</div>
-										<Button
-											onclick={() => onDeleteFile(file.name)}
-											class="p-2 text-slate-500 hover:text-red-400 cursor-pointer transition-all duration-200 ml-2"
-											size="icon"
-											variant="danger"
-											title="Delete {file.type}"
-										>
-											<Trash2 size={16} />
-										</Button>
+										<div class="flex items-center space-x-1 ml-2">
+											{#if file.type === 'directory' || file.is_symlink}
+												<Button
+													onclick={() => { selectedFolder = file.name; showFiltersModal = true; }}
+													class="p-2 text-slate-500 hover:text-cyan-400 cursor-pointer transition-all duration-200"
+													size="icon"
+													title="Configure filters for {file.name}"
+												>
+													<Settings size={14} />
+												</Button>
+											{/if}
+											<Button
+												onclick={() => onDeleteFile(file.name)}
+												class="p-2 text-slate-500 hover:text-red-400 cursor-pointer transition-all duration-200"
+												size="icon"
+												variant="danger"
+												title="Delete {file.type}"
+											>
+												<Trash2 size={16} />
+											</Button>
+										</div>
 									</div>
 								</div>
 
 								<!-- Desktop layout (grid) -->
 								<div class="hidden sm:grid grid-cols-12 items-center gap-4">
-									<div class="col-span-6 flex items-center space-x-3">
+									<div class="col-span-5 flex items-center space-x-3">
 										<IconComponent size={18} class="flex-shrink-0 {file.is_symlink ? 'text-purple-400' : file.type === 'directory' ? 'text-blue-400' : 'text-cyan-400'}" />
 										<div class="min-w-0 flex-1">
 											<span class="text-slate-200 text-base font-medium block truncate {file.is_symlink ? 'italic' : ''}">{file.name}</span>
@@ -250,7 +257,17 @@
 										<span>{file.last_modified ? formatDate(file.last_modified) : 'N/A'}</span>
 									</div>
 
-									<div class="col-span-1 flex justify-end">
+									<div class="col-span-2 flex justify-end space-x-1">
+										{#if file.type === 'directory' || file.is_symlink}
+											<Button
+												onclick={() => { selectedFolder = file.name; showFiltersModal = true; }}
+												class="p-2 text-slate-500 hover:text-cyan-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-200"
+												size="icon"
+												title="Configure filters for {file.name}"
+											>
+												<Settings size={16} />
+											</Button>
+										{/if}
 										<Button
 											onclick={() => onDeleteFile(file.name)}
 											class="p-2 text-slate-500 hover:text-red-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-200"
@@ -273,6 +290,18 @@
 
 <CreateSymlinkModal
 	{ragName}
-	onSymlinkCreated={handleSymlinkCreated}
 	bind:open={showSymlinkModal}
+	onSymlinkCreated={handleSymlinkCreated}
+/>
+
+<UploadFolderModal
+	{ragName}
+	bind:open={showUploadFolderModal}
+	onFolderUploaded={onReindex}
+/>
+
+<ConfigureFiltersModal
+	{ragName}
+	bind:open={showFiltersModal}
+	folderName={selectedFolder}
 />

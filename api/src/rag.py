@@ -92,15 +92,52 @@ class RAGService:
 		# Load documents from symlinks
 		if symlinks:
 			for link_path in symlinks:
-				docs.extend(SimpleDirectoryReader(str(link_path), recursive=True, encoding='utf-8').load_data(show_progress=True))
+				# Get file filters for this specific symlink
+				symlink_name = link_path.name
+				filters = config.get_file_filters_for_path(symlink_name)
 
-		# Load documents from files
+				# Use glob patterns for symlinked directories/files
+				reader_kwargs = {
+					'recursive': True,
+					'encoding': 'utf-8'
+				}
+
+				# Apply exclude globs if configured
+				if filters['exclude']:
+					reader_kwargs['exclude'] = filters['exclude']
+
+				loaded_docs = SimpleDirectoryReader(str(link_path), **reader_kwargs).load_data(show_progress=True)
+
+				# Apply include filtering
+				filtered_docs = self._filter_documents_by_include_globs(loaded_docs, filters['include'])
+				docs.extend(filtered_docs)
+
+		# Load documents from files in the base directory
 		if files:
+			# Get file filters for the base directory (use special key "_base" or empty string)
+			base_filters = config.get_file_filters_for_path('_base')
+
 			if all(file.endswith(".json") for file in files):
-				for file in files:
+				# Apply glob filtering to JSON files
+				filtered_files = self._filter_files_by_globs(files, base_filters['include'], base_filters['exclude'])
+				for file in filtered_files:
 					docs.extend(JSONReader().load_data(input_file=str(files_path / file)))
 			else:
-				docs.extend(SimpleDirectoryReader(str(files_path), recursive=True, encoding='utf-8').load_data(show_progress=True))
+				# Use glob patterns for regular files
+				reader_kwargs = {
+					'recursive': True,
+					'encoding': 'utf-8'
+				}
+
+				# Apply exclude globs if configured
+				if base_filters['exclude']:
+					reader_kwargs['exclude'] = base_filters['exclude']
+
+				loaded_docs = SimpleDirectoryReader(str(files_path), **reader_kwargs).load_data(show_progress=True)
+
+				# Apply include filtering
+				filtered_docs = self._filter_documents_by_include_globs(loaded_docs, base_filters['include'])
+				docs.extend(filtered_docs)
 
 		# If no documents are found, still create and persist an empty index.
 		# This allows initializing a RAG with no documents without error.
@@ -383,8 +420,28 @@ class RAGService:
 		files_path.mkdir(parents=True, exist_ok=True)
 
 		file_path = files_path / filename
+		file_path.parent.mkdir(parents=True, exist_ok=True)
 		file_path.write_bytes(content)
 		return file_path
+
+	def create_folder(self, rag_name: str, folder_name: str) -> Path:
+		"""
+		Create an empty folder in the RAG's document directory.
+
+		:param rag_name: Name of the RAG instance
+		:param folder_name: Name of the folder to create
+		:return: Path to the created folder
+		:raises FileExistsError: If the folder already exists
+		"""
+		files_path = self._FILES_DIR / rag_name
+		files_path.mkdir(parents=True, exist_ok=True)
+
+		folder_path = files_path / folder_name
+		if folder_path.exists():
+			raise FileExistsError(f'Folder "{folder_name}" already exists')
+
+		folder_path.mkdir(parents=True, exist_ok=True)
+		return folder_path
 
 
 	async def stream_query(self, rag_name: str, query: str, history: list[dict[str, str]] | None = None) -> AsyncGenerator[str, None]:
@@ -503,6 +560,78 @@ class RAGService:
 				except OSError:
 					pass
 		return file_count, total_size
+
+	def _filter_files_by_globs(self, files: list[str], include_globs: list[str], exclude_globs: list[str]) -> list[str]:
+		"""
+		Filter files list based on include and exclude glob patterns.
+		If a file matches any exclude pattern, it is excluded. Otherwise, it is included
+		if it matches any include pattern. If include_globs is ["**/*"], all files not excluded are included.
+
+		:param files: List of file names to filter
+		:param include_globs: List of glob patterns to include (files must match at least one). Defaults to ['**/*'] if not specified in config.
+		:param exclude_globs: List of glob patterns to exclude. Defaults to [] if not specified in config.
+		:return: Filtered list of file names
+		"""
+		import fnmatch
+
+		filtered_files = []
+
+		for file in files:
+			# Check if file should be excluded
+			excluded = False
+			for exclude_pattern in exclude_globs:
+				if fnmatch.fnmatch(file, exclude_pattern):
+					excluded = True
+					break
+
+			if excluded:
+				continue
+
+			# Check if file should be included
+			included = False
+			for include_pattern in include_globs:
+				if fnmatch.fnmatch(file, include_pattern):
+					included = True
+					break
+
+			if included:
+				filtered_files.append(file)
+
+		return filtered_files
+
+	def _filter_documents_by_include_globs(self, documents: list[Document], include_globs: list[str]) -> list[Document]:
+		"""
+		Filter documents list based on include glob patterns applied to their file paths.
+		Documents are included if their file path or file name matches any include pattern.
+		If include_globs is ["**/*"], all documents are included.
+
+		:param documents: List of Document objects to filter
+		:param include_globs: List of glob patterns to include (documents must match at least one). Defaults to ['**/*'] if not specified in config.
+		:return: Filtered list of Document objects
+		"""
+		import fnmatch
+		from pathlib import Path
+
+		filtered_docs = []
+
+		for doc in documents:
+			# Get the file path from document metadata
+			file_path = doc.metadata.get('file_path', '')
+			if file_path:
+				# Get just the filename for pattern matching
+				file_name = Path(file_path).name
+
+				# Check if file should be included
+				included = False
+				for include_pattern in include_globs:
+					if fnmatch.fnmatch(file_name, include_pattern) or fnmatch.fnmatch(file_path, include_pattern):
+						included = True
+						break
+
+				if included:
+					filtered_docs.append(doc)
+
+		return filtered_docs
 
 	async def async_agent_stream(self, rag_name: str, query: str, history: list[ChatMessage] | None = None):
 		"""

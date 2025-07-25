@@ -294,6 +294,7 @@
 			if (!res.ok) throw new Error('Failed to reindex RAG');
 
 			notifications.success('RAG reindexed successfully!');
+			loadFiles(); // Reload files after successful reindex
 		} catch (err) {
 			notifications.error(`Reindex failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
 		} finally {

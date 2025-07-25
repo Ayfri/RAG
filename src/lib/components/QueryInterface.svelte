@@ -354,7 +354,7 @@
 			allOpenAIModels = [...models.chat, ...models.thinking].filter(model =>
 				(model.id.startsWith('gpt')) ||
 				(model.id.startsWith('o') && !model.id.includes('deep-research'))
-			); // Filter for chat/thinking models, excluding 'deep-research' o-models
+			);
 		});
 		return unsubscribe;
 	});

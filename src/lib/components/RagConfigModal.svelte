@@ -206,6 +206,7 @@
 					id="system-prompt"
 					bind:value={config.system_prompt}
 					placeholder="Enter the system prompt that will guide the AI's responses..."
+					minHeight="120px"
 				/>
 				<p class="text-xs text-slate-500">Instructions that guide how the AI should respond to queries.</p>
 			</div>

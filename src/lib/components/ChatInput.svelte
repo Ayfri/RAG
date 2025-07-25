@@ -52,15 +52,27 @@
 
 <div class="border-t border-slate-600 py-4 px-1">
 	<form onsubmit={handleSubmit} class="flex space-x-3 items-start">
-		<TextArea
-			bind:value
-			bind:textareaRef={textareaElement}
-			placeholder="Ask your question..."
-			disabled={loading}
-			onkeydown={handleKeydown}
-			minHeight="44px"
-			class="max-h-[200px] overflow-y-auto"
-		/>
+		<div class="flex flex-col gap-1 w-full">
+			<TextArea
+				bind:value
+				bind:textareaRef={textareaElement}
+				placeholder="Ask your question..."
+				disabled={loading}
+				onkeydown={handleKeydown}
+				minHeight="44px"
+				class="max-h-[200px] overflow-y-auto"
+			/>
+			<div class="flex items-center justify-between">
+				<div class="text-xs text-slate-400">
+					Press <span class="font-bold">Shift + Enter</span> to submit
+				</div>
+				{#if value.length > 0}
+					<div class="text-xs text-slate-400">
+						{value.length}
+					</div>
+				{/if}
+			</div>
+		</div>
 		<Button
 			type="submit"
 			disabled={!value.trim() || loading}
@@ -68,10 +80,11 @@
 			variant="secondary"
 		>
 			{#if loading}
-				<Loader class="w-5 h-5 animate-spin" />
+				<Loader size={24} class="animate-spin" />
 			{:else}
-				<SendHorizontal class="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
+				<SendHorizontal size={24} class="group-hover:scale-110 transition-transform duration-200" />
 			{/if}
 		</Button>
 	</form>
+
 </div>

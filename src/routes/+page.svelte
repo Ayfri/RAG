@@ -111,15 +111,15 @@
 								<span class="text-xs text-slate-400">Loading...</span>
 							</div>
 						{:else}
-							<div class="flex items-center space-x-2 flex-wrap gap-1">
+							<div class="flex items-center justify-center flex-wrap gap-2">
 								{#each rags as rag}
 									<Button
 										variant="secondary"
 										onclick={() => selectedRag = rag}
-										class={`text-xs ${selectedRag === rag ? 'bg-cyan-600 text-white shadow-lg' : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-slate-200'}`}
+										class={`!px-3 !py-1.5 text-xs ${selectedRag === rag ? 'bg-cyan-600 text-white shadow-lg' : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-slate-200'}`}
 										title="Click to query this RAG"
 									>
-										{rag}
+										{rag} <span class="text-[0.675rem] {selectedRag === rag ? 'text-slate-200' : 'text-slate-400'}">({rag.length} documents)</span>
 									</Button>
 								{/each}
 								{#if rags.length === 0}

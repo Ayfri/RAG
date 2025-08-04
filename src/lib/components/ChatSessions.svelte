@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { MessageSquare, Plus, Trash2, Edit3 } from '@lucide/svelte';
+	import { MessageSquare, Plus, Trash2, Pencil, Loader2 } from '@lucide/svelte';
 	import Button from '$lib/components/common/Button.svelte';
 	import type { ChatSession } from '$lib/helpers/chat-storage';
 	import { chatStorage } from '$lib/helpers/chat-storage';
@@ -179,7 +179,7 @@
 
 <div class="h-full flex flex-col">
 	<!-- Header -->
-	<div class="p-3 border-b border-slate-600 flex items-center justify-between">
+	<div class="p-2 border-b border-slate-600 flex items-center justify-between">
 		<h3 class="text-sm font-semibold text-slate-200">Chat Sessions</h3>
 			<Button
 				onclick={createNewSession}
@@ -195,7 +195,8 @@
 	<div class="flex-1 overflow-y-auto">
 		{#if loading}
 			<div class="p-4 text-center text-slate-400">
-				Loading sessions...
+				<Loader2 size={32} class="mx-auto mb-2 text-slate-600" />
+				<p class="text-sm">Loading sessions...</p>
 			</div>
 		{:else if sessions.length === 0}
 			<div class="p-4 text-center text-slate-400">
@@ -225,7 +226,7 @@
 								<div class="flex items-start justify-between">
 									<button
 										onclick={() => selectSession(session.id)}
-										class="flex-1 min-w-0 text-left"
+										class="flex-1 min-w-0 text-left cursor-pointer"
 									>
 										<h4 class="text-sm font-medium text-slate-200 truncate">
 											{session.title}
@@ -244,24 +245,26 @@
 									</button>
 
 									<div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-										<button
+										<Button
 											onclick={() => startEditing(session)}
-											class="p-1 hover:bg-slate-600 rounded text-slate-400 hover:text-slate-200"
+											size="icon"
+											variant="secondary"
 											title="Rename"
 										>
-											<Edit3 size={12} />
-										</button>
-										<button
+											<Pencil size={14} />
+										</Button>
+										<Button
 											onclick={() => {
 												if (confirm('Delete this chat session?')) {
 													deleteSession(session.id);
 												}
 											}}
-											class="p-1 hover:bg-red-600 rounded text-slate-400 hover:text-red-200"
+											size="icon"
+											variant="danger"
 											title="Delete"
 										>
-											<Trash2 size={12} />
-										</button>
+											<Trash2 size={14} />
+										</Button>
 									</div>
 								</div>
 							{/if}

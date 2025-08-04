@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Plus, FileText, Search, Database, MessageSquare } from '@lucide/svelte';
+	import { Plus, FileText, Search, Database, MessageSquare, Menu, X } from '@lucide/svelte';
 	import Header from '$lib/components/Header.svelte';
 	import CreateRagModal from '$lib/components/CreateRagModal.svelte';
 	import RagConfigModal from '$lib/components/RagConfigModal.svelte';
@@ -17,6 +17,7 @@
 	let error = $state('');
 	let showRagList = $state(false);
 	let totalChatCount = $state(0);
+	let showMobileSidebar = $state(false);
 
 	async function loadRags() {
 		try {
@@ -70,6 +71,14 @@
 		showConfigModal = false;
 	}
 
+	function toggleMobileSidebar() {
+		showMobileSidebar = !showMobileSidebar;
+	}
+
+	function closeMobileSidebar() {
+		showMobileSidebar = false;
+	}
+
 	onMount(() => {
 		loadRags();
 
@@ -82,7 +91,16 @@
 
 <div class="h-screen bg-slate-900 flex flex-col">
 	<!-- Header -->
-	<Header ragCount={rags.length} chatCount={totalChatCount} />
+	<Header
+		ragCount={rags.length}
+		chatCount={totalChatCount}
+		{selectedRag}
+		{showMobileSidebar}
+		onToggleSidebar={toggleMobileSidebar}
+		onSelectRag={(rag) => selectedRag = rag}
+		{rags}
+		{loading}
+	/>
 
 	<!-- Main Content -->
 	<main class="px-3 md:px-4 lg:px-6 py-3 md:py-6 w-full flex-1 overflow-hidden flex flex-col">
@@ -98,8 +116,8 @@
 			</div>
 		{/if}
 
-		<!-- RAG Selector - Compact top bar -->
-		<div class="mb-4">
+		<!-- RAG Selector - Compact top bar (desktop only) -->
+		<div class="mb-4 hidden lg:block">
 			<div class="glass rounded-xl shadow-xl p-3">
 				<div class="flex items-center justify-between">
 					<div class="flex items-center space-x-3">
@@ -140,21 +158,38 @@
 		</div>
 
 		<!-- Main Content Area -->
-		<div class="flex-1 min-h-0 flex flex-col lg:flex-row gap-3 lg:gap-6">
+		<div class="flex-1 min-h-0 flex flex-col lg:flex-row gap-3 lg:gap-6 relative">
+			<!-- Mobile Sidebar Overlay -->
+			{#if showMobileSidebar}
+				<div
+					class="fixed inset-0 bg-black/50 z-40 lg:hidden"
+					onclick={closeMobileSidebar}
+				></div>
+			{/if}
+
 			<!-- Chat Sessions Sidebar -->
 			<div class="lg:w-80 flex-shrink-0">
-				<div class="glass rounded-xl shadow-2xl overflow-hidden h-full">
+				<div class="glass rounded-xl shadow-2xl overflow-hidden h-full lg:block {showMobileSidebar ? 'fixed inset-y-0 left-0 w-80 z-50 lg:relative lg:inset-auto lg:w-auto' : 'hidden lg:block'}">
 					<div class="p-3 border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700">
 						<div class="flex items-center justify-between">
 							<div class="flex items-center space-x-2">
 								<MessageSquare class="w-4 h-4 text-cyan-400" />
 								<span class="text-sm font-bold text-slate-100">Chat Sessions</span>
 							</div>
-							{#if selectedRag}
-								<span class="text-xs text-cyan-400 bg-cyan-900/30 px-2 py-1 rounded-full">
-									{selectedRag}
-								</span>
-							{/if}
+							<div class="flex items-center space-x-2">
+								{#if selectedRag}
+									<span class="text-xs text-cyan-400 bg-cyan-900/30 px-2 py-1 rounded-full">
+										{selectedRag}
+									</span>
+								{/if}
+								<Button
+									onclick={closeMobileSidebar}
+									class="lg:hidden p-1 text-slate-400 hover:text-slate-200"
+									title="Close sidebar"
+								>
+									<X class="w-4 h-4" />
+								</Button>
+							</div>
 						</div>
 					</div>
 					{#if selectedRag}
@@ -166,6 +201,8 @@
 									window.dispatchEvent(new CustomEvent('sessionSelected', {
 										detail: { sessionId, messages, ragName: selectedRag }
 									}));
+									// Close mobile sidebar when session is selected
+									closeMobileSidebar();
 								}}
 							/>
 						</div>

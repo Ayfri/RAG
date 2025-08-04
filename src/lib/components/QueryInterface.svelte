@@ -475,17 +475,17 @@
 <div class="h-full max-h-screen flex flex-col gap-2 md:gap-4 overflow-hidden">
 	<!-- Header -->
 	<header class="glass border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700 p-2 md:p-2.5 rounded-xl flex-shrink-0">
-		<div class="flex flex-col space-y-3 md:space-y-0 md:flex-row md:items-center md:justify-between">
+		<div class="flex flex-col space-y-2 md:space-y-0 md:flex-row md:items-center md:justify-between">
 			<!-- Title section -->
 			<div class="flex items-center space-x-3">
 				<MessageSquare size={18} class="text-cyan-400 md:w-6 md:h-6" />
-				<h2 class="text-lg md:text-lg font-bold text-slate-100 truncate">
+				<h2 class="text-base md:text-lg font-bold text-slate-100 truncate">
 					Chat with <span class="text-cyan-400">{ragName}</span>
 				</h2>
 			</div>
 
 			<!-- Controls section -->
-			<div class="flex flex-col space-y-3 md:space-y-0 md:flex-row md:items-center md:space-x-3">
+			<div class="flex flex-col space-y-2 md:space-y-0 md:flex-row md:items-center md:space-x-3">
 				<!-- Model selector -->
 				<div class="w-full md:w-48">
 					<Select
@@ -500,20 +500,21 @@
 				<div class="flex items-center justify-between space-x-2 md:space-x-3">
 					<Button
 						onclick={() => showFilesModal = true}
-						class="flex items-center space-x-1.5 px-2.5 py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white rounded-lg text-xs md:text-sm font-medium transition-all duration-200 shadow-lg flex-1 md:flex-initial justify-center md:justify-start min-h-[40px] md:min-h-0 whitespace-nowrap"
+						class="flex items-center space-x-1.5 px-2 py-1.5 md:px-2.5 md:py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white rounded-lg text-xs md:text-sm font-medium transition-all duration-200 shadow-lg flex-1 md:flex-initial justify-center md:justify-start min-h-[36px] md:min-h-0 whitespace-nowrap"
 						title="Toggle files panel"
 					>
-						<FileText size={18} />
-						<span>Files ({files.length})</span>
+						<FileText size={16} class="md:w-[18px] md:h-[18px]" />
+						<span class="hidden sm:inline">Files ({files.length})</span>
+						<span class="sm:hidden">({files.length})</span>
 					</Button>
 					<Button
-					onclick={clearConversation}
+						onclick={clearConversation}
 						disabled={messages.length === 0}
-						class="flex items-center space-x-1.5 px-2.5 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg text-xs md:text-sm font-medium transition-all duration-200 shadow-lg hover:shadow-red-500/25 flex-1 md:flex-initial justify-center md:justify-start min-h-[40px] md:min-h-0"
+						class="flex items-center space-x-1.5 px-2 py-1.5 md:px-2.5 md:py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg text-xs md:text-sm font-medium transition-all duration-200 shadow-lg hover:shadow-red-500/25 flex-1 md:flex-initial justify-center md:justify-start min-h-[36px] md:min-h-0"
 						title="Clear conversation"
 					>
-						<Trash2 size={18} />
-						<span>Clear</span>
+						<Trash2 size={16} class="md:w-[18px] md:h-[18px]" />
+						<span class="hidden sm:inline">Clear</span>
 					</Button>
 				</div>
 			</div>
@@ -524,15 +525,15 @@
 		<!-- Messages -->
 		<div
 			bind:this={chatContainer}
-			class="flex-1 overflow-y-auto overflow-x-hidden p-3 md:p-6 space-y-4 md:space-y-6 min-h-0"
+			class="flex-1 overflow-y-auto overflow-x-hidden p-2 md:p-6 space-y-3 md:space-y-6 min-h-0"
 		>
 			{#if messages.length === 0}
 				<div class="flex flex-col items-center justify-center h-full text-center px-4">
-					<Bot size={64} class="text-slate-600 mb-4" />
-					<h3 class="text-lg md:text-xl font-bold text-slate-300 mb-2">
+					<Bot size={48} class="text-slate-600 mb-3 md:mb-4 md:w-16 md:h-16" />
+					<h3 class="text-base md:text-xl font-bold text-slate-300 mb-2">
 						{currentSessionId ? 'Active session' : 'Start a conversation'}
 					</h3>
-					<p class="text-slate-500 max-w-md text-sm md:text-base">
+					<p class="text-slate-500 max-w-md text-xs md:text-base">
 						{currentSessionId
 							? 'Ask a question about your documents in this session.'
 							: 'Ask a question about your documents. A new session will be created automatically.'}
@@ -552,7 +553,7 @@
 		</div>
 
 		<!-- Input Area -->
-		<div class="px-3 md:px-4 pb-3 md:pb-4 flex-shrink-0">
+		<div class="px-2 md:px-4 pb-2 md:pb-4 flex-shrink-0">
 			<ChatInput
 				bind:value={currentMessage}
 				loading={loading}

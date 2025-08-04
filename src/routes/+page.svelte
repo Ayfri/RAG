@@ -211,7 +211,11 @@
 				{#if selectedRag}
 					<div class="flex h-full gap-5">
 						<div class="hidden lg:block border w-80 bg-slate-800/50 p-4 border-slate-700 rounded-xl">
-							<ChatSessions ragName={selectedRag} />
+							<ChatSessions ragName={selectedRag} onSessionSelected={(sessionId, messages) => {
+								window.dispatchEvent(new CustomEvent('sessionSelected', {
+									detail: { sessionId, messages, ragName: selectedRag }
+								}));
+							}} />
 						</div>
 						<div class="flex-1">
 							<QueryInterface ragName={selectedRag} />

@@ -551,7 +551,7 @@
 		</div>
 
 		<!-- Input Area -->
-		<div class="px-2 md:px-4 md:pb-4 flex-shrink-0">
+		<div class="px-2 flex-shrink-0">
 			<ChatInput
 				bind:value={currentMessage}
 				loading={loading}

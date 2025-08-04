@@ -10,8 +10,12 @@ api/
 ├── services/
 │   └── rag_router.py     # RAG API routes
 ├── src/
+│   ├── agent.py          # Agent and tools implementation
 │   ├── config.py         # Configuration management
-│   └── rag.py            # RAGService implementation
+│   ├── openai_models.py  # OpenAI models management
+│   ├── rag.py            # RAGService implementation
+│   ├── rag_config.py     # RAG configuration classes
+│   └── types.py          # Shared TypedDict definitions
 ├── requirements.txt      # Python dependencies
 └── README.md             # This file
 ```
@@ -20,9 +24,10 @@ Additional runtime data live outside the Git index:
 
 ```
 data/
-├── files/<rag-name>/    # Source documents (any text-based format supported by LlamaIndex)
-├── indices/<rag-name>/  # Persisted vector index & metadata (auto-generated)
-└── configs/<rag-name>.json  # Per-RAG configuration files (auto-generated)
+├── files/<rag-name>/       # Source documents (any text-based format supported by LlamaIndex)
+├── indices/<rag-name>/     # Persisted vector index & metadata (auto-generated)
+├── configs/<rag-name>.json # Per-RAG configuration files (auto-generated)
+└── resumes/<rag-name>.md   # Auto-generated project summaries (auto-generated)
 ```
 
 The `data/` directory is listed in the project-level **.gitignore** so you never commit large embeddings.
@@ -69,23 +74,44 @@ The `api/src/config.py` module automatically loads these variables on applicatio
 | ------ | ---- | ----------- |
 | `GET`  | `/rag/{rag_name}/config` | Get the configuration for a specific RAG (chat model, embedding model, system prompt). |
 | `PUT` | `/rag/{rag_name}/config` | Update the configuration for a specific RAG. |
+| `GET`  | `/rag/models` | Get all available OpenAI models for chat and embeddings. |
 
 ### Query Operations
 
 | Method | Path | Description |
 | ------ | ---- | ----------- |
-| `POST` | `/rag/{rag_name}/query` | Return the full answer for the provided query. |
-| `POST` | `/rag/{rag_name}/stream` | Stream the answer token-by-token (plain text chunks). |
+| `POST` | `/rag/{rag_name}/stream` | Stream the answer in real-time with agentic workflow (tokens, sources, documents, and metadata). |
 
 ### Document Management
 
 | Method | Path | Description |
 | ------ | ---- | ----------- |
 | `GET`  | `/rag/{rag_name}/files` | List all files and directories in the RAG's document directory. Returns detailed info including type and symlink targets. |
-| `POST` | `/rag/{rag_name}/files` | Upload a document to the RAG's files directory. |
-| `POST` | `/rag/{rag_name}/symlink` | Create a symbolic link to an external file or directory. |
+| `POST` | `/rag/{rag_name}/files` | Upload a document to the RAG's files directory or create a folder with file filters. |
+| `POST` | `/rag/{rag_name}/symlink` | Create a symbolic link to an external file or directory with file filters. |
 | `POST` | `/rag/{rag_name}/reindex` | Manually reindex the RAG from all current files and symlinks. |
 | `DELETE` | `/rag/{rag_name}/files/{filename}` | Delete a specific file from the RAG's document directory. |
+
+## Features
+
+### Real-Time Streaming
+The RAG system provides **real-time streaming** with an agentic workflow that includes:
+- **Immediate token streaming**: Text appears as the agent generates it
+- **Live metadata updates**: Sources, documents, and chat history stream as they're found
+- **Progressive enhancement**: Users see results instantly, with additional context arriving progressively
+
+### Agent-Based Architecture
+Each RAG uses an intelligent agent with access to multiple tools:
+- **Local RAG search**: Semantic search through indexed documents
+- **Web search**: Real-time web search via DuckDuckGo
+- **File operations**: Read and list files in the document directory
+- **Project summaries**: Auto-generated summaries for better context understanding
+
+### Type Safety
+The codebase uses comprehensive TypeScript-style typing:
+- **Shared type definitions** in `src/types.py`
+- **Strict typing** for all streaming events and data structures
+- **Pattern matching** for efficient event processing
 
 ## Configuration
 
@@ -105,15 +131,15 @@ Each RAG instance can be individually configured with its own settings stored in
 ### Available Models
 
 **Chat Models:**
-- `o3-mini`
-- `o4-mini`
-- `o3`
+- `gpt-3.5-turbo`
+- `gpt-4`
 - `gpt-4.1`
+- `gpt-4-turbo`
 - `gpt-4o`
 - `gpt-4o-mini` (default)
-- `gpt-4-turbo`
-- `gpt-4`
-- `gpt-3.5-turbo`
+- `o3`
+- `o3-mini`
+- `o4-mini`
 
 **Embedding Models:**
 - `text-embedding-3-large` (default)
@@ -179,13 +205,14 @@ $config = @{
 Invoke-RestMethod -Method Put -Uri 'http://localhost:8000/rag/my-docs/config' `
     -Body $config -ContentType 'application/json'
 
-# Ask a question and get the full answer
-Invoke-RestMethod -Method Post -Uri 'http://localhost:8000/rag/my-docs/query' `
-    -Body (@{ query = 'What is the project about?' } | ConvertTo-Json) `
-    -ContentType 'application/json'
-
-# Stream the answer (PowerShell)
-$body = @{ query = 'Explain the main features.' } | ConvertTo-Json
+# Stream the answer with real-time agent workflow (PowerShell)
+$body = @{
+    query = 'What is the project about?'
+    history = @(
+        @{ role = 'user'; content = 'Previous question' },
+        @{ role = 'assistant'; content = 'Previous answer' }
+    )
+} | ConvertTo-Json -Depth 3
 $resp = Invoke-WebRequest -Method Post -Uri 'http://localhost:8000/rag/my-docs/stream' `
     -Body $body -ContentType 'application/json' -ResponseHeadersVariable rh -UseBasicParsing
 $resp.Content
@@ -200,11 +227,35 @@ Invoke-RestMethod -Method Delete -Uri 'http://localhost:8000/rag/my-docs/files/d
 Invoke-RestMethod -Method Delete -Uri 'http://localhost:8000/rag/my-docs'
 ```
 
+### Streaming Response Format
+
+The streaming endpoint returns a mixed-format response:
+- **Text tokens** are streamed directly as they're generated
+- **Metadata events** are JSON objects with special markers:
+  ```
+  token1token2token3...
+  ---sources---
+  {"content": "...", "urls": [...]}
+
+  ---documents---
+  [{"content": "...", "source": "..."}]
+
+  ---chat_history---
+  {"content": "...", "role": "assistant"}
+
+  ---final---
+  {"sources": [...], "documents": [...], "chat_history": [...]}
+  ```
+
 ## Notes
 
-* Indices persist on disk; loading an existing RAG is instant.
-* Each RAG has its own configuration file that persists its model settings and system prompt.
-* Configuration changes are applied immediately to new queries and index operations.
-* The current implementation is kept intentionally small (<200 lines per file). Feel free to extend `RAGService` with new capabilities (metadata, permissions, etc.).
-* All code follows the repository coding guidelines (tabs, single quotes, english).
-* API documentation is available at `http://localhost:8000/docs` when running the server.
+* **Real-time streaming**: All responses stream immediately with progressive enhancement
+* **Agent-based**: Each query uses an intelligent agent with multiple tools (RAG, web search, file ops)
+* **Type safety**: Comprehensive typing with shared TypedDict definitions in `src/types.py`
+* **Auto-summaries**: Project summaries are auto-generated and stored in `data/resumes/`
+* **Persistent indices**: Vector indices persist on disk; loading an existing RAG is instant
+* **Per-RAG configuration**: Each RAG has its own config file with model settings and system prompt
+* **File filtering**: Advanced glob pattern support for including/excluding files during indexing
+* **Configuration changes** are applied immediately to new queries and index operations
+* All code follows the repository coding guidelines (tabs, single quotes, english)
+* API documentation is available at `http://localhost:8000/docs` when running the server

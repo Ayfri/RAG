@@ -1,24 +1,17 @@
 import openai
 from pathlib import Path
 from typing import Callable, Literal
+
+from llama_index.core import VectorStoreIndex
 from llama_index.core.agent.workflow import FunctionAgent
 from llama_index.llms.openai import OpenAI
+
 from src.config import OPENAI_API_KEY
-from llama_index.core import VectorStoreIndex
 from src.rag_config import RAGConfig
+from src.types import DocumentItem, SearchResultItem, SearchResultUrl
 
 
-class SearchResultUrl(dict):
-	title: str
-	url: str
-
-
-class SearchResult(dict):
-	content: str
-	urls: list[SearchResultUrl]
-
-
-def search(query: str) -> SearchResult:
+def search(query: str) -> SearchResultItem:
 	"""
 	Search the web for information. Use a detailed plain text question as input.
 	"""
@@ -26,16 +19,16 @@ def search(query: str) -> SearchResult:
 		model="gpt-4o-search-preview",
 		messages=[{"role": "user", "content": query}],
 	)
-	result = SearchResult(
-		content=response.choices[0].message.content or "No answer found.",
-		urls=[
+	result: SearchResultItem = {
+		'content': response.choices[0].message.content or "No answer found.",
+		'urls': [
 			SearchResultUrl(
 				title=annotation.url_citation.title,
 				url=annotation.url_citation.url
 			)
 			for annotation in response.choices[0].message.annotations or []
 		]
-	)
+	}
 	return result
 
 
@@ -122,7 +115,7 @@ User instructions:
 	)
 
 
-	def rag_tool(rag_name: str, query: str, search_number: Literal["very_low", "low", "medium", "high"] = "medium") -> list[dict[str, str]]:
+	def rag_tool(rag_name: str, query: str, search_number: Literal["very_low", "low", "medium", "high"] = "medium") -> list[DocumentItem]:
 		"""
 		Search relevant documents from the '{rag_name}' document index. Use a detailed search query as input.
 		Search number:
@@ -143,10 +136,10 @@ User instructions:
 
 		response = retriever.retrieve(query)
 		return [
-			{
-				"content": node.text,
-				"source": node.node.metadata["file_path"],
-			}
+			DocumentItem(
+				content=node.text,
+				source=node.node.metadata["file_path"]
+			)
 			for node in response
 		]
 

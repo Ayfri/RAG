@@ -11,23 +11,33 @@ import json
 import os
 from pathlib import Path
 import textwrap
-from typing import AsyncGenerator, TypedDict
+from typing import AsyncGenerator
 
 import openai
-from llama_index.embeddings.openai import OpenAIEmbedding
-from llama_index.core import SimpleDirectoryReader, StorageContext, VectorStoreIndex, Settings
-from llama_index.core.agent.workflow import ToolCallResult, AgentOutput
+from llama_index.core import SimpleDirectoryReader, StorageContext, VectorStoreIndex, Settings, load_index_from_storage
+from llama_index.core.agent.workflow import AgentOutput, ToolCallResult
 from llama_index.core.llms import ChatMessage
-from llama_index.core.response_synthesizers import ResponseMode
 from llama_index.core.memory import ChatMemoryBuffer
-from llama_index.llms.openai import OpenAI
 from llama_index.core.readers.json import JSONReader
+from llama_index.core.response_synthesizers import ResponseMode
 from llama_index.core.schema import Document
+from llama_index.embeddings.openai import OpenAIEmbedding
+from llama_index.llms.openai import OpenAI
 
-from src.rag_config import RAGConfig
-from src.config import OPENAI_API_KEY
-from llama_index.core import load_index_from_storage
 from src.agent import get_agent
+from src.config import OPENAI_API_KEY
+from src.rag_config import RAGConfig
+from src.types import (
+	ChatHistoryItem,
+	DocumentItem,
+	SearchResultItem,
+	StreamEvent,
+	TokenStreamEvent,
+	SourcesStreamEvent,
+	DocumentsStreamEvent,
+	ChatHistoryStreamEvent,
+	FinalStreamEvent
+)
 
 openai.api_key = OPENAI_API_KEY
 
@@ -633,38 +643,73 @@ class RAGService:
 
 		return filtered_docs
 
-	async def async_agent_stream(self, rag_name: str, query: str, history: list[ChatMessage] | None = None):
+	async def async_agent_stream(self, rag_name: str, query: str, history: list[ChatMessage] | None = None) -> AsyncGenerator[StreamEvent, None]:
 		"""
-		Run the agent for the given rag_name, query, and history. Stream answer tokens and collect sources, documents, and chat history.
-		Returns (answer, sources, documents, chat_history)
+		Stream agent events in real-time including tokens, sources, and documents.
+		Yields properly typed events as they occur during agent execution.
+
+		:param rag_name: Name of the RAG instance to query
+		:param query: The user's query
+		:param history: Optional conversation history
+		:yield: Typed streaming events (tokens, sources, documents, chat_history, final)
 		"""
-
-		class Document(TypedDict):
-			content: str
-			source: str
-
 		agent = self.get_agent(rag_name)
 		history = history or []
-		answer = ""
-		sources: list[dict] = []
-		documents: list[Document] = []
+		sources: list[SearchResultItem] = []
+		documents: list[DocumentItem] = []
 		chat_history: list[ChatMessage] = history[:]
 
 		handler = agent.run(query, chat_history=history)
 		async for event in handler.stream_events():
-			# Stream answer tokens
+			# Stream answer tokens in real-time
 			if hasattr(event, 'delta') and event.delta:
-				answer += event.delta
-			# Collect sources/documents from ToolCallResult events
+				token_event: TokenStreamEvent = {'type': 'token', 'data': event.delta}
+				yield token_event
+
+			# Stream sources/documents as they're found
 			if isinstance(event, ToolCallResult):
 				print(f"Tool call: {event.tool_name}, params: {event.tool_kwargs}")
 				if event.tool_name.startswith('search'):
-					sources.append(event.tool_output.raw_output)
+					new_sources = event.tool_output.raw_output
+					sources.append(new_sources)
+					sources_event: SourcesStreamEvent = {'type': 'sources', 'data': new_sources}
+					yield sources_event
 				elif 'rag' in event.tool_name:
-					documents.extend(event.tool_output.raw_output)
+					new_documents: list[DocumentItem] = event.tool_output.raw_output
+					documents.extend(new_documents)
+					documents_event: DocumentsStreamEvent = {'type': 'documents', 'data': new_documents}
+					yield documents_event
 
-			# Optionally, collect chat history (user/assistant turns only)
+			# Stream chat history updates
 			if isinstance(event, AgentOutput):
 				chat_history.append(event.response)
+				chat_data = event.response.model_dump()
+				# Ensure the data conforms to ChatHistoryItem structure
+				if isinstance(chat_data, dict) and 'role' in chat_data and 'content' in chat_data:
+					stream_chat_item: ChatHistoryItem = {
+						'content': str(chat_data['content']),
+						'role': chat_data['role'] if chat_data['role'] in ['user', 'assistant'] else 'assistant'
+					}
+					chat_event: ChatHistoryStreamEvent = {'type': 'chat_history', 'data': stream_chat_item}
+					yield chat_event
 
-		return answer, sources, documents, chat_history
+		# Final summary event with all collected data
+		chat_history_items: list[ChatHistoryItem] = []
+		for msg in chat_history:
+			msg_data = msg.model_dump()
+			if isinstance(msg_data, dict) and 'role' in msg_data and 'content' in msg_data:
+				final_chat_item: ChatHistoryItem = {
+					'content': str(msg_data['content']),
+					'role': msg_data['role'] if msg_data['role'] in ['user', 'assistant'] else 'assistant'
+				}
+				chat_history_items.append(final_chat_item)
+
+		final_event: FinalStreamEvent = {
+			'type': 'final',
+			'data': {
+				'chat_history': chat_history_items,
+				'documents': documents,
+				'sources': sources
+			}
+		}
+		yield final_event

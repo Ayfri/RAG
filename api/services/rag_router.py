@@ -2,18 +2,18 @@
 RAG API router containing all endpoints for managing RAG indices and documents.
 """
 
-from typing import AsyncGenerator
 import json
+from typing import AsyncGenerator, Literal
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, Request
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from llama_index.core.base.llms.types import ChatMessage as LLamaIndexChatMessage
 from pydantic import BaseModel, Field
-from typing import Literal
 
-from src.rag_config import RAGConfig
-from src.rag import RAGService
 from src.openai_models import get_openai_models
+from src.rag import RAGService
+from src.rag_config import RAGConfig
+from src.types import StreamEvent
 
 router = APIRouter(prefix='/rag', tags=['RAG'])
 rag_service = RAGService()
@@ -295,12 +295,21 @@ async def stream_rag(rag_name: str, payload: QueryPayload):
 	async def _generator() -> AsyncGenerator[str, None]:
 		history = [LLamaIndexChatMessage(role=msg.role, content=msg.content) for msg in (payload.history or [])]
 		try:
-			answer, sources, documents, chat_history = await rag_service.async_agent_stream(rag_name, payload.query, history)
-			# Stream the answer token by token
-			for token in answer:
-				yield token
-			yield '\n---\n'
-			yield json.dumps({'sources': sources, 'documents': documents, 'chat_history': [msg.model_dump() for msg in chat_history]})
+			event: StreamEvent
+			async for event in rag_service.async_agent_stream(rag_name, payload.query, history):
+				match event['type']:
+					case 'token':
+						# Stream text tokens immediately
+						yield str(event['data'])
+					case 'chat_history' | 'documents' | 'sources':
+						# Stream metadata events as JSON with markers
+						yield f'\n---{event["type"]}---\n'
+						yield json.dumps(event['data'])
+						yield '\n'
+					case 'final':
+						# Stream final summary
+						yield '\n---final---\n'
+						yield json.dumps(event['data'])
 		except Exception as exc:
 			print(f'Error during agent stream: {exc}')
 			yield f'Error: An unexpected error occurred during the stream. Please check the server logs.'

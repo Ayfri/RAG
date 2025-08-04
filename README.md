@@ -40,8 +40,9 @@ RAG/
 
 ### Prerequisites
 
-- **Node.js 18+** with **pnpm**
-- **Python 3.12+**
+- **Node.js 22+** with **pnpm** (for local development)
+- **Python 3.13+** (for local development)
+- **Docker & Docker Compose** (for containerized deployment)
 - **OpenAI API Key**
 
 ### 1. Environment Setup
@@ -53,6 +54,7 @@ OPENAI_API_KEY=sk-...
 API_HOST=0.0.0.0
 API_PORT=8000
 API_DEBUG=False
+VITE_API_URL=http://localhost:8000
 ```
 
 ### 2. Backend Setup
@@ -82,6 +84,31 @@ pnpm dev
 ```
 
 The web app will be available at `http://localhost:5173`.
+
+### 4. Docker Setup (Alternative)
+
+For containerized deployment, use Docker Compose:
+
+```powershell
+# Create .env file with your OpenAI API key
+echo "OPENAI_API_KEY=sk-your-api-key-here" > .env
+
+# Build and start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+The application will be available at:
+- **Frontend**: `http://localhost:5173`
+- **Backend API**: `http://localhost:8000`
+- **API Documentation**: `http://localhost:8000/docs`
+
+**Data Persistence**: All RAG data is stored in a Docker volume (`rag_data`) and persists between container restarts.
 
 ## 🎯 Features
 
@@ -250,13 +277,37 @@ uvicorn api.main:app --reload  # Development server with auto-reload
 
 ## 📦 Deployment
 
-### Frontend (Cloudflare Pages)
+### Docker Compose (Recommended)
+
+The easiest way to deploy the entire application:
+
+```powershell
+# Clone the repository
+git clone <repository-url>
+cd RAG
+
+# Create environment file
+echo "OPENAI_API_KEY=sk-your-api-key-here" > .env
+
+# Start all services
+docker-compose up -d
+
+# Check status
+docker-compose ps
+
+# View logs
+docker-compose logs -f
+```
+
+### Individual Services
+
+#### Frontend (Cloudflare Pages)
 ```powershell
 pnpm build
 # Deploy ./build directory to Cloudflare Pages
 ```
 
-### Backend (Docker)
+#### Backend (Docker)
 ```dockerfile
 FROM python:3.12-slim
 WORKDIR /app

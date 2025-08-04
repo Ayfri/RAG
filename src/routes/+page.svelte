@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Plus, FileText, Search, Database, MessageSquare, Menu, X } from '@lucide/svelte';
+	import { Plus, FileText, Search, Database, MessageSquare, X } from '@lucide/svelte';
 	import Header from '$lib/components/Header.svelte';
 	import CreateRagModal from '$lib/components/CreateRagModal.svelte';
 	import RagConfigModal from '$lib/components/RagConfigModal.svelte';
 	import QueryInterface from '$lib/components/QueryInterface.svelte';
 	import ChatSessions from '$lib/components/ChatSessions.svelte';
 	import Button from '$lib/components/common/Button.svelte';
+	import { fly } from 'svelte/transition';
 
 	let rags: string[] = $state([]);
 	let selectedRag: string | null = $state(null);
@@ -15,7 +16,6 @@
 	let configRagName = $state('');
 	let loading = $state(true);
 	let error = $state('');
-	let showRagList = $state(false);
 	let totalChatCount = $state(0);
 	let showMobileSidebar = $state(false);
 
@@ -46,26 +46,15 @@
 		}
 	}
 
-	function handleRagCreated(event: CustomEvent<string>) {
+	function handleRagCreated() {
 		loadRags();
 		showCreateModal = false;
-	}
-
-	function handleRagDeleted() {
-		loadRags();
-		selectedRag = null;
 	}
 
 	// Listen for session events to update chat count
 	function handleSessionEvent() {
 		loadTotalChatCount();
 	}
-
-	function handleConfigRag(ragName: string) {
-		configRagName = ragName;
-		showConfigModal = true;
-	}
-
 	function handleConfigUpdated() {
 		// Configuration updated, no need to reload RAGs as the list doesn't change
 		showConfigModal = false;
@@ -95,11 +84,9 @@
 		ragCount={rags.length}
 		chatCount={totalChatCount}
 		{selectedRag}
-		{showMobileSidebar}
 		onToggleSidebar={toggleMobileSidebar}
 		onSelectRag={(rag) => selectedRag = rag}
 		{rags}
-		{loading}
 	/>
 
 	<!-- Main Content -->
@@ -168,52 +155,56 @@
 			{/if}
 
 			<!-- Chat Sessions Sidebar -->
-			<div class="lg:w-80 flex-shrink-0">
-				<div class="glass rounded-xl shadow-2xl overflow-hidden h-full lg:block {showMobileSidebar ? 'fixed inset-y-0 left-0 w-80 z-50 lg:relative lg:inset-auto lg:w-auto' : 'hidden lg:block'}">
-					<div class="p-3 border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700">
-						<div class="flex items-center justify-between">
-							<div class="flex items-center space-x-2">
-								<MessageSquare class="w-4 h-4 text-cyan-400" />
-								<span class="text-sm font-bold text-slate-100">Chat Sessions</span>
-							</div>
-							<div class="flex items-center space-x-2">
-								{#if selectedRag}
-									<span class="text-xs text-cyan-400 bg-cyan-900/30 px-2 py-1 rounded-full">
-										{selectedRag}
-									</span>
-								{/if}
-								<Button
-									onclick={closeMobileSidebar}
-									class="lg:hidden p-1 text-slate-400 hover:text-slate-200"
-									title="Close sidebar"
-								>
-									<X class="w-4 h-4" />
-								</Button>
+			{#if showMobileSidebar}
+				<div class="lg:w-80 flex-shrink-0">
+					<div class="glass rounded-r-xl shadow-2xl overflow-hidden h-full lg:block fixed inset-y-0 left-0 w-80 z-50 lg:relative lg:inset-auto lg:w-auto" transition:fly={{ duration: 200, x: -200 }}>
+						<div class="p-3 border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700">
+							<div class="flex items-center justify-between">
+								<div class="flex items-center space-x-2">
+									<MessageSquare class="w-4 h-4 text-cyan-400" />
+									<span class="text-sm font-bold text-slate-100">Chat Sessions</span>
+								</div>
+								<div class="flex items-center space-x-2">
+									{#if selectedRag}
+										<span class="text-xs text-cyan-400 bg-cyan-900/30 px-2 py-1 rounded-full">
+											{selectedRag}
+										</span>
+									{/if}
+									<Button
+										onclick={closeMobileSidebar}
+										class="lg:hidden p-1"
+										size="icon"
+										variant="secondary"
+										title="Close sidebar"
+									>
+										<X class="w-4 h-4" />
+									</Button>
+								</div>
 							</div>
 						</div>
+						{#if selectedRag}
+							<div class="h-full">
+								<ChatSessions
+									ragName={selectedRag}
+									onSessionSelected={(sessionId, messages) => {
+										// Pass the session data to QueryInterface via custom event
+										window.dispatchEvent(new CustomEvent('sessionSelected', {
+											detail: { sessionId, messages, ragName: selectedRag }
+										}));
+										// Close mobile sidebar when session is selected
+										closeMobileSidebar();
+									}}
+								/>
+							</div>
+						{:else}
+							<div class="p-4 text-center text-slate-400">
+								<MessageSquare class="w-8 h-8 mx-auto mb-2 text-slate-600" />
+								<p class="text-xs">Select a RAG to view sessions</p>
+							</div>
+						{/if}
 					</div>
-					{#if selectedRag}
-						<div class="h-full">
-							<ChatSessions
-								ragName={selectedRag}
-								onSessionSelected={(sessionId, messages) => {
-									// Pass the session data to QueryInterface via custom event
-									window.dispatchEvent(new CustomEvent('sessionSelected', {
-										detail: { sessionId, messages, ragName: selectedRag }
-									}));
-									// Close mobile sidebar when session is selected
-									closeMobileSidebar();
-								}}
-							/>
-						</div>
-					{:else}
-						<div class="p-4 text-center text-slate-400">
-							<MessageSquare class="w-8 h-8 mx-auto mb-2 text-slate-600" />
-							<p class="text-xs">Select a RAG to view sessions</p>
-						</div>
-					{/if}
 				</div>
-			</div>
+			{/if}
 
 			<!-- Query Interface -->
 			<div class="flex-1 min-h-0">

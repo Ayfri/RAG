@@ -55,7 +55,7 @@
 	}
 </script>
 
-<div class="border-t border-slate-600 py-2 md:py-4 px-1">
+<div class="border-t border-slate-600 pt-2 md:py-4 md:px-1">
 	<form onsubmit={handleSubmit} class="flex space-x-1 md:space-x-3 items-start">
 		<div class="flex flex-col gap-1 w-full">
 			<TextArea
@@ -68,7 +68,7 @@
 				class="max-h-[200px] overflow-y-auto"
 			/>
 			<div class="flex items-center justify-between">
-				<div class="text-xs text-slate-400">
+				<div class="hidden md:block text-xs text-slate-400">
 					Press <span class="font-bold">Enter</span> to submit
 				</div>
 				{#if value.length > 0}
@@ -91,5 +91,4 @@
 			{/if}
 		</Button>
 	</form>
-
 </div>

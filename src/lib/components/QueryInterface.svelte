@@ -1,14 +1,13 @@
 <script lang="ts">
-	import { FileText, Trash2, MessageSquare, Bot, History } from '@lucide/svelte';
+	import { FileText, Trash2, MessageSquare, Bot } from '@lucide/svelte';
 	import Button from '$lib/components/common/Button.svelte';
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
 	import ChatInput from '$lib/components/ChatInput.svelte';
 	import FilesModal from '$lib/components/FilesModal.svelte';
-	import ChatSessions from '$lib/components/ChatSessions.svelte';
 	import Select from '$lib/components/common/Select.svelte';
 	import { notifications } from '$lib/stores/notifications';
 	import { openAIModels } from '$lib/stores/openai-models';
-	import type { SearchResult, RagDocument, OpenAIModel, FileItem, ToolActivity, StreamEvent, FileListResult } from '$lib/types.d.ts';
+	import type { OpenAIModel, FileItem } from '$lib/types.d.ts';
 	import { AgenticStreamingParser } from '$lib/helpers/streaming-parser';
 	import { chatStorage, type ChatMessage as StoredChatMessage, type ChatSession } from '$lib/helpers/chat-storage';
 
@@ -504,8 +503,7 @@
 						title="Toggle files panel"
 					>
 						<FileText size={16} class="md:w-[18px] md:h-[18px]" />
-						<span class="hidden sm:inline">Files ({files.length})</span>
-						<span class="sm:hidden">({files.length})</span>
+						<span>Files ({files.length})</span>
 					</Button>
 					<Button
 						onclick={clearConversation}
@@ -514,7 +512,7 @@
 						title="Clear conversation"
 					>
 						<Trash2 size={16} class="md:w-[18px] md:h-[18px]" />
-						<span class="hidden sm:inline">Clear</span>
+						<span>Clear</span>
 					</Button>
 				</div>
 			</div>
@@ -553,7 +551,7 @@
 		</div>
 
 		<!-- Input Area -->
-		<div class="px-2 md:px-4 pb-2 md:pb-4 flex-shrink-0">
+		<div class="px-2 md:px-4 md:pb-4 flex-shrink-0">
 			<ChatInput
 				bind:value={currentMessage}
 				loading={loading}

@@ -1,27 +1,24 @@
 <script lang="ts">
 	import { Database, Menu, MessageSquare, Plus, ChevronDown, X } from '@lucide/svelte';
 	import Button from '$lib/components/common/Button.svelte';
+	import { slide } from 'svelte/transition';
 
 	interface Props {
 		ragCount?: number;
 		chatCount?: number;
 		selectedRag?: string | null;
-		showMobileSidebar?: boolean;
 		onToggleSidebar?: () => void;
 		onSelectRag?: (rag: string) => void;
-		rags?: string[];
-		loading?: boolean;
+		rags?: string[];		loading?: boolean;
 	}
 
 	let {
 		ragCount = 0,
 		chatCount = 0,
 		selectedRag = null,
-		showMobileSidebar = false,
 		onToggleSidebar = () => {},
 		onSelectRag = () => {},
-		rags = [],
-		loading = false
+		rags = []
 	}: Props = $props();
 
 	let showRagDropdown = $state(false);
@@ -109,8 +106,8 @@
 				{/if}
 
 				<!-- RAG Dropdown -->
-				{#if showRagDropdown && rags.length > 0}
-					<div class="absolute top-full w-32 left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-50">
+				{#if showRagDropdown}
+					<div class="absolute top-full w-32 left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-50" transition:slide={{ duration: 200 }}>
 						<div class="p-2">
 							<div class="flex items-center justify-between mb-2">
 								<span class="text-xs font-medium text-slate-300">Select RAG</span>

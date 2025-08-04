@@ -1,4 +1,4 @@
-import type { ToolActivity, StreamEvent } from '$lib/types.d.ts';
+import type { ToolActivity, StreamEvent, FileReadResult, FileListResult } from '$lib/types.d.ts';
 
 export interface ContentPart {
 	type: 'text' | 'tool';
@@ -12,6 +12,7 @@ export interface ParsedMessage {
 	toolActivities: ToolActivity[];
 	documents?: any[];
 	sources?: any[];
+	fileLists?: FileListResult[];
 }
 
 export class AgenticStreamingParser {
@@ -21,6 +22,7 @@ export class AgenticStreamingParser {
 	private toolActivities: ToolActivity[] = [];
 	private documents: any[] = [];
 	private sources: any[] = [];
+	private fileLists: FileListResult[] = [];
 
 	/**
 	 * Process a chunk of streaming data
@@ -75,7 +77,10 @@ export class AgenticStreamingParser {
 				(trimmedBuffer.startsWith('{') && trimmedBuffer.endsWith('}')) ||
 				trimmedBuffer.includes('"chat_history"') ||
 				trimmedBuffer.includes('"documents"') ||
-				trimmedBuffer.includes('"sources"')
+				trimmedBuffer.includes('"sources"') ||
+				trimmedBuffer.includes('"files"') ||
+				trimmedBuffer.includes('"file_path"') ||
+				trimmedBuffer.includes('"directory_path"')
 			);
 
 			if (!looksLikeJson) {
@@ -99,7 +104,10 @@ export class AgenticStreamingParser {
 				(trimmedBuffer.startsWith('{') && trimmedBuffer.endsWith('}')) ||
 				trimmedBuffer.includes('"chat_history"') ||
 				trimmedBuffer.includes('"documents"') ||
-				trimmedBuffer.includes('"sources"')
+				trimmedBuffer.includes('"sources"') ||
+				trimmedBuffer.includes('"files"') ||
+				trimmedBuffer.includes('"file_path"') ||
+				trimmedBuffer.includes('"directory_path"')
 			);
 
 			if (!looksLikeJson) {
@@ -148,6 +156,40 @@ export class AgenticStreamingParser {
 				});
 				break;
 
+			case 'read_file':
+				// Add file read activity inline at current position
+				const readFileActivity: ToolActivity = {
+					id: crypto.randomUUID(),
+					type: 'read_file',
+					timestamp: new Date(),
+					data: eventData as FileReadResult
+				};
+				this.toolActivities.push(readFileActivity);
+				this.contentParts.push({
+					type: 'tool',
+					content: '',
+					activity: readFileActivity
+				});
+				break;
+
+			case 'list_files':
+				// Add file list activity inline at current position
+				const listFilesActivity: ToolActivity = {
+					id: crypto.randomUUID(),
+					type: 'list_files',
+					timestamp: new Date(),
+					data: eventData as FileListResult
+				};
+				this.toolActivities.push(listFilesActivity);
+				this.contentParts.push({
+					type: 'tool',
+					content: '',
+					activity: listFilesActivity
+				});
+				// Also collect for final display
+				this.fileLists.push(eventData as FileListResult);
+				break;
+
 			case 'final':
 				// Update final data (backward compatibility) and don't display JSON
 				if (eventData.documents) this.documents = eventData.documents;
@@ -181,7 +223,8 @@ export class AgenticStreamingParser {
 			contentParts: this.contentParts,
 			toolActivities: this.toolActivities,
 			documents: this.documents.length > 0 ? this.documents : undefined,
-			sources: this.sources.length > 0 ? this.sources : undefined
+			sources: this.sources.length > 0 ? this.sources : undefined,
+			fileLists: this.fileLists.length > 0 ? this.fileLists : undefined
 		};
 	}
 
@@ -195,5 +238,6 @@ export class AgenticStreamingParser {
 		this.toolActivities = [];
 		this.documents = [];
 		this.sources = [];
+		this.fileLists = [];
 	}
 }

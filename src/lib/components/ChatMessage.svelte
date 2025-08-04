@@ -1,13 +1,15 @@
 <script lang="ts">
-	import { Bot, Copy, Loader, RefreshCcw, Trash2, User, FileText, Globe } from '@lucide/svelte';
+	import { Bot, Copy, Loader, RefreshCcw, Trash2, User, FileText, Globe, FolderOpen, FileIcon } from '@lucide/svelte';
 	import Markdown from '$lib/components/common/Markdown.svelte';
 	import WebSources from '$lib/components/WebSources.svelte';
 	import DocumentSources from '$lib/components/DocumentSources.svelte';
-	import type { SearchResult, SearchResultUrl, RagDocument, ToolActivity } from '$lib/types.d.ts';
+	import FilesSources from '$lib/components/FilesSources.svelte';
+	import type { SearchResult, SearchResultUrl, RagDocument, ToolActivity, FileReadResult, FileListResult } from '$lib/types.d.ts';
 
 	interface Message {
 		content: string;
 		documents?: RagDocument[];
+		fileLists?: FileListResult[];
 		id: string;
 		role: 'user' | 'assistant';
 		sources?: SearchResult[];
@@ -83,6 +85,7 @@
 				{:else}
 					{@const hasUrls = message.sources?.some((source) => source.urls.length > 0)}
 					{@const hasDocuments = message.documents && message.documents.length > 0}
+					{@const hasFileLists = message.fileLists && message.fileLists.length > 0}
 
 					<!-- Content with inline tool activities -->
 					{#if message.contentParts && message.contentParts.length > 0}
@@ -121,6 +124,51 @@
 													</span>
 												{/if}
 											</span>
+										{:else if activity.type === 'read_file'}
+											{@const data = activity.data as FileReadResult}
+											<FileIcon class="w-4 h-4 text-purple-400 flex-shrink-0" />
+											<div class="flex-1">
+												{#if data.success}
+													<div class="text-slate-300 mb-1">
+														File read: <span class="text-purple-300 font-mono">{data.file_path}</span>
+													</div>
+													<div class="text-slate-500 text-xs">
+														Content length: {data.content.length} characters
+													</div>
+												{:else}
+													<div class="text-red-300 mb-1">
+														Failed to read: <span class="text-red-200 font-mono">{data.file_path}</span>
+													</div>
+													<div class="text-red-400 text-xs">
+														{data.error}
+													</div>
+												{/if}
+											</div>
+										{:else if activity.type === 'list_files'}
+											{@const data = activity.data as FileListResult}
+											<FolderOpen class="w-4 h-4 text-orange-400 flex-shrink-0" />
+											<div class="flex-1">
+												{#if data.success}
+													<div class="text-slate-300 mb-1">
+														Directory listing: <span class="text-orange-300 font-mono">{data.directory_path}</span>
+													</div>
+													<div class="text-slate-500 text-xs">
+														Found {data.files.length} items
+														{#if data.files.length > 0}
+															<span class="ml-2">
+																({data.files.slice(0, 3).map(f => f.split(' ')[0]).join(', ')}{data.files.length > 3 ? `, +${data.files.length - 3} more` : ''})
+															</span>
+														{/if}
+													</div>
+												{:else}
+													<div class="text-red-300 mb-1">
+														Failed to list: <span class="text-red-200 font-mono">{data.directory_path}</span>
+													</div>
+													<div class="text-red-400 text-xs">
+														{data.error}
+													</div>
+												{/if}
+											</div>
 										{/if}
 										<span class="text-slate-500 text-xs">
 											{activity.timestamp.toLocaleTimeString('en-US', {
@@ -145,10 +193,11 @@
 						</div>
 					{/if}
 
-					{#if hasUrls || hasDocuments}
+					{#if hasUrls || hasDocuments || hasFileLists}
 						<div class="mt-4 pt-3 border-t border-slate-700 text-[0.7rem] space-y-3">
 							<WebSources sources={message.sources || []} />
 							<DocumentSources documents={message.documents || []} />
+							<FilesSources fileLists={message.fileLists || []} />
 						</div>
 					{/if}
 				{/if}

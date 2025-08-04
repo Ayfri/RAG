@@ -34,7 +34,7 @@ export interface FileItem {
 }
 
 // Agentic streaming events
-export type StreamEventType = 'token' | 'sources' | 'documents' | 'chat_history' | 'final';
+export type StreamEventType = 'token' | 'sources' | 'documents' | 'read_file' | 'list_files' | 'chat_history' | 'final';
 
 export interface StreamEventBase {
 	type: StreamEventType;
@@ -53,6 +53,16 @@ export interface SourcesStreamEvent extends StreamEventBase {
 export interface DocumentsStreamEvent extends StreamEventBase {
 	type: 'documents';
 	data: RagDocument[];
+}
+
+export interface ReadFileStreamEvent extends StreamEventBase {
+	type: 'read_file';
+	data: FileReadResult;
+}
+
+export interface ListFilesStreamEvent extends StreamEventBase {
+	type: 'list_files';
+	data: FileListResult;
 }
 
 export interface ChatHistoryItem {
@@ -76,12 +86,26 @@ export interface FinalStreamEvent extends StreamEventBase {
 	data: FinalStreamEventData;
 }
 
-export type StreamEvent = TokenStreamEvent | SourcesStreamEvent | DocumentsStreamEvent | ChatHistoryStreamEvent | FinalStreamEvent;
+export type StreamEvent = TokenStreamEvent | SourcesStreamEvent | DocumentsStreamEvent | ReadFileStreamEvent | ListFilesStreamEvent | ChatHistoryStreamEvent | FinalStreamEvent;
 
 // Tool activity for inline display
 export interface ToolActivity {
 	id: string;
-	type: 'sources' | 'documents';
+	type: 'sources' | 'documents' | 'read_file' | 'list_files';
 	timestamp: Date;
-	data: SearchResult | RagDocument[];
+	data: SearchResult | RagDocument[] | FileReadResult | FileListResult;
+}
+
+export interface FileReadResult {
+	content: string;
+	file_path: string;
+	success: boolean;
+	error?: string;
+}
+
+export interface FileListResult {
+	files: string[];
+	directory_path: string;
+	success: boolean;
+	error?: string;
 }

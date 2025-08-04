@@ -7,7 +7,7 @@
 	import Select from '$lib/components/common/Select.svelte';
 	import { notifications } from '$lib/stores/notifications';
 	import { openAIModels } from '$lib/stores/openai-models';
-	import type { SearchResult, RagDocument, OpenAIModel, FileItem, ToolActivity, StreamEvent } from '$lib/types.d.ts';
+	import type { SearchResult, RagDocument, OpenAIModel, FileItem, ToolActivity, StreamEvent, FileListResult } from '$lib/types.d.ts';
 	import { AgenticStreamingParser } from '$lib/helpers/streaming-parser';
 
 	interface Props {
@@ -17,6 +17,7 @@
 	interface Message {
 		content: string;
 		documents?: RagDocument[];
+		fileLists?: FileListResult[];
 		id: string;
 		role: 'user' | 'assistant';
 		sources?: SearchResult[];
@@ -56,7 +57,8 @@
 			content: '',
 			timestamp: new Date(),
 			toolActivities: [],
-			contentParts: []
+			contentParts: [],
+			fileLists: []
 		};
 
 		messages = [...messages, userMessage, assistantMessage];
@@ -100,7 +102,8 @@
 							contentParts: parsedMessage.contentParts,
 							toolActivities: parsedMessage.toolActivities,
 							documents: parsedMessage.documents,
-							sources: parsedMessage.sources
+							sources: parsedMessage.sources,
+							fileLists: parsedMessage.fileLists
 						}
 						: msg
 				);
@@ -123,7 +126,8 @@
 						contentParts: finalMessage.contentParts,
 						toolActivities: finalMessage.toolActivities,
 						documents: finalMessage.documents,
-						sources: finalMessage.sources
+						sources: finalMessage.sources,
+						fileLists: finalMessage.fileLists
 					}
 					: msg
 			);

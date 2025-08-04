@@ -90,7 +90,7 @@
 	/>
 
 	<!-- Main Content -->
-	<main class="px-3 md:px-4 lg:px-6 py-3 md:py-6 w-full flex-1 overflow-hidden flex flex-col">
+	<main class="px-3 md:px-4 lg:px-4 py-3 md:py-4 w-full flex-1 overflow-hidden flex flex-col">
 		{#if error}
 			<div class="mb-4 md:mb-8 bg-red-900/50 border border-red-700 rounded-xl p-4 md:p-6 flex items-center space-x-4">
 				<div class="p-2 bg-red-800 rounded-lg flex-shrink-0">
@@ -209,7 +209,14 @@
 			<!-- Query Interface -->
 			<div class="flex-1 min-h-0">
 				{#if selectedRag}
-					<QueryInterface ragName={selectedRag} />
+					<div class="flex h-full gap-5">
+						<div class="hidden lg:block border w-80 bg-slate-800/50 p-4 border-slate-700 rounded-xl">
+							<ChatSessions ragName={selectedRag} />
+						</div>
+						<div class="flex-1">
+							<QueryInterface ragName={selectedRag} />
+						</div>
+					</div>
 				{:else}
 					<div class="glass rounded-xl shadow-2xl p-6 text-center h-full flex flex-col justify-center">
 						<Database class="w-16 h-16 text-slate-600 mx-auto mb-4" />

@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { Bot, Copy, Loader, RefreshCcw, Trash2, User, FileText, ChevronDown, Globe } from '@lucide/svelte';
+	import { Bot, Copy, Loader, RefreshCcw, Trash2, User, FileText, Globe } from '@lucide/svelte';
 	import Markdown from '$lib/components/common/Markdown.svelte';
+	import WebSources from '$lib/components/WebSources.svelte';
+	import DocumentSources from '$lib/components/DocumentSources.svelte';
 	import type { SearchResult, SearchResultUrl, RagDocument, ToolActivity } from '$lib/types.d.ts';
 
 	interface Message {
@@ -24,6 +26,8 @@
 
 	let { message, isStreaming = false, isLastMessage = false, onDelete, onRegenerate }: Props = $props();
 
+	console.log($state.snapshot(message));
+
 	function copyToClipboard() {
 		navigator.clipboard.writeText(message.content);
 	}
@@ -33,52 +37,6 @@
 			hour: '2-digit',
 			minute: '2-digit'
 		});
-	}
-
-	function isUrl(str: string) {
-		try {
-			const url = new URL(str);
-			return url.protocol !== 'file:';
-		} catch {
-			return false;
-		}
-	}
-
-	function isFilePath(str: string) {
-		try {
-			const url = new URL(str);
-			return url.protocol === 'file:';
-		} catch {
-			return false;
-		}
-	}
-
-	function getFileName(str: string) {
-		try {
-			const url = new URL(str);
-			return url.pathname.split('/').pop();
-		} catch {
-			return str.split('/').pop();
-		}
-	}
-
-	function getPreview(content: string, maxLength = 200) {
-		if (!content) return '';
-		return content.length > maxLength ? content.slice(0, maxLength) + '…' : content;
-	}
-	// Track open/closed state for each file preview
-	let openFiles: boolean[] = $state([]);
-
-	$effect(() => {
-		if (message.documents) {
-			if (openFiles.length !== message.documents.length) {
-				openFiles = message.documents.map(() => false);
-			}
-		}
-	});
-
-	function toggleFile(idx: number) {
-		openFiles = openFiles.map((open, i) => (i === idx ? !open : open));
 	}
 </script>
 
@@ -159,7 +117,7 @@
 												Document search completed - found {data.length} documents
 												{#if data.length > 0}
 													<span class="ml-2 text-slate-500">
-														({data.map(d => getFileName(d.source)).slice(0, 3).join(', ')}{data.length > 3 ? `, +${data.length - 3} more` : ''})
+														({data.map(d => d.source.split('/').pop()).slice(0, 3).join(', ')}{data.length > 3 ? `, +${data.length - 3} more` : ''})
 													</span>
 												{/if}
 											</span>
@@ -181,92 +139,16 @@
 					{/if}
 
 					{#if isStreaming && isLastMessage}
-						<div class="flex items-center space-x-2 mt-3">
+						<div class="flex items-center space-x-2" class:mt-3={message.content.length}>
 							<Loader class="w-4 h-4 animate-spin text-cyan-400" />
 							<span class="text-xs text-slate-400">Assistant is thinking...</span>
 						</div>
 					{/if}
 
 					{#if hasUrls || hasDocuments}
-						<div class="mt-4 pt-3 border-t border-slate-700 text-[0.7rem]">
-							{#if message.sources && message.sources.length > 0}
-								<div class="space-y-3 mb-2">
-									{#each message.sources.filter((source) => source.urls.length > 0) as source}
-										<div class="mb-2">
-											{#if source.urls && source.urls.length > 0}
-												<div class="flex flex-wrap gap-1 items-center mt-1">
-													{#each source.urls.toSorted((a: SearchResultUrl, b: SearchResultUrl) => a.title.localeCompare(b.title)) as url}
-														{#if isUrl(url.url)}
-															<a href={url.url} target="_blank" rel="noopener" class="inline-block bg-cyan-900/60 text-cyan-200 px-2 py-0.5 rounded-full font-mono hover:bg-cyan-800/80 hover:underline transition-all duration-150 shadow-sm border border-cyan-700">
-																{url.title}
-															</a>
-														{:else}
-															<span class="inline-block bg-slate-700/80 text-slate-100 px-3 py-1 rounded-full font-mono border border-slate-600 shadow-sm">{url.url}</span>
-														{/if}
-													{/each}
-												</div>
-											{/if}
-										</div>
-									{/each}
-								</div>
-							{/if}
-							{#if message.documents && message.documents.length > 0}
-								<div class="space-y-3">
-									<strong class="text-slate-400">Files used ({message.documents.length}):</strong>
-									<ul class="space-y-1.5 mt-1">
-										{#each message.documents as doc, index}
-											{#if doc && doc.source !== '' && doc.content !== ''}
-												{@const fileName = getFileName(doc.source)}
-
-												<li class="glass bg-slate-900/70 rounded-xl px-2.5 py-1.5 border border-slate-700 shadow-lg flex flex-col">
-													<!-- Collapsible header -->
-													<button
-														type="button"
-														class="flex items-center gap-2 w-full text-left focus:outline-none group"
-														onclick={() => toggleFile(index)}
-														aria-expanded={openFiles[index]}
-													>
-														<FileText class="w-4 h-4 text-cyan-400 flex-shrink-0" />
-														{#if isUrl(doc.source)}
-															<a href={doc.source} target="_blank" rel="noopener" class="font-mono text-cyan-300 hover:underline hover:text-cyan-200 transition-all duration-150">{doc.source}</a>
-														{:else if isFilePath(doc.source)}
-															<span class="font-mono text-slate-200 text-[0.7rem]" title={doc.source}>{fileName}</span>
-														{:else}
-															<span class="font-mono text-slate-100 break-all">{doc.source}</span>
-														{/if}
-														<span class="flex items-center gap-1 w-fit ml-2">
-															<span class="text-slate-400 italic text-xs">{getPreview(doc.content)}</span>
-															<ChevronDown
-																class="w-4 h-4 text-cyan-300 transition-transform duration-200"
-																style="transform: rotate({openFiles[index] ? 180 : 0}deg);"
-																aria-hidden="true"
-															/>
-														</span>
-													</button>
-													<!-- Collapsible content -->
-													<div
-														class="overflow-hidden transition-all duration-300 space-y-1"
-														style="max-height: {openFiles[index] ? '500px' : '0'}; opacity: {openFiles[index] ? 1 : 0};"
-														aria-hidden={!openFiles[index]}
-														class:pt-1={openFiles[index]}
-													>
-														{#if isUrl(doc.source)}
-															<a href={doc.source} target="_blank" rel="noopener" class="font-mono text-cyan-300 hover:underline hover:text-cyan-200 transition-all duration-150">{doc.source}</a>
-														{:else if isFilePath(doc.source)}
-															<span class="font-mono text-slate-200 text-[0.7rem] break-all">{doc.source}</span>
-														{:else}
-															<span class="font-mono text-slate-100 break-all">{doc.source}</span>
-														{/if}
-														<pre class="text-slate-300 text-[0.65rem] bg-slate-900/60 rounded-lg p-2 border border-slate-700 whitespace-pre-wrap">
-{doc.content.slice(0, 5000).trim()}{doc.content.length > 5000 ? '…' : ''}
-														</pre>
-													</div>
-												</li>
-											{/if}
-										{/each}
-									</ul>
-								</div>
-							{/if}
+						<div class="mt-4 pt-3 border-t border-slate-700 text-[0.7rem] space-y-3">
+							<WebSources sources={message.sources || []} />
+							<DocumentSources documents={message.documents || []} />
 						</div>
 					{/if}
 				{/if}

@@ -56,6 +56,8 @@ StreamEventType = Literal[
 	'chat_history',
 	'documents',
 	'final',
+	'list_files',
+	'read_file',
 	'sources',
 	'token'
 ]
@@ -103,6 +105,58 @@ class DocumentsStreamEvent(StreamEventBase):
 	type: Literal['documents']
 
 
+class FileReadResult(TypedDict):
+	"""
+	Result from reading a file.
+
+	:param content: The file content
+	:param file_path: Path to the file that was read
+	:param success: Whether the operation was successful
+	:param error: Error message if operation failed
+	"""
+	content: str
+	file_path: str
+	success: bool
+	error: str | None
+
+
+class ReadFileStreamEvent(StreamEventBase):
+	"""
+	Streaming event for file read operations.
+
+	:param data: File read result
+	:param type: Always 'read_file'
+	"""
+	data: FileReadResult
+	type: Literal['read_file']
+
+
+class FileListResult(TypedDict):
+	"""
+	Result from listing files in a directory.
+
+	:param files: List of files in the directory
+	:param directory_path: Path to the directory that was listed
+	:param success: Whether the operation was successful
+	:param error: Error message if operation failed
+	"""
+	files: list[str]
+	directory_path: str
+	success: bool
+	error: str | None
+
+
+class ListFilesStreamEvent(StreamEventBase):
+	"""
+	Streaming event for file listing operations.
+
+	:param data: File list result
+	:param type: Always 'list_files'
+	"""
+	data: FileListResult
+	type: Literal['list_files']
+
+
 class ChatHistoryStreamEvent(StreamEventBase):
 	"""
 	Streaming event for chat history updates.
@@ -142,6 +196,8 @@ StreamEvent = (
 	ChatHistoryStreamEvent |
 	DocumentsStreamEvent |
 	FinalStreamEvent |
+	ListFilesStreamEvent |
+	ReadFileStreamEvent |
 	SourcesStreamEvent |
 	TokenStreamEvent
 )

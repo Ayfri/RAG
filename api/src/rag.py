@@ -35,8 +35,12 @@ from src.types import (
 	TokenStreamEvent,
 	SourcesStreamEvent,
 	DocumentsStreamEvent,
+	ReadFileStreamEvent,
+	ListFilesStreamEvent,
 	ChatHistoryStreamEvent,
-	FinalStreamEvent
+	FinalStreamEvent,
+	FileReadResult,
+	FileListResult
 )
 
 openai.api_key = OPENAI_API_KEY
@@ -666,7 +670,7 @@ class RAGService:
 				token_event: TokenStreamEvent = {'type': 'token', 'data': event.delta}
 				yield token_event
 
-			# Stream sources/documents as they're found
+			# Stream tool results as they're found
 			if isinstance(event, ToolCallResult):
 				print(f"Tool call: {event.tool_name}, params: {event.tool_kwargs}")
 				if event.tool_name.startswith('search'):
@@ -679,6 +683,40 @@ class RAGService:
 					documents.extend(new_documents)
 					documents_event: DocumentsStreamEvent = {'type': 'documents', 'data': new_documents}
 					yield documents_event
+				elif event.tool_name == 'read_file_tool':
+					file_path = event.tool_kwargs.get('rel_path', 'unknown')
+					file_content = event.tool_output.raw_output
+
+					# Check if operation was successful
+					success = not file_content.startswith('File not found:') and not file_content.startswith('Error reading file:')
+					error = None if success else file_content
+
+					read_file_result: FileReadResult = {
+						'content': file_content if success else '',
+						'file_path': file_path,
+						'success': success,
+						'error': error
+					}
+
+					read_file_event: ReadFileStreamEvent = {'type': 'read_file', 'data': read_file_result}
+					yield read_file_event
+				elif event.tool_name == 'list_files_tool':
+					dir_path = event.tool_kwargs.get('rel_dir', 'unknown')
+					file_list = event.tool_output.raw_output
+
+					# Check if operation was successful
+					success = not (isinstance(file_list, list) and len(file_list) == 1 and file_list[0].startswith('Directory not found:'))
+					error = None if success else (file_list[0] if isinstance(file_list, list) and len(file_list) == 1 else 'Unknown error')
+
+					list_files_result: FileListResult = {
+						'files': file_list if success else [],
+						'directory_path': dir_path,
+						'success': success,
+						'error': error
+					}
+
+					list_files_event: ListFilesStreamEvent = {'type': 'list_files', 'data': list_files_result}
+					yield list_files_event
 
 			# Stream chat history updates
 			if isinstance(event, AgentOutput):

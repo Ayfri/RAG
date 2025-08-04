@@ -301,7 +301,7 @@ async def stream_rag(rag_name: str, payload: QueryPayload):
 					case 'token':
 						# Stream text tokens immediately
 						yield str(event['data'])
-					case 'chat_history' | 'documents' | 'sources':
+					case 'chat_history' | 'documents' | 'sources' | 'read_file' | 'list_files':
 						# Stream metadata events as JSON with markers
 						yield f'\n---{event["type"]}---\n'
 						yield json.dumps(event['data'])

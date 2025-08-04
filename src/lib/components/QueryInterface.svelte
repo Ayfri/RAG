@@ -341,80 +341,47 @@
 <div class="h-full max-h-screen flex flex-col gap-2 md:gap-4 overflow-hidden">
 	<!-- Header -->
 	<header class="glass border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700 p-3 md:p-4 rounded-xl flex-shrink-0">
-		<!-- Mobile: Stack everything vertically -->
-		<div class="flex flex-col space-y-3 md:hidden">
-			<!-- Title row -->
+		<div class="flex flex-col space-y-3 md:space-y-0 md:flex-row md:items-center md:justify-between">
+			<!-- Title section -->
 			<div class="flex items-center space-x-3">
-				<MessageSquare size={18} class="text-cyan-400" />
+				<MessageSquare size={18} class="text-cyan-400 md:w-6 md:h-6" />
 				<h2 class="text-lg md:text-xl font-bold text-slate-100 truncate">
 					Chat with <span class="text-cyan-400">{ragName}</span>
 				</h2>
 			</div>
 
-			<!-- Model selector row -->
-			<div class="w-full">
-				<Select
-					options={allOpenAIModels.map(model => ({ label: model.name, value: model.id }))}
-					bind:value={selectedModel}
-					placeholder="Select Chat Model"
-					class="w-full"
-				/>
-			</div>
+			<!-- Controls section -->
+			<div class="flex flex-col space-y-3 md:space-y-0 md:flex-row md:items-center md:space-x-3">
+				<!-- Model selector -->
+				<div class="w-full md:w-48">
+					<Select
+						options={allOpenAIModels.map(model => ({ label: model.name, value: model.id }))}
+						bind:value={selectedModel}
+						placeholder="Select Chat Model"
+						class="w-full"
+					/>
+				</div>
 
-			<!-- Buttons row -->
-			<div class="flex items-center justify-between space-x-2">
-				<Button
-					onclick={() => showFilesModal = true}
-					class="group flex items-center space-x-1.5 px-2.5 py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white rounded-lg cursor-pointer text-xs font-medium transition-all duration-200 shadow-lg flex-1 justify-center min-h-[40px]"
-					title="Toggle files panel"
-				>
-					<FileText size={18} />
-					<span>Files ({files.length})</span>
-				</Button>
-				<Button
+				<!-- Buttons -->
+				<div class="flex items-center justify-between space-x-2 md:space-x-3">
+					<Button
+						onclick={() => showFilesModal = true}
+						class="flex items-center space-x-1.5 px-2.5 py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white rounded-lg text-xs md:text-sm font-medium transition-all duration-200 shadow-lg flex-1 md:flex-initial justify-center md:justify-start min-h-[40px] md:min-h-0 whitespace-nowrap"
+						title="Toggle files panel"
+					>
+						<FileText size={18} />
+						<span>Files ({files.length})</span>
+					</Button>
+					<Button
 					onclick={clearConversation}
-					disabled={messages.length === 0}
-					class="group flex items-center space-x-1.5 px-2.5 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg cursor-pointer text-xs font-medium transition-all duration-200 shadow-lg hover:shadow-red-500/25 flex-1 justify-center min-h-[40px]"
-					title="Clear conversation"
-				>
-					<Trash2 size={18} />
-					<span>Clear</span>
-				</Button>
-			</div>
-		</div>
-
-		<!-- Desktop: Keep original horizontal layout -->
-		<div class="hidden md:flex items-center justify-between">
-			<div class="flex items-center space-x-3">
-				<MessageSquare size={24} class="text-cyan-400" />
-				<h2 class="text-xl font-bold text-slate-100">
-					Chat with <span class="text-cyan-400">{ragName}</span>
-				</h2>
-			</div>
-			<div class="flex items-center space-x-3">
-				<Select
-					options={allOpenAIModels.map(model => ({ label: model.name, value: model.id }))}
-					bind:value={selectedModel}
-					placeholder="Select Chat Model"
-					class="w-48"
-				/>
-				<Button
-					onclick={() => showFilesModal = true}
-					class="flex items-center whitespace-nowrap bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800"
-					title="Toggle files panel"
-				>
-					<FileText size={18} />
-					<span>Files ({files.length})</span>
-				</Button>
-				<Button
-					onclick={clearConversation}
-					disabled={messages.length === 0}
-					class="flex items-center bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 hover:shadow-red-500/25"
-					title="Clear conversation"
-				>
-					<Trash2 size={18} />
-					<span>Clear</span>
-				</Button>
+						disabled={messages.length === 0}
+						class="flex items-center space-x-1.5 px-2.5 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg text-xs md:text-sm font-medium transition-all duration-200 shadow-lg hover:shadow-red-500/25 flex-1 md:flex-initial justify-center md:justify-start min-h-[40px] md:min-h-0"
+						title="Clear conversation"
+					>
+						<Trash2 size={18} />
+						<span>Clear</span>
+					</Button>
+				</div>
 			</div>
 		</div>
 	</header>

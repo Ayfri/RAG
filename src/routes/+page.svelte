@@ -94,84 +94,34 @@
 			</div>
 		{/if}
 
-		<!-- Mobile: Stack layout, Desktop: Grid layout -->
-		<div class="flex-1 min-h-0">
-			<!-- Mobile Layout -->
-			<div class="flex flex-col gap-3 h-full lg:hidden">
-				<!-- RAG List (collapsible on mobile) -->
-				<div class="glass rounded-xl shadow-2xl overflow-hidden flex-shrink-0">
+		<!-- Responsive Layout -->
+		<div class="flex-1 min-h-0 flex flex-col lg:flex-row gap-3 lg:gap-8">
+			<!-- RAG List - Mobile: collapsible, Desktop: sidebar -->
+			<div class="lg:w-1/3 flex-shrink-0">
+				<div class="glass rounded-xl lg:rounded-2xl shadow-2xl overflow-hidden h-auto lg:h-full">
+					<!-- Mobile: collapsible header -->
 					<button
 						onclick={() => showRagList = !showRagList}
-						class="w-full p-3 border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700 flex items-center justify-between cursor-pointer hover:from-slate-700 hover:to-slate-600 transition-colors"
+						class="w-full p-3 lg:p-4 border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700 flex items-center justify-between cursor-pointer hover:from-slate-700 hover:to-slate-600 transition-colors lg:cursor-default lg:hover:from-slate-800 lg:hover:to-slate-700"
 					>
 						<div class="flex items-center space-x-2">
-							<Search class="w-4 h-4 text-cyan-400" />
-							<span class="text-base font-bold text-slate-100">RAGs ({rags.length})</span>
+							<Search class="w-4 h-4 lg:w-5 lg:h-5 text-cyan-400" />
+							<span class="text-base lg:text-lg font-bold text-slate-100">
+								<span class="lg:hidden">RAGs ({rags.length})</span>
+								<span class="hidden lg:inline">Available RAGs</span>
+							</span>
 							{#if selectedRag}
-								<span class="text-sm text-cyan-400">• {selectedRag}</span>
+								<span class="text-sm text-cyan-400 lg:hidden">• {selectedRag}</span>
 							{/if}
 						</div>
-						<div class="transform transition-transform {showRagList ? 'rotate-180' : ''}">
+						<div class="transform transition-transform {showRagList ? 'rotate-180' : ''} lg:hidden">
 							<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
 							</svg>
 						</div>
 					</button>
-					{#if showRagList}
-						<div class="max-h-48 overflow-y-auto">
-							<RagList
-								{rags}
-								{loading}
-								bind:selectedRag
-								onconfig={handleConfigRag}
-								ondelete={handleRagDeleted}
-							/>
-						</div>
-					{/if}
-				</div>
-
-				<!-- Query Interface (takes remaining space) -->
-				<div class="flex-1 min-h-0">
-					{#if selectedRag}
-						<QueryInterface ragName={selectedRag} />
-					{:else}
-						<div class="glass rounded-xl shadow-2xl p-6 text-center h-full flex flex-col justify-center">
-							<Database class="w-16 h-16 text-slate-600 mx-auto mb-4" />
-							<h3 class="text-lg font-bold text-slate-200 mb-2">
-								{rags.length === 0 ? 'Create Your First RAG' : 'Select a RAG to Query'}
-							</h3>
-							<p class="text-slate-400 text-sm max-w-sm mx-auto leading-relaxed mb-4">
-								{rags.length === 0
-									? 'Get started by creating your first RAG to organize and query your documents.'
-									: 'Choose a RAG from the list above to start asking questions about your documents.'
-								}
-							</p>
-							{#if rags.length === 0 && !loading}
-								<Button
-									onclick={() => showCreateModal = true}
-									variant="primary"
-									class="group"
-								>
-									<Plus class="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" />
-									<span class="text-sm">Create RAG</span>
-								</Button>
-							{/if}
-						</div>
-					{/if}
-				</div>
-			</div>
-
-			<!-- Desktop Layout -->
-			<div class="hidden lg:grid grid-cols-3 gap-8 h-full">
-				<!-- RAG List Sidebar -->
-				<div class="col-span-1">
-					<div class="glass rounded-2xl shadow-2xl overflow-hidden h-full">
-						<div class="p-4 border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700">
-							<h2 class="text-lg font-bold text-slate-100 flex items-center space-x-2">
-								<Search class="w-5 h-5 text-cyan-400" />
-								<span>Available RAGs</span>
-							</h2>
-						</div>
+					<!-- RAG List content -->
+					<div class="{showRagList ? 'block' : 'hidden'} lg:block max-h-48 lg:max-h-none overflow-y-auto lg:flex-1">
 						<RagList
 							{rags}
 							{loading}
@@ -181,34 +131,37 @@
 						/>
 					</div>
 				</div>
+			</div>
 
-				<!-- Query Interface -->
-				<div class="col-span-2 h-full min-h-0">
-					{#if selectedRag}
-						<QueryInterface ragName={selectedRag} />
-					{:else}
-						<div class="glass rounded-2xl shadow-2xl p-8 text-center">
-							<Database class="w-20 h-20 text-slate-600 mx-auto mb-4" />
-							<h3 class="text-xl font-bold text-slate-200 mb-2">Select a RAG to Query</h3>
-							<p class="text-slate-400 text-base max-w-md mx-auto leading-relaxed">
-								Choose a RAG from the sidebar to start asking questions about your documents.
-								Each RAG contains its own set of documents and can be queried independently.
-							</p>
-							{#if rags.length === 0 && !loading}
-								<div class="mt-6">
-									<Button
-										onclick={() => showCreateModal = true}
-										variant="primary"
-										class="group"
-									>
-										<Plus class="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
-										<span class="text-base">Create Your First RAG</span>
-									</Button>
-								</div>
-							{/if}
-						</div>
-					{/if}
-				</div>
+			<!-- Query Interface - Single instance for both mobile and desktop -->
+			<div class="flex-1 min-h-0">
+				{#if selectedRag}
+					<QueryInterface ragName={selectedRag} />
+				{:else}
+					<div class="glass rounded-xl lg:rounded-2xl shadow-2xl p-6 lg:p-8 text-center h-full flex flex-col justify-center">
+						<Database class="w-16 h-16 lg:w-20 lg:h-20 text-slate-600 mx-auto mb-4" />
+						<h3 class="text-lg lg:text-xl font-bold text-slate-200 mb-2">
+							{rags.length === 0 ? 'Create Your First RAG' : 'Select a RAG to Query'}
+						</h3>
+						<p class="text-slate-400 text-sm lg:text-base max-w-sm lg:max-w-md mx-auto leading-relaxed mb-4">
+							{rags.length === 0
+								? 'Get started by creating your first RAG to organize and query your documents.'
+								: 'Choose a RAG from the list to start asking questions about your documents.'}
+						</p>
+						{#if rags.length === 0 && !loading}
+							<div class="mt-2 lg:mt-6">
+								<Button
+									onclick={() => showCreateModal = true}
+									variant="primary"
+									class="group"
+								>
+									<Plus class="w-4 h-4 lg:w-5 lg:h-5 group-hover:rotate-90 transition-transform duration-200" />
+									<span class="text-sm lg:text-base">Create{rags.length === 0 ? ' Your First' : ''} RAG</span>
+								</Button>
+							</div>
+						{/if}
+					</div>
+				{/if}
 			</div>
 		</div>
 	</main>

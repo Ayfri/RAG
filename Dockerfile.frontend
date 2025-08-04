@@ -5,14 +5,16 @@ WORKDIR /app
 # Install pnpm
 RUN npm install -g pnpm
 
-# Copy package files
+# Copy package files first for better caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Copy source code
-COPY . .
+# Copy source code (excluding build artifacts)
+COPY src/ ./src/
+COPY static/ ./static/
+COPY svelte.config.js vite.config.ts tsconfig.json .npmrc ./
 
 # Build the application
 RUN pnpm build

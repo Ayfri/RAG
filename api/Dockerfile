@@ -13,8 +13,10 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
-COPY . .
+# Copy source code (excluding data directory)
+COPY src/ ./src/
+COPY services/ ./services/
+COPY main.py .
 
 # Create data directory
 RUN mkdir -p /app/data

@@ -103,6 +103,12 @@ docker-compose logs -f
 docker-compose down
 ```
 
+**Optimized Builds**: The Docker setup includes intelligent caching:
+- **Dependencies**: Cached separately from source code
+- **Source code**: Rebuilds only when files change
+- **Configuration**: Includes all necessary config files (`svelte.config.js`, `vite.config.ts`, `tsconfig.json`, `.npmrc`)
+- **Production mode**: Frontend runs in production mode with `pnpm preview`
+
 The application will be available at:
 - **Frontend**: `http://localhost:5173`
 - **Backend API**: `http://localhost:8000`

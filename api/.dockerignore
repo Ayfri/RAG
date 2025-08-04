@@ -1,13 +1,3 @@
-# Git
-.git
-.gitignore
-
-# Node.js
-node_modules
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
 # Python
 __pycache__
 *.pyc
@@ -25,7 +15,6 @@ nosetests.xml
 coverage.xml
 *.cover
 *.log
-.git
 .mypy_cache
 .pytest_cache
 .hypothesis
@@ -46,19 +35,6 @@ coverage.xml
 # OS
 .DS_Store
 Thumbs.db
-
-# Build outputs
-dist
-build
-.svelte-kit
-
-# Data directory (handled by volume)
-data/
-
-# Docker files
-Dockerfile*
-docker-compose*
-.dockerignore
 
 # Documentation
 README.md

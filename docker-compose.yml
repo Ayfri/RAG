@@ -6,6 +6,9 @@ services:
     build:
       context: ./api
       dockerfile: Dockerfile
+      cache_from:
+        - rag-api:latest
+    image: rag-api:latest
     ports:
       - "8000:8000"
     environment:
@@ -27,6 +30,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      cache_from:
+        - rag-frontend:latest
+    image: rag-frontend:latest
     ports:
       - "5173:5173"
     environment:

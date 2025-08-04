@@ -1,30 +1,22 @@
 <script lang="ts">
-	import { FileText, Trash2, MessageSquare, Bot } from '@lucide/svelte';
+	import { FileText, Trash2, MessageSquare, Bot, History } from '@lucide/svelte';
 	import Button from '$lib/components/common/Button.svelte';
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
 	import ChatInput from '$lib/components/ChatInput.svelte';
 	import FilesModal from '$lib/components/FilesModal.svelte';
+	import ChatSessions from '$lib/components/ChatSessions.svelte';
 	import Select from '$lib/components/common/Select.svelte';
 	import { notifications } from '$lib/stores/notifications';
 	import { openAIModels } from '$lib/stores/openai-models';
 	import type { SearchResult, RagDocument, OpenAIModel, FileItem, ToolActivity, StreamEvent, FileListResult } from '$lib/types.d.ts';
 	import { AgenticStreamingParser } from '$lib/helpers/streaming-parser';
+	import { chatStorage, type ChatMessage as StoredChatMessage, type ChatSession } from '$lib/helpers/chat-storage';
 
 	interface Props {
 		ragName: string;
 	}
 
-	interface Message {
-		content: string;
-		documents?: RagDocument[];
-		fileLists?: FileListResult[];
-		id: string;
-		role: 'user' | 'assistant';
-		sources?: SearchResult[];
-		timestamp: Date;
-		toolActivities?: ToolActivity[];
-		contentParts?: Array<{type: 'text' | 'tool'; content: string; activity?: ToolActivity}>;
-	}
+	type Message = StoredChatMessage;
 
 	let { ragName }: Props = $props();
 	let allOpenAIModels: OpenAIModel[] = $state([]);
@@ -41,8 +33,18 @@
 	let showFilesModal = $state(false);
 	let chatContainer: HTMLElement;
 
+	// Chat sessions state
+	let chatSessions: ChatSession[] = $state([]);
+	let currentSessionId: string | null = $state(null);
+	let loadingSessions = $state(false);
+
 	async function sendMessage() {
 		if (!currentMessage.trim() || loading) return;
+
+		// Create a new session if none exists
+		if (!currentSessionId) {
+			await createNewSession();
+		}
 
 		const userMessage: Message = {
 			id: crypto.randomUUID(),
@@ -64,6 +66,11 @@
 		messages = [...messages, userMessage, assistantMessage];
 		const query = currentMessage.trim();
 		currentMessage = '';
+
+		// Save user message to storage
+		if (currentSessionId) {
+			await chatStorage.addMessage(currentSessionId, userMessage);
+		}
 
 		try {
 			loading = true;
@@ -118,34 +125,46 @@
 
 			// Finalize parsing
 			const finalMessage = parser.finalize();
+			const finalAssistantMessage = {
+				...assistantMessage,
+				content: finalMessage.content,
+				contentParts: finalMessage.contentParts,
+				toolActivities: finalMessage.toolActivities,
+				documents: finalMessage.documents,
+				sources: finalMessage.sources,
+				fileLists: finalMessage.fileLists
+			};
+
 			messages = messages.map((msg, index) =>
-				index === messages.length - 1
-					? {
-						...msg,
-						content: finalMessage.content,
-						contentParts: finalMessage.contentParts,
-						toolActivities: finalMessage.toolActivities,
-						documents: finalMessage.documents,
-						sources: finalMessage.sources,
-						fileLists: finalMessage.fileLists
-					}
-					: msg
+				index === messages.length - 1 ? finalAssistantMessage : msg
 			);
 
+			// Save assistant message to storage
+			if (currentSessionId) {
+				await chatStorage.addMessage(currentSessionId, finalAssistantMessage);
+				await loadChatSessions(); // Refresh sessions list
+			}
+
 		} catch (err) {
+			const errorMessage = `Error: ${err instanceof Error ? err.message : 'Unknown error'}`;
+			const finalAssistantMessage = { ...assistantMessage, content: errorMessage };
+
 			// Update the last assistant message with error
 			messages = messages.map((msg, index) =>
-				index === messages.length - 1
-					? { ...msg, content: `Error: ${err instanceof Error ? err.message : 'Unknown error'}` }
-					: msg
+				index === messages.length - 1 ? finalAssistantMessage : msg
 			);
+
+			// Save error message to storage
+			if (currentSessionId) {
+				await chatStorage.addMessage(currentSessionId, finalAssistantMessage);
+			}
 		} finally {
 			loading = false;
 			streaming = false;
 		}
 	}
 
-	function handleDeleteMessage(id: string) {
+	async function handleDeleteMessage(id: string) {
 		const messageIndex = messages.findIndex(m => m.id === id);
 		if (messageIndex === -1) return;
 
@@ -153,9 +172,21 @@
 
 		if (messageToDelete.role === 'assistant' && messageIndex > 0) {
 			// Also delete the preceding user message
+			const userMessageId = messages[messageIndex - 1].id;
 			messages = messages.filter((_, i) => i !== messageIndex && i !== messageIndex - 1);
+
+			// Delete from storage
+			if (currentSessionId) {
+				await chatStorage.deleteMessage(currentSessionId, userMessageId);
+				await chatStorage.deleteMessage(currentSessionId, id);
+			}
 		} else {
 			messages = messages.filter(m => m.id !== id);
+
+			// Delete from storage
+			if (currentSessionId) {
+				await chatStorage.deleteMessage(currentSessionId, id);
+			}
 		}
 	}
 
@@ -173,9 +204,12 @@
 		await sendMessage();
 	}
 
-	function clearConversation() {
-		if (confirm('Clear the entire conversation?')) {
+	async function clearConversation() {
+		if (confirm('Vider la conversation actuelle ?')) {
 			messages = [];
+			if (currentSessionId) {
+				await chatStorage.clearSessionMessages(currentSessionId);
+			}
 		}
 	}
 
@@ -307,11 +341,90 @@
 		loadFiles();
 	}
 
+	// Chat session management functions
+	async function loadChatSessions() {
+		try {
+			loadingSessions = true;
+			await chatStorage.init();
+			chatSessions = await chatStorage.getSessionsByRag(ragName);
+		} catch (err) {
+			console.error('Failed to load chat sessions:', err);
+			notifications.error('Failed to load chat sessions');
+		} finally {
+			loadingSessions = false;
+		}
+	}
+
+	async function createNewSession() {
+		try {
+			const session = await chatStorage.createSession(ragName);
+			currentSessionId = session.id;
+			messages = [];
+			await loadChatSessions();
+			// Dispatch event to notify ChatSessions component
+			window.dispatchEvent(new CustomEvent('sessionCreated', {
+				detail: { ragName, sessionId: session.id }
+			}));
+			notifications.success('New session created');
+		} catch (err) {
+			console.error('Failed to create session:', err);
+			notifications.error('Failed to create session');
+		}
+	}
+
+	async function selectSession(sessionId: string) {
+		try {
+			const session = await chatStorage.getSession(sessionId);
+			if (session) {
+				currentSessionId = sessionId;
+				messages = session.messages;
+			}
+		} catch (err) {
+			console.error('Failed to load session:', err);
+			notifications.error('Failed to load session');
+		}
+	}
+
+	async function deleteSession(sessionId: string) {
+		try {
+			await chatStorage.deleteSession(sessionId);
+			if (currentSessionId === sessionId) {
+				currentSessionId = null;
+				messages = [];
+			}
+			await loadChatSessions();
+			// Dispatch event to notify ChatSessions component
+			window.dispatchEvent(new CustomEvent('sessionDeleted', {
+				detail: { ragName, sessionId }
+			}));
+			notifications.success('Session supprimée');
+		} catch (err) {
+			console.error('Failed to delete session:', err);
+			notifications.error('Failed to delete session');
+		}
+	}
+
+	async function renameSession(sessionId: string, newTitle: string) {
+		try {
+			await chatStorage.updateSessionTitle(sessionId, newTitle);
+			await loadChatSessions();
+			// Dispatch event to notify ChatSessions component
+			window.dispatchEvent(new CustomEvent('sessionRenamed', {
+				detail: { ragName, sessionId, newTitle }
+			}));
+			notifications.success('Session renommée');
+		} catch (err) {
+			console.error('Failed to rename session:', err);
+			notifications.error('Failed to rename session');
+		}
+	}
+
 	// Load files and RAG config when component mounts or ragName changes
 	$effect(() => {
 		if (ragName) {
 			loadFiles();
 			loadRagConfig();
+			loadChatSessions();
 		}
 	});
 
@@ -339,6 +452,23 @@
 		if (selectedModel) {
 			updateRagConfig(selectedModel);
 		}
+	});
+
+	// Listen for session selection events from sidebar
+	$effect(() => {
+		const handleSessionSelected = (event: Event) => {
+			const customEvent = event as CustomEvent;
+			const { sessionId, messages: sessionMessages, ragName: eventRagName } = customEvent.detail;
+			if (eventRagName === ragName) {
+				currentSessionId = sessionId;
+				messages = sessionMessages;
+			}
+		};
+
+		window.addEventListener('sessionSelected', handleSessionSelected);
+		return () => {
+			window.removeEventListener('sessionSelected', handleSessionSelected);
+		};
 	});
 </script>
 
@@ -399,9 +529,13 @@
 			{#if messages.length === 0}
 				<div class="flex flex-col items-center justify-center h-full text-center px-4">
 					<Bot size={64} class="text-slate-600 mb-4" />
-					<h3 class="text-lg md:text-xl font-bold text-slate-300 mb-2">Start a conversation</h3>
+					<h3 class="text-lg md:text-xl font-bold text-slate-300 mb-2">
+						{currentSessionId ? 'Active session' : 'Start a conversation'}
+					</h3>
 					<p class="text-slate-500 max-w-md text-sm md:text-base">
-						Ask a question about your documents. The AI will analyze your content and provide a response based on available information.
+						{currentSessionId
+							? 'Ask a question about your documents in this session.'
+							: 'Ask a question about your documents. A new session will be created automatically.'}
 					</p>
 				</div>
 			{:else}

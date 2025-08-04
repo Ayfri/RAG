@@ -121,6 +121,14 @@ The web app will be available at `http://localhost:5173`.
 - Clean, readable response formatting with tool activity indicators
 - **Context-aware responses** based on per-RAG system prompts
 
+### 💬 Chat Session Management
+- **Persistent chat history**: Sessions saved locally via IndexedDB
+- **Unlimited storage**: No server-side storage limitations
+- **Session organization**: Create, rename, and delete chat sessions
+- **RAG-specific sessions**: Separate chat history for each RAG
+- **Automatic session creation**: New sessions created when starting conversations
+- **Session browser**: View all past conversations with preview and timestamps
+
 ### 🎨 Modern UI
 - Responsive design with TailwindCSS
 - Dark/light theme support
@@ -168,12 +176,21 @@ The web app will be available at `http://localhost:5173`.
 ### Querying Documents
 
 1. Select a RAG from the sidebar
-2. Type your question in the query box
+2. Type your question in the query box (a new session will be created automatically if none exists)
 3. The AI will stream its response in real-time, showing:
    - **Tool usage**: See when the AI searches the web or your documents
    - **Progressive responses**: Text appears as it's generated
    - **Live tool activity**: Inline indicators show search results and document retrieval
 4. View the complete AI-generated answer with all sources and documents used
+
+### Managing Chat Sessions
+
+- **View sessions**: Click the "Sessions" button to see all your chat history
+- **Create sessions**: New sessions are created automatically when you start chatting
+- **Switch sessions**: Click on any session to resume that conversation
+- **Rename sessions**: Click the edit icon to give sessions meaningful names
+- **Delete sessions**: Remove sessions you no longer need
+- **Persistent storage**: All conversations are saved locally in your browser
 
 ### Managing Files
 

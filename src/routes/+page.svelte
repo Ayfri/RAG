@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Plus, FileText, Search, Database } from '@lucide/svelte';
-	import RagList from '$lib/components/RagList.svelte';
+	import { Plus, FileText, Search, Database, MessageSquare } from '@lucide/svelte';
 	import CreateRagModal from '$lib/components/CreateRagModal.svelte';
 	import RagConfigModal from '$lib/components/RagConfigModal.svelte';
 	import QueryInterface from '$lib/components/QueryInterface.svelte';
+	import ChatSessions from '$lib/components/ChatSessions.svelte';
 	import Button from '$lib/components/common/Button.svelte';
 
 	let rags: string[] = $state([]);
@@ -94,69 +94,110 @@
 			</div>
 		{/if}
 
-		<!-- Responsive Layout -->
-		<div class="flex-1 min-h-0 flex flex-col lg:flex-row gap-3 lg:gap-8">
-			<!-- RAG List - Mobile: collapsible, Desktop: sidebar -->
-			<div class="lg:w-1/3 flex-shrink-0">
-				<div class="glass rounded-xl lg:rounded-2xl shadow-2xl overflow-hidden h-auto lg:h-full">
-					<!-- Mobile: collapsible header -->
-					<button
-						onclick={() => showRagList = !showRagList}
-						class="w-full p-3 lg:p-4 border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700 flex items-center justify-between cursor-pointer hover:from-slate-700 hover:to-slate-600 transition-colors lg:cursor-default lg:hover:from-slate-800 lg:hover:to-slate-700"
+		<!-- RAG Selector - Compact top bar -->
+		<div class="mb-4">
+			<div class="glass rounded-xl shadow-xl p-3">
+				<div class="flex items-center justify-between">
+					<div class="flex items-center space-x-3">
+						<Search class="w-4 h-4 text-cyan-400" />
+						<span class="text-sm font-medium text-slate-300">RAGs:</span>
+						{#if loading}
+							<div class="flex items-center space-x-2">
+								<div class="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+								<span class="text-xs text-slate-400">Loading...</span>
+							</div>
+						{:else}
+							<div class="flex items-center space-x-2 flex-wrap gap-1">
+								{#each rags as rag}
+									<Button
+										variant="secondary"
+										onclick={() => selectedRag = rag}
+										class={`text-xs ${selectedRag === rag ? 'bg-cyan-600 text-white shadow-lg' : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-slate-200'}`}
+										title="Click to query this RAG"
+									>
+										{rag}
+									</Button>
+								{/each}
+								{#if rags.length === 0}
+									<span class="text-xs text-slate-500 italic">No RAGs available</span>
+								{/if}
+							</div>
+						{/if}
+					</div>
+					<Button
+						onclick={() => showCreateModal = true}
+						class="px-3 py-1.5 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white rounded-lg text-xs font-medium transition-all duration-200 shadow-lg hover:shadow-cyan-500/25"
 					>
-						<div class="flex items-center space-x-2">
-							<Search class="w-4 h-4 lg:w-5 lg:h-5 text-cyan-400" />
-							<span class="text-base lg:text-lg font-bold text-slate-100">
-								<span class="lg:hidden">RAGs ({rags.length})</span>
-								<span class="hidden lg:inline">Available RAGs</span>
-							</span>
+						<Plus class="w-3 h-3" />
+						<span class="ml-1">New RAG</span>
+					</Button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Main Content Area -->
+		<div class="flex-1 min-h-0 flex flex-col lg:flex-row gap-3 lg:gap-6">
+			<!-- Chat Sessions Sidebar -->
+			<div class="lg:w-80 flex-shrink-0">
+				<div class="glass rounded-xl shadow-2xl overflow-hidden h-full">
+					<div class="p-3 border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700">
+						<div class="flex items-center justify-between">
+							<div class="flex items-center space-x-2">
+								<MessageSquare class="w-4 h-4 text-cyan-400" />
+								<span class="text-sm font-bold text-slate-100">Chat Sessions</span>
+							</div>
 							{#if selectedRag}
-								<span class="text-sm text-cyan-400 lg:hidden">• {selectedRag}</span>
+								<span class="text-xs text-cyan-400 bg-cyan-900/30 px-2 py-1 rounded-full">
+									{selectedRag}
+								</span>
 							{/if}
 						</div>
-						<div class="transform transition-transform {showRagList ? 'rotate-180' : ''} lg:hidden">
-							<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-							</svg>
-						</div>
-					</button>
-					<!-- RAG List content -->
-					<div class="{showRagList ? 'block' : 'hidden'} lg:block max-h-48 lg:max-h-none overflow-y-auto lg:flex-1">
-						<RagList
-							{rags}
-							{loading}
-							bind:selectedRag
-							onconfig={handleConfigRag}
-							ondelete={handleRagDeleted}
-						/>
 					</div>
+					{#if selectedRag}
+						<div class="h-full">
+							<ChatSessions
+								ragName={selectedRag}
+								onSessionSelected={(sessionId, messages) => {
+									// Pass the session data to QueryInterface via custom event
+									window.dispatchEvent(new CustomEvent('sessionSelected', {
+										detail: { sessionId, messages, ragName: selectedRag }
+									}));
+								}}
+							/>
+						</div>
+					{:else}
+						<div class="p-4 text-center text-slate-400">
+							<MessageSquare class="w-8 h-8 mx-auto mb-2 text-slate-600" />
+							<p class="text-xs">Select a RAG to view sessions</p>
+						</div>
+					{/if}
 				</div>
 			</div>
 
-			<!-- Query Interface - Single instance for both mobile and desktop -->
+			<!-- Query Interface -->
 			<div class="flex-1 min-h-0">
 				{#if selectedRag}
 					<QueryInterface ragName={selectedRag} />
 				{:else}
-					<div class="glass rounded-xl lg:rounded-2xl shadow-2xl p-6 lg:p-8 text-center h-full flex flex-col justify-center">
-						<Database class="w-16 h-16 lg:w-20 lg:h-20 text-slate-600 mx-auto mb-4" />
-						<h3 class="text-lg lg:text-xl font-bold text-slate-200 mb-2">
+					<div class="glass rounded-xl shadow-2xl p-6 text-center h-full flex flex-col justify-center">
+						<Database class="w-16 h-16 text-slate-600 mx-auto mb-4" />
+						<h3 class="text-lg font-bold text-slate-200 mb-2">
 							{rags.length === 0 ? 'Create Your First RAG' : 'Select a RAG to Query'}
 						</h3>
-						<p class="text-slate-400 text-sm lg:text-base max-w-sm lg:max-w-md mx-auto leading-relaxed mb-4">
+						<p class="text-slate-400 text-sm max-w-sm mx-auto leading-relaxed mb-4">
 							{rags.length === 0
 								? 'Get started by creating your first RAG to organize and query your documents.'
-								: 'Choose a RAG from the list to start asking questions about your documents.'}
+								: 'Choose a RAG from the top bar to start asking questions about your documents.'}
 						</p>
 						{#if rags.length === 0 && !loading}
-							<div class="mt-2 lg:mt-6">
+							<div class="mt-2">
 								<Button
 									onclick={() => showCreateModal = true}
 									variant="primary"
 									class="group"
 								>
-									<Plus class="w-4 h-4 lg:w-5 lg:h-5 group-hover:rotate-90 transition-transform duration-200" />
-									<span class="text-sm lg:text-base">Create{rags.length === 0 ? ' Your First' : ''} RAG</span>
+									<Plus class="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" />
+									<span class="text-sm">Create{rags.length === 0 ? ' Your First' : ''} RAG</span>
 								</Button>
 							</div>
 						{/if}

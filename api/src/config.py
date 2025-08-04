@@ -10,12 +10,11 @@ import os
 import dotenv
 
 
-# Load environment variables from .env file
+# Load environment variables from .env file (optional)
 found_dotenv = dotenv.load_dotenv()
 
-# Ensure .env file is found
-if not found_dotenv:
-	raise FileNotFoundError("No '.env' file found. Please create one with necessary environment variables.")
+# Note: .env file is optional in Docker environment
+# Environment variables can be set via docker-compose.yml
 
 
 def get_var(name: str, default: str | None = None, /, optional: bool = False) -> str:
@@ -31,7 +30,7 @@ def get_var(name: str, default: str | None = None, /, optional: bool = False) ->
 	value = os.getenv(name, default)
 
 	if value is None and not optional:
-		raise ValueError(f"Environment variable '{name}' not found. Please set it in your .env file.")
+		raise ValueError(f"Environment variable '{name}' not found. Please set it in your .env file or via docker-compose.yml environment variables.")
 
 	return value or ""
 

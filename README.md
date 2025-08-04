@@ -90,8 +90,11 @@ The web app will be available at `http://localhost:5173`.
 For containerized deployment, use Docker Compose:
 
 ```powershell
-# Create .env file with your OpenAI API key
+# Option 1: Create .env file with your OpenAI API key
 echo "OPENAI_API_KEY=sk-your-api-key-here" > .env
+
+# Option 2: Set environment variable directly
+$env:OPENAI_API_KEY="sk-your-api-key-here"
 
 # Build and start all services
 docker-compose up -d

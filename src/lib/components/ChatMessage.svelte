@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Bot, Copy, Loader, RefreshCcw, Trash2, User, FileText, ChevronDown } from '@lucide/svelte';
+	import { Bot, Copy, Loader, RefreshCcw, Trash2, User, FileText, ChevronDown, Globe } from '@lucide/svelte';
 	import Markdown from '$lib/components/common/Markdown.svelte';
-	import type { SearchResult, SearchResultUrl, RagDocument } from '$lib/types.d.ts';
+	import type { SearchResult, SearchResultUrl, RagDocument, ToolActivity } from '$lib/types.d.ts';
 
 	interface Message {
 		content: string;
@@ -10,6 +10,8 @@
 		role: 'user' | 'assistant';
 		sources?: SearchResult[];
 		timestamp: Date;
+		toolActivities?: ToolActivity[];
+		contentParts?: Array<{type: 'text' | 'tool'; content: string; activity?: ToolActivity}>;
 	}
 
 	interface Props {
@@ -124,14 +126,64 @@
 					{@const hasUrls = message.sources?.some((source) => source.urls.length > 0)}
 					{@const hasDocuments = message.documents && message.documents.length > 0}
 
-					{#if message.content.length > 0}
+					<!-- Content with inline tool activities -->
+					{#if message.contentParts && message.contentParts.length > 0}
+						<div class="space-y-2">
+							{#each message.contentParts as part, index (index)}
+								{#if part.type === 'text' && part.content.trim()}
+									<Markdown content={part.content} />
+								{:else if part.type === 'tool' && part.activity}
+									{@const activity = part.activity}
+									<div class="flex items-center space-x-2 text-xs text-slate-400 bg-slate-900/30 rounded-lg px-3 py-2 border border-slate-700/50 my-2">
+										{#if activity.type === 'sources'}
+											{@const data = activity.data as SearchResult}
+											<Globe class="w-4 h-4 text-blue-400 flex-shrink-0" />
+											<div class="flex-1">
+												<div class="text-slate-300 mb-2">
+													Web search completed - found {data.urls?.length || 0} sources
+												</div>
+												{#if data.urls && data.urls.length > 0}
+													<div class="flex flex-wrap gap-1 items-center">
+														{#each data.urls as url}
+															<a href={url.url} target="_blank" rel="noopener" class="inline-block bg-blue-900/60 text-blue-200 px-2 py-0.5 rounded-full text-xs hover:bg-blue-800/80 hover:underline transition-all duration-150 shadow-sm border border-blue-700">
+																{url.title}
+															</a>
+														{/each}
+													</div>
+												{/if}
+											</div>
+										{:else if activity.type === 'documents'}
+											{@const data = activity.data as RagDocument[]}
+											<FileText class="w-4 h-4 text-green-400 flex-shrink-0" />
+											<span class="flex-1">
+												Document search completed - found {data.length} documents
+												{#if data.length > 0}
+													<span class="ml-2 text-slate-500">
+														({data.map(d => getFileName(d.source)).slice(0, 3).join(', ')}{data.length > 3 ? `, +${data.length - 3} more` : ''})
+													</span>
+												{/if}
+											</span>
+										{/if}
+										<span class="text-slate-500 text-xs">
+											{activity.timestamp.toLocaleTimeString('en-US', {
+												hour: '2-digit',
+												minute: '2-digit',
+												second: '2-digit'
+											})}
+										</span>
+									</div>
+								{/if}
+							{/each}
+						</div>
+					{:else if message.content.length > 0}
+						<!-- Fallback to regular content display -->
 						<Markdown content={message.content} />
 					{/if}
 
 					{#if isStreaming && isLastMessage}
-						<div class="flex items-center space-x-2">
+						<div class="flex items-center space-x-2 mt-3">
 							<Loader class="w-4 h-4 animate-spin text-cyan-400" />
-							<span class="text-xs text-slate-400">Assistant is typing...</span>
+							<span class="text-xs text-slate-400">Assistant is thinking...</span>
 						</div>
 					{/if}
 

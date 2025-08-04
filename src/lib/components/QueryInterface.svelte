@@ -7,21 +7,11 @@
 	import Select from '$lib/components/common/Select.svelte';
 	import { notifications } from '$lib/stores/notifications';
 	import { openAIModels } from '$lib/stores/openai-models';
-	import type { SearchResult, RagDocument, OpenAIModel } from '$lib/types.d.ts';
+	import type { SearchResult, RagDocument, OpenAIModel, FileItem, ToolActivity, StreamEvent } from '$lib/types.d.ts';
+	import { AgenticStreamingParser } from '$lib/helpers/streaming-parser';
 
 	interface Props {
 		ragName: string;
-	}
-
-	interface FileItem {
-		name: string;
-		type: 'file' | 'directory';
-		is_symlink: boolean;
-		target?: string;
-		resolved_target_type?: 'file' | 'directory' | 'unknown';
-		file_count?: number;
-		size?: number;
-		last_modified?: number;
 	}
 
 	interface Message {
@@ -31,6 +21,8 @@
 		role: 'user' | 'assistant';
 		sources?: SearchResult[];
 		timestamp: Date;
+		toolActivities?: ToolActivity[];
+		contentParts?: Array<{type: 'text' | 'tool'; content: string; activity?: ToolActivity}>;
 	}
 
 	let { ragName }: Props = $props();
@@ -62,7 +54,9 @@
 			id: crypto.randomUUID(),
 			role: 'assistant',
 			content: '',
-			timestamp: new Date()
+			timestamp: new Date(),
+			toolActivities: [],
+			contentParts: []
 		};
 
 		messages = [...messages, userMessage, assistantMessage];
@@ -88,75 +82,52 @@
 			if (!reader) throw new Error('No response body');
 
 			const decoder = new TextDecoder();
-			let buffer = '';
-			let doneReading = false;
+			const parser = new AgenticStreamingParser();
 
-			while (!doneReading) {
+			while (true) {
 				const { done, value } = await reader.read();
-				if (done) {
-					doneReading = true;
-				}
-				if (value) {
-					const chunk = decoder.decode(value);
-					buffer += chunk;
+				if (done) break;
 
-					// Auto-scroll to bottom as we receive data
-					setTimeout(() => {
-						if (chatContainer) {
-							chatContainer.scrollTop = chatContainer.scrollHeight;
-						}
-					}, 0);
+				const chunk = decoder.decode(value, { stream: true });
+				const parsedMessage = parser.processChunk(chunk);
 
-					// While streaming, show the content up to the last separator (if any), otherwise all
-					const lastSepIndex = buffer.lastIndexOf('\n---\n');
-					if (lastSepIndex === -1) {
-						// No separator yet, just show all as answer
-						messages = messages.map((msg, index) =>
-							index === messages.length - 1
-								? { ...msg, content: buffer }
-								: msg
-						);
-					} else {
-						// Show only the answer part (before the last separator)
-						const answer = buffer.slice(0, lastSepIndex);
-						messages = messages.map((msg, index) =>
-							index === messages.length - 1
-								? { ...msg, content: answer }
-								: msg
-						);
-					}
-				}
-			}
-
-			// After the stream is done, process the last separator and JSON
-			const lastSepIndex = buffer.lastIndexOf('\n---\n');
-			if (lastSepIndex !== -1) {
-				const answer = buffer.slice(0, lastSepIndex);
-				const jsonPart = buffer.slice(lastSepIndex + 5);
-
-				// Update the assistant message with the final answer
+				// Update the assistant message with parsed data
 				messages = messages.map((msg, index) =>
 					index === messages.length - 1
-						? { ...msg, content: answer }
+						? {
+							...msg,
+							content: parsedMessage.content,
+							contentParts: parsedMessage.contentParts,
+							toolActivities: parsedMessage.toolActivities,
+							documents: parsedMessage.documents,
+							sources: parsedMessage.sources
+						}
 						: msg
 				);
 
-				// Try to parse the JSON part
-				try {
-					const data = JSON.parse(jsonPart);
-					messages = messages.map((msg, index) =>
-						index === messages.length - 1
-							? {
-								...msg,
-								documents: data.documents,
-								sources: data.sources
-							}
-							: msg
-					);
-				} catch (e) {
-					// Ignore JSON parse errors for now
-				}
+				// Auto-scroll to bottom as we receive data
+				setTimeout(() => {
+					if (chatContainer) {
+						chatContainer.scrollTop = chatContainer.scrollHeight;
+					}
+				}, 0);
 			}
+
+			// Finalize parsing
+			const finalMessage = parser.finalize();
+			messages = messages.map((msg, index) =>
+				index === messages.length - 1
+					? {
+						...msg,
+						content: finalMessage.content,
+						contentParts: finalMessage.contentParts,
+						toolActivities: finalMessage.toolActivities,
+						documents: finalMessage.documents,
+						sources: finalMessage.sources
+					}
+					: msg
+			);
+
 		} catch (err) {
 			// Update the last assistant message with error
 			messages = messages.map((msg, index) =>

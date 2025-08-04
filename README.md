@@ -85,6 +85,13 @@ The web app will be available at `http://localhost:5173`.
 
 ## 🎯 Features
 
+### 🤖 Agentic AI Workflow
+- **Real-time tool usage**: Watch the AI agent use multiple tools as it works
+- **Web search integration**: AI can search the internet for current information
+- **Document retrieval**: Smart search through your uploaded documents
+- **File operations**: AI can read and explore files in your RAG directories
+- **Progressive streaming**: See responses build up token-by-token with live tool indicators
+
 ### 📊 RAG Management
 - Create new RAG indices from uploaded documents
 - List all available RAGs
@@ -108,9 +115,10 @@ The web app will be available at `http://localhost:5173`.
 
 ### 🔍 Intelligent Querying
 - Ask questions about your documents
-- Real-time streaming responses
-- Standard and streaming query modes
-- Clean, readable response formatting
+- **Real-time agentic streaming**: Watch the AI use tools in real-time
+- **Tool activity visualization**: See web searches and document retrieval as they happen
+- **Progressive response building**: Responses appear token-by-token with inline tool usage
+- Clean, readable response formatting with tool activity indicators
 - **Context-aware responses** based on per-RAG system prompts
 
 ### 🎨 Modern UI
@@ -161,8 +169,11 @@ The web app will be available at `http://localhost:5173`.
 
 1. Select a RAG from the sidebar
 2. Type your question in the query box
-3. Choose **"Ask"** for a complete response or **"Stream"** for real-time output
-4. View the AI-generated answer based on your documents and configuration
+3. The AI will stream its response in real-time, showing:
+   - **Tool usage**: See when the AI searches the web or your documents
+   - **Progressive responses**: Text appears as it's generated
+   - **Live tool activity**: Inline indicators show search results and document retrieval
+4. View the complete AI-generated answer with all sources and documents used
 
 ### Managing Files
 
@@ -206,8 +217,7 @@ uvicorn api.main:app --reload  # Development server with auto-reload
 | `DELETE` | `/rag/{name}` | Delete RAG |
 | `GET` | `/rag/{name}/config` | Get RAG configuration |
 | `PUT` | `/rag/{name}/config` | Update RAG configuration |
-| `POST` | `/rag/{name}/query` | Query RAG |
-| `POST` | `/rag/{name}/stream` | Stream query response |
+| `POST` | `/rag/{name}/stream` | Stream agentic query response with real-time tool usage |
 | `GET` | `/rag/{name}/files` | List RAG files and directories |
 | `POST` | `/rag/{name}/files` | Upload file |
 | `POST` | `/rag/{name}/symlink` | Create symbolic link |

@@ -48,6 +48,10 @@
 	function handleSubmit(e: Event) {
 		e.preventDefault();
 		onSubmit();
+		// Keep focus on textarea after submit
+		if (textareaElement) {
+			textareaElement.focus();
+		}
 	}
 </script>
 

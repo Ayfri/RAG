@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Plus, FileText, Search, Database, MessageSquare } from '@lucide/svelte';
+	import Header from '$lib/components/Header.svelte';
 	import CreateRagModal from '$lib/components/CreateRagModal.svelte';
 	import RagConfigModal from '$lib/components/RagConfigModal.svelte';
 	import QueryInterface from '$lib/components/QueryInterface.svelte';
@@ -15,6 +16,7 @@
 	let loading = $state(true);
 	let error = $state('');
 	let showRagList = $state(false);
+	let totalChatCount = $state(0);
 
 	async function loadRags() {
 		try {
@@ -22,10 +24,24 @@
 			const response = await fetch('/api/rag');
 			if (!response.ok) throw new Error('Failed to load RAGs');
 			rags = await response.json();
+			await loadTotalChatCount();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Unknown error';
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function loadTotalChatCount() {
+		try {
+			// Import chatStorage to count all sessions across all RAGs
+			const { chatStorage } = await import('$lib/helpers/chat-storage');
+			await chatStorage.init();
+			const allSessions = await chatStorage.getAllSessions();
+			totalChatCount = allSessions.length;
+		} catch (err) {
+			console.error('Failed to load chat count:', err);
+			totalChatCount = 0;
 		}
 	}
 
@@ -39,6 +55,11 @@
 		selectedRag = null;
 	}
 
+	// Listen for session events to update chat count
+	function handleSessionEvent() {
+		loadTotalChatCount();
+	}
+
 	function handleConfigRag(ragName: string) {
 		configRagName = ragName;
 		showConfigModal = true;
@@ -49,36 +70,19 @@
 		showConfigModal = false;
 	}
 
-	onMount(loadRags);
+	onMount(() => {
+		loadRags();
+
+		// Listen for session events
+		window.addEventListener('sessionCreated', handleSessionEvent);
+		window.addEventListener('sessionDeleted', handleSessionEvent);
+		window.addEventListener('sessionRenamed', handleSessionEvent);
+	});
 </script>
 
 <div class="h-screen bg-slate-900 flex flex-col">
 	<!-- Header -->
-	<header class="bg-slate-800 border-b border-slate-700 shadow-xl flex-shrink-0">
-		<div class="px-3 md:px-4 lg:px-6">
-			<div class="flex justify-between items-center py-3 md:py-4">
-				<div class="flex items-center space-x-2 md:space-x-3 min-w-0 flex-1">
-					<div class="p-1 md:p-1.5 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-lg md:rounded-xl flex-shrink-0">
-						<Database class="w-5 h-5 md:w-7 md:h-7 text-white" />
-					</div>
-					<div class="min-w-0 flex-1">
-						<h1 class="text-lg md:text-2xl font-bold bg-gradient-to-r from-cyan-400 to-cyan-200 bg-clip-text text-transparent truncate">
-							RAG Application
-						</h1>
-						<p class="text-slate-400 text-xs hidden sm:block">Retrieval-Augmented Generation made simple</p>
-					</div>
-				</div>
-				<button
-					onclick={() => showCreateModal = true}
-					class="group flex items-center space-x-1.5 md:space-x-2 px-2.5 md:px-4 py-2 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white rounded-lg md:rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-cyan-500/25 cursor-pointer flex-shrink-0"
-				>
-					<Plus class="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" />
-					<span class="text-sm md:text-base hidden sm:inline">New RAG</span>
-					<span class="text-sm md:text-base sm:hidden">New</span>
-				</button>
-			</div>
-		</div>
-	</header>
+	<Header ragCount={rags.length} chatCount={totalChatCount} />
 
 	<!-- Main Content -->
 	<main class="px-3 md:px-4 lg:px-6 py-3 md:py-6 w-full flex-1 overflow-hidden flex flex-col">

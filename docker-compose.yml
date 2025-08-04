@@ -34,7 +34,7 @@ services:
         - rag-frontend:latest
     image: rag-frontend:latest
     ports:
-      - "5173:5173"
+      - "4173:4173"
     environment:
       - VITE_API_URL=http://localhost:8000
     depends_on:

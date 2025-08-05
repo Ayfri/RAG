@@ -1,4 +1,4 @@
-import type { ToolActivity, StreamEvent, FileReadResult, FileListResult } from '$lib/types.d.ts';
+import type {FileListResult, StreamEvent, ToolActivity} from '$lib/types.d.ts';
 
 export interface ContentPart {
 	type: 'text' | 'tool';
@@ -16,7 +16,6 @@ export interface ParsedMessage {
 }
 
 export class AgenticStreamingParser {
-	private buffer = '';
 	private currentTextContent = '';
 	private contentParts: ContentPart[] = [];
 	private toolActivities: ToolActivity[] = [];
@@ -25,112 +24,23 @@ export class AgenticStreamingParser {
 	private fileLists: FileListResult[] = [];
 
 	/**
-	 * Process a chunk of streaming data
-	 * @param chunk - The text chunk received from the stream
-	 * @returns Updated message data
+	 * Ultra-robust streaming parser that works directly with typed events
+	 * NO text parsing, NO markers, NO filtering - just pure event handling
 	 */
-	processChunk(chunk: string): ParsedMessage {
-		this.buffer += chunk;
-
-		// Process any complete events in the buffer (look for ---eventtype--- patterns)
-		while (this.buffer.includes('---')) {
-			const eventStart = this.buffer.indexOf('---');
-
-			// Extract any text tokens before the event and add as text part
-			const textPart = this.buffer.slice(0, eventStart);
-			if (textPart) {
-				this.currentTextContent += textPart;
+	processEvent(event: StreamEvent): ParsedMessage {
+		switch (event.type) {
+			case 'token':
+				// Pure text token - add directly to content
+				this.currentTextContent += event.data;
 				this.updateTextPart();
-			}
+				break;
 
-			// Find the end of the event marker (next ---)
-			const eventLineEnd = this.buffer.indexOf('---', eventStart + 3);
-			if (eventLineEnd === -1) break; // Incomplete event marker
-
-			const eventType = this.buffer.slice(eventStart + 3, eventLineEnd); // Extract event type
-
-			// Find the start of JSON data (after the closing ---)
-			const jsonStart = eventLineEnd + 3;
-
-			// Find the end of the JSON data (next event or end of buffer)
-			const nextEventStart = this.buffer.indexOf('\n---', jsonStart);
-			const jsonEnd = nextEventStart !== -1 ? nextEventStart : this.buffer.length;
-			const jsonPart = this.buffer.slice(jsonStart, jsonEnd).trim();
-
-			if (jsonPart) {
-				try {
-					const eventData = JSON.parse(jsonPart);
-					this.processEvent(eventType, eventData);
-				} catch (e) {
-					console.warn('Failed to parse event JSON:', e);
-				}
-			}
-
-			// Remove the processed part from buffer
-			this.buffer = this.buffer.slice(jsonEnd);
-		}
-
-		// Update content with any remaining text tokens (but ignore JSON at the end)
-		if (this.buffer && !this.buffer.includes('---')) {
-			const trimmedBuffer = this.buffer.trim();
-			const looksLikeJson = (
-				(trimmedBuffer.startsWith('{') && trimmedBuffer.endsWith('}')) ||
-				trimmedBuffer.includes('"chat_history"') ||
-				trimmedBuffer.includes('"documents"') ||
-				trimmedBuffer.includes('"sources"') ||
-				trimmedBuffer.includes('"files"') ||
-				trimmedBuffer.includes('"file_path"') ||
-				trimmedBuffer.includes('"directory_path"')
-			);
-
-			if (!looksLikeJson) {
-				this.currentTextContent += this.buffer;
-				this.updateTextPart();
-				this.buffer = '';
-			}
-		}
-
-		return this.getCurrentState();
-	}
-
-	/**
-	 * Process the final buffer when streaming is complete
-	 */
-	finalize(): ParsedMessage {
-		// Process any remaining text in buffer (but ignore JSON at the end)
-		if (this.buffer.trim() && !this.buffer.includes('---')) {
-			const trimmedBuffer = this.buffer.trim();
-			const looksLikeJson = (
-				(trimmedBuffer.startsWith('{') && trimmedBuffer.endsWith('}')) ||
-				trimmedBuffer.includes('"chat_history"') ||
-				trimmedBuffer.includes('"documents"') ||
-				trimmedBuffer.includes('"sources"') ||
-				trimmedBuffer.includes('"files"') ||
-				trimmedBuffer.includes('"file_path"') ||
-				trimmedBuffer.includes('"directory_path"')
-			);
-
-			if (!looksLikeJson) {
-				this.currentTextContent += this.buffer;
-				this.updateTextPart();
-			}
-		}
-
-		return this.getCurrentState();
-	}
-
-	/**
-	 * Process a specific streaming event
-	 */
-	private processEvent(eventType: string, eventData: any): void {
-		switch (eventType) {
 			case 'sources':
-				// Add source activity inline at current position
 				const sourceActivity: ToolActivity = {
 					id: crypto.randomUUID(),
 					type: 'sources',
 					timestamp: new Date(),
-					data: eventData
+					data: event.data
 				};
 				this.toolActivities.push(sourceActivity);
 				this.contentParts.push({
@@ -138,15 +48,20 @@ export class AgenticStreamingParser {
 					content: '',
 					activity: sourceActivity
 				});
+
+				if (Array.isArray(event.data)) {
+					this.sources.push(...event.data);
+				} else {
+					this.sources.push(event.data);
+				}
 				break;
 
 			case 'documents':
-				// Add document activity inline at current position
 				const docActivity: ToolActivity = {
 					id: crypto.randomUUID(),
 					type: 'documents',
 					timestamp: new Date(),
-					data: eventData
+					data: event.data
 				};
 				this.toolActivities.push(docActivity);
 				this.contentParts.push({
@@ -154,15 +69,20 @@ export class AgenticStreamingParser {
 					content: '',
 					activity: docActivity
 				});
+
+				if (Array.isArray(event.data)) {
+					this.documents.push(...event.data);
+				} else {
+					this.documents.push(event.data);
+				}
 				break;
 
 			case 'read_file':
-				// Add file read activity inline at current position
 				const readFileActivity: ToolActivity = {
 					id: crypto.randomUUID(),
 					type: 'read_file',
 					timestamp: new Date(),
-					data: eventData as FileReadResult
+					data: event.data
 				};
 				this.toolActivities.push(readFileActivity);
 				this.contentParts.push({
@@ -173,12 +93,11 @@ export class AgenticStreamingParser {
 				break;
 
 			case 'list_files':
-				// Add file list activity inline at current position
 				const listFilesActivity: ToolActivity = {
 					id: crypto.randomUUID(),
 					type: 'list_files',
 					timestamp: new Date(),
-					data: eventData as FileListResult
+					data: event.data
 				};
 				this.toolActivities.push(listFilesActivity);
 				this.contentParts.push({
@@ -186,18 +105,44 @@ export class AgenticStreamingParser {
 					content: '',
 					activity: listFilesActivity
 				});
-				// Also collect for final display
-				this.fileLists.push(eventData as FileListResult);
+				this.fileLists.push(event.data);
+				break;
+
+			case 'chat_history':
+				const chatActivity: ToolActivity = {
+					id: crypto.randomUUID(),
+					type: 'chat_history',
+					timestamp: new Date(),
+					data: event.data
+				};
+				this.toolActivities.push(chatActivity);
 				break;
 
 			case 'final':
-				// Update final data (backward compatibility) and don't display JSON
-				if (eventData.documents) this.documents = eventData.documents;
-				if (eventData.sources) this.sources = eventData.sources;
-				// Mark as processed to avoid showing JSON at the end
-				this.buffer = '';
+				// Update final data
+				if (event.data.documents) {
+					this.documents = Array.isArray(event.data.documents) ? event.data.documents : [event.data.documents];
+				}
+				if (event.data.sources) {
+					this.sources = Array.isArray(event.data.sources) ? event.data.sources : [event.data.sources];
+				}
 				break;
+
+			default:
+				console.warn(`Unknown event type: ${(event as any).type}`);
 		}
+
+		return this.getCurrentState();
+	}
+
+	/**
+	 * Legacy method for backward compatibility - converts chunk to event
+	 * @deprecated Use processEvent directly instead
+	 */
+	processChunk(chunk: string): ParsedMessage {
+		// For backward compatibility, treat chunk as a token
+		const tokenEvent: StreamEvent = { type: 'token', data: chunk };
+		return this.processEvent(tokenEvent);
 	}
 
 	/**
@@ -212,6 +157,13 @@ export class AgenticStreamingParser {
 				content: this.currentTextContent
 			}
 		];
+	}
+
+	/**
+	 * No need for finalize with direct event processing
+	 */
+	finalize(): ParsedMessage {
+		return this.getCurrentState();
 	}
 
 	/**
@@ -232,7 +184,6 @@ export class AgenticStreamingParser {
 	 * Reset the parser state for a new message
 	 */
 	reset(): void {
-		this.buffer = '';
 		this.currentTextContent = '';
 		this.contentParts = [];
 		this.toolActivities = [];

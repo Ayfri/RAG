@@ -161,6 +161,11 @@
 			color: var(--text-secondary);
 		}
 
+		.markdown-content hr {
+			border-color: var(--border-color);
+			margin: 0.5rem 0;
+		}
+
 		.markdown-content code {
 			background-color: var(--bg-tertiary);
 			color: var(--accent-cyan);

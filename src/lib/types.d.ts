@@ -91,9 +91,9 @@ export type StreamEvent = TokenStreamEvent | SourcesStreamEvent | DocumentsStrea
 // Tool activity for inline display
 export interface ToolActivity {
 	id: string;
-	type: 'sources' | 'documents' | 'read_file' | 'list_files';
+	type: 'sources' | 'documents' | 'read_file' | 'list_files' | 'chat_history';
 	timestamp: Date;
-	data: SearchResult | RagDocument[] | FileReadResult | FileListResult;
+	data: SearchResult | RagDocument[] | FileReadResult | FileListResult | ChatHistoryItem;
 }
 
 export interface FileReadResult {

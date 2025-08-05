@@ -3,9 +3,9 @@
 	import Button from '$lib/components/common/Button.svelte';
 	import Select from '$lib/components/common/Select.svelte';
 	import DocumentsModal from '$lib/components/DocumentsModal.svelte';
-	import RagConfigModal from '$lib/components/RagConfigModal.svelte';
 
 	import ChatMessage from '$lib/components/messages/ChatMessage.svelte';
+	import RagConfigModal from '$lib/components/RagConfigModal.svelte';
 	import {type ChatMessage as StoredChatMessage, chatStorage} from '$lib/helpers/chat-storage';
 	import {AgenticStreamingParser} from '$lib/helpers/streaming-parser';
 	import {notifications} from '$lib/stores/notifications';
@@ -97,28 +97,45 @@
 
 			const decoder = new TextDecoder();
 			const parser = new AgenticStreamingParser();
+			let buffer = '';
 
 			while (true) {
 				const { done, value } = await reader.read();
 				if (done) break;
 
 				const chunk = decoder.decode(value, { stream: true });
-				const parsedMessage = parser.processChunk(chunk);
+				buffer += chunk;
 
-				// Update the assistant message with parsed data
-				messages = messages.map((msg, index) =>
-					index === messages.length - 1
-						? {
-							...msg,
-							content: parsedMessage.content,
-							contentParts: parsedMessage.contentParts,
-							toolActivities: parsedMessage.toolActivities,
-							documents: parsedMessage.documents,
-							sources: parsedMessage.sources,
-							fileLists: parsedMessage.fileLists
+				// Process complete lines (each line is a JSON event)
+				const lines = buffer.split('\n');
+				buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+				for (const line of lines) {
+					if (line.trim()) {
+						try {
+							// Each line is a complete JSON event
+							const event = JSON.parse(line.trim());
+							const parsedMessage = parser.processEvent(event);
+
+							// Update the assistant message with parsed data
+							messages = messages.map((msg, index) =>
+								index === messages.length - 1
+									? {
+										...msg,
+										content: parsedMessage.content,
+										contentParts: parsedMessage.contentParts,
+										toolActivities: parsedMessage.toolActivities,
+										documents: parsedMessage.documents,
+										sources: parsedMessage.sources,
+										fileLists: parsedMessage.fileLists
+									}
+									: msg
+							);
+						} catch (e) {
+							console.warn('Failed to parse streaming event:', e, line);
 						}
-						: msg
-				);
+					}
+				}
 
 				// Auto-scroll to bottom as we receive data
 				setTimeout(() => {
@@ -267,28 +284,45 @@
 
 			const decoder = new TextDecoder();
 			const parser = new AgenticStreamingParser();
+			let buffer = '';
 
 			while (true) {
 				const { done, value } = await reader.read();
 				if (done) break;
 
 				const chunk = decoder.decode(value, { stream: true });
-				const parsedMessage = parser.processChunk(chunk);
+				buffer += chunk;
 
-				// Update the assistant message with parsed data
-				messages = messages.map((msg, index) =>
-					index === messages.length - 1
-						? {
-							...msg,
-							content: parsedMessage.content,
-							contentParts: parsedMessage.contentParts,
-							toolActivities: parsedMessage.toolActivities,
-							documents: parsedMessage.documents,
-							sources: parsedMessage.sources,
-							fileLists: parsedMessage.fileLists
+				// Process complete lines (each line is a JSON event)
+				const lines = buffer.split('\n');
+				buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+				for (const line of lines) {
+					if (line.trim()) {
+						try {
+							// Each line is a complete JSON event
+							const event = JSON.parse(line.trim());
+							const parsedMessage = parser.processEvent(event);
+
+							// Update the assistant message with parsed data
+							messages = messages.map((msg, index) =>
+								index === messages.length - 1
+									? {
+										...msg,
+										content: parsedMessage.content,
+										contentParts: parsedMessage.contentParts,
+										toolActivities: parsedMessage.toolActivities,
+										documents: parsedMessage.documents,
+										sources: parsedMessage.sources,
+										fileLists: parsedMessage.fileLists
+									}
+									: msg
+							);
+						} catch (e) {
+							console.warn('Failed to parse streaming event:', e, line);
 						}
-						: msg
-				);
+					}
+				}
 
 				// Auto-scroll to bottom as we receive data
 				setTimeout(() => {

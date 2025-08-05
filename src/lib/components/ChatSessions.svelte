@@ -235,7 +235,7 @@
 				<p class="text-xs text-slate-500 mt-1">Create your first session</p>
 			</div>
 		{:else}
-			<div class="space-y-1 p-2">
+			<div class="space-y-1 py-3 px-2 md:px-0">
 				{#each sessions as session (session.id)}
 					<div
 						class="group relative rounded-lg border transition-all duration-200 {
@@ -244,7 +244,7 @@
 								: 'bg-slate-800/50 border-slate-700 hover:bg-slate-700/50 hover:border-slate-600'
 						}"
 					>
-						<div class="p-3">
+						<div class="p-2">
 							{#if editingSessionId === session.id}
 								<input
 									bind:value={editingTitle}
@@ -261,20 +261,20 @@
 										<h4 class="text-sm font-medium text-slate-200 truncate">
 											{session.title}
 										</h4>
-										<p class="text-xs text-slate-400 mt-1 line-clamp-2">
+										<p class="text-xs text-slate-400 line-clamp-2">
 											{getMessagePreview(session)}
 										</p>
-										<div class="flex items-center space-x-4 mt-2">
-											<span class="text-xs text-slate-500">
+										<div class="flex items-center space-x-4 mt-1 text-[0.7rem] text-slate-500">
+											<span>
 												{formatDate(session.updatedAt)}
 											</span>
-											<span class="text-xs text-slate-500">
+											<span>
 												{session.messages.length} message{session.messages.length !== 1 ? 's' : ''}
 											</span>
 										</div>
 									</button>
 
-									<div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+									<div class="flex items-center space-x-1 lg:opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
 										<Button
 											onclick={() => startEditing(session)}
 											size="icon"

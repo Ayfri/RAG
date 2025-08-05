@@ -178,7 +178,7 @@
 
 			<!-- Chat Sessions Sidebar -->
 			{#if showMobileSidebar}
-				<div class="lg:w-80 flex-shrink-0">
+				<div class="lg:w-80 flex-shrink-0 lg:hidden">
 					<div class="glass rounded-r-xl shadow-2xl overflow-hidden h-full lg:block fixed inset-y-0 left-0 w-80 z-50 lg:relative lg:inset-auto lg:w-auto" transition:fly={{ duration: 200, x: -200 }}>
 						<div class="p-3 border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700">
 							<div class="flex items-center justify-between">
@@ -232,7 +232,7 @@
 			<div class="flex-1 min-h-0">
 				{#if selectedRag}
 					<div class="flex h-full gap-5">
-						<div class="hidden lg:block border w-80 bg-slate-800/50 p-4 border-slate-700 rounded-xl">
+						<div class="hidden lg:block border w-80 bg-slate-800/50 p-2.5 border-slate-700 rounded-xl">
 							<ChatSessions ragName={selectedRag} onSessionSelected={(sessionId, messages) => {
 								window.dispatchEvent(new CustomEvent('sessionSelected', {
 									detail: { sessionId, messages, ragName: selectedRag }

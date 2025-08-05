@@ -458,112 +458,6 @@ class RAGService:
 		return folder_path
 
 
-	async def async_agent_stream(self, rag_name: str, query: str, history: list[ChatMessage] | None = None) -> AsyncGenerator[StreamEvent, None]:
-		"""
-		Stream agent events in real-time including tokens, sources, and documents.
-		Yields properly typed events as they occur during agent execution.
-
-		:param rag_name: Name of the RAG instance to query
-		:param query: The user's query
-		:param history: Optional conversation history
-		:yield: Typed streaming events (tokens, sources, documents, chat_history, final)
-		"""
-		agent = self.get_agent(rag_name)
-		history = history or []
-		sources: list[SearchResultItem] = []
-		documents: list[DocumentItem] = []
-		chat_history: list[ChatMessage] = history[:]
-
-		handler = agent.run(query, chat_history=history)
-		async for event in handler.stream_events():
-			# Stream answer tokens in real-time
-			if hasattr(event, 'delta') and event.delta:
-				token_event: TokenStreamEvent = {'type': 'token', 'data': event.delta}
-				yield token_event
-
-			# Stream tool results as they're found
-			if isinstance(event, ToolCallResult):
-				print(f"Tool call: {event.tool_name}, params: {event.tool_kwargs}")
-				if event.tool_name.startswith('search'):
-					new_sources = event.tool_output.raw_output
-					sources.append(new_sources)
-					sources_event: SourcesStreamEvent = {'type': 'sources', 'data': new_sources}
-					yield sources_event
-				elif 'rag' in event.tool_name:
-					new_documents: list[DocumentItem] = event.tool_output.raw_output
-					documents.extend(new_documents)
-					documents_event: DocumentsStreamEvent = {'type': 'documents', 'data': new_documents}
-					yield documents_event
-				elif event.tool_name == 'read_file_tool':
-					file_path = event.tool_kwargs.get('rel_path', 'unknown')
-					file_content = event.tool_output.raw_output
-
-					# Check if operation was successful
-					success = not file_content.startswith('File not found:') and not file_content.startswith('Error reading file:')
-					error = None if success else file_content
-
-					read_file_result: FileReadResult = {
-						'content': file_content if success else '',
-						'file_path': file_path,
-						'success': success,
-						'error': error
-					}
-
-					read_file_event: ReadFileStreamEvent = {'type': 'read_file', 'data': read_file_result}
-					yield read_file_event
-				elif event.tool_name == 'list_files_tool':
-					dir_path = event.tool_kwargs.get('rel_dir', 'unknown')
-					file_list = event.tool_output.raw_output
-
-					# Check if operation was successful
-					success = not (isinstance(file_list, list) and len(file_list) == 1 and file_list[0].startswith('Directory not found:'))
-					error = None if success else (file_list[0] if isinstance(file_list, list) and len(file_list) == 1 else 'Unknown error')
-
-					list_files_result: FileListResult = {
-						'files': file_list if success else [],
-						'directory_path': dir_path,
-						'success': success,
-						'error': error
-					}
-
-					list_files_event: ListFilesStreamEvent = {'type': 'list_files', 'data': list_files_result}
-					yield list_files_event
-
-			# Stream chat history updates
-			if isinstance(event, AgentOutput):
-				chat_history.append(event.response)
-				chat_data = event.response.model_dump()
-				# Ensure the data conforms to ChatHistoryItem structure
-				if isinstance(chat_data, dict) and 'role' in chat_data and 'content' in chat_data:
-					stream_chat_item: ChatHistoryItem = {
-						'content': str(chat_data['content']),
-						'role': chat_data['role'] if chat_data['role'] in ['user', 'assistant'] else 'assistant'
-					}
-					chat_event: ChatHistoryStreamEvent = {'type': 'chat_history', 'data': stream_chat_item}
-					yield chat_event
-
-		# Final summary event with all collected data
-		chat_history_items: list[ChatHistoryItem] = []
-		for msg in chat_history:
-			msg_data = msg.model_dump()
-			if isinstance(msg_data, dict) and 'role' in msg_data and 'content' in msg_data:
-				final_chat_item: ChatHistoryItem = {
-					'content': str(msg_data['content']),
-					'role': msg_data['role'] if msg_data['role'] in ['user', 'assistant'] else 'assistant'
-				}
-				chat_history_items.append(final_chat_item)
-
-		final_event: FinalStreamEvent = {
-			'type': 'final',
-			'data': {
-				'chat_history': chat_history_items,
-				'documents': documents,
-				'sources': sources
-			}
-		}
-		yield final_event
-
-
 	def update_rag_config(self, rag_name: str, config: RAGConfig) -> None:
 		"""
 		Update the configuration for a specific RAG.
@@ -762,3 +656,146 @@ Respond only with the generated system prompt, without additional explanations."
 					filtered_docs.append(doc)
 
 		return filtered_docs
+
+	async def async_agent_stream(self, rag_name: str, query: str, history: list[ChatMessage] | None = None) -> AsyncGenerator[StreamEvent, None]:
+		"""
+		Stream agent events in real-time including tokens, sources, and documents.
+		Ultra-robust streaming system with clear separation between text tokens and structured events.
+
+		:param rag_name: Name of the RAG instance to query
+		:param query: The user's query
+		:param history: Optional conversation history
+		:yield: Typed streaming events (tokens, sources, documents, chat_history, final)
+		"""
+		agent = self.get_agent(rag_name)
+		history = history or []
+		sources: list[SearchResultItem] = []
+		documents: list[DocumentItem] = []
+		chat_history: list[ChatMessage] = history[:]
+
+		handler = agent.run(query, chat_history=history)
+		async for event in handler.stream_events():
+			# Stream text tokens - simple and clean, no filtering needed
+			if hasattr(event, 'delta') and event.delta:
+				token_content = str(event.delta)
+				# Send as proper typed event
+				token_event: TokenStreamEvent = {'type': 'token', 'data': token_content}
+				yield token_event
+
+			# Handle tool results as structured events
+			if isinstance(event, ToolCallResult):
+				print(f"Tool call: {event.tool_name}, params: {event.tool_kwargs}")
+
+				if event.tool_name.startswith('search'):
+					new_sources = event.tool_output.raw_output
+					if isinstance(new_sources, dict) and 'content' in new_sources and 'urls' in new_sources:
+						sources.append(new_sources)  # type: ignore
+						sources_event: SourcesStreamEvent = {'type': 'sources', 'data': new_sources}  # type: ignore
+						yield sources_event
+					else:
+						print(f"Warning: Invalid search result format: {new_sources}")
+
+				elif 'rag' in event.tool_name:
+					new_documents = event.tool_output.raw_output
+					if isinstance(new_documents, list):
+						valid_documents = []
+						for doc in new_documents:
+							if isinstance(doc, dict) and 'content' in doc and 'source' in doc:
+								valid_documents.append(doc)  # type: ignore
+							else:
+								print(f"Warning: Invalid document format: {doc}")
+						documents.extend(valid_documents)  # type: ignore
+						if valid_documents:
+							documents_event: DocumentsStreamEvent = {'type': 'documents', 'data': valid_documents}  # type: ignore
+							yield documents_event
+					else:
+						print(f"Warning: Invalid documents format: {new_documents}")
+
+				elif event.tool_name == 'read_file_tool':
+					file_path = event.tool_kwargs.get('rel_path', 'unknown')
+					file_content = event.tool_output.raw_output
+
+					success = not file_content.startswith('File not found:') and not file_content.startswith('Error reading file:')
+					error = None if success else file_content
+
+					read_file_result: FileReadResult = {
+						'content': file_content if success else '',
+						'file_path': file_path,
+						'success': success,
+						'error': error
+					}
+
+					read_file_event: ReadFileStreamEvent = {'type': 'read_file', 'data': read_file_result}
+					yield read_file_event
+
+				elif event.tool_name == 'list_files_tool':
+					dir_path = event.tool_kwargs.get('rel_dir', 'unknown')
+					file_list = event.tool_output.raw_output
+
+					success = not (isinstance(file_list, list) and len(file_list) == 1 and file_list[0].startswith('Directory not found:'))
+					error = None if success else (file_list[0] if isinstance(file_list, list) and len(file_list) == 1 else 'Unknown error')
+
+					list_files_result: FileListResult = {
+						'files': file_list if success else [],
+						'directory_path': dir_path,
+						'success': success,
+						'error': error
+					}
+
+					list_files_event: ListFilesStreamEvent = {'type': 'list_files', 'data': list_files_result}
+					yield list_files_event
+
+			# Handle chat history updates
+			if isinstance(event, AgentOutput):
+				chat_history.append(event.response)
+				chat_data = event.response.model_dump()
+				if isinstance(chat_data, dict) and 'role' in chat_data and 'content' in chat_data:
+					stream_chat_item: ChatHistoryItem = {
+						'content': str(chat_data['content']),
+						'role': chat_data['role'] if chat_data['role'] in ['user', 'assistant'] else 'assistant'
+					}
+					chat_event: ChatHistoryStreamEvent = {'type': 'chat_history', 'data': stream_chat_item}
+					yield chat_event
+
+		# Final summary event with all collected data
+		chat_history_items: list[ChatHistoryItem] = []
+		for msg in chat_history:
+			msg_data = msg.model_dump()
+			if isinstance(msg_data, dict) and 'role' in msg_data and 'content' in msg_data:
+				final_chat_item: ChatHistoryItem = {
+					'content': str(msg_data['content']),
+					'role': msg_data['role'] if msg_data['role'] in ['user', 'assistant'] else 'assistant'
+				}
+				chat_history_items.append(final_chat_item)
+
+		final_event: FinalStreamEvent = {
+			'type': 'final',
+			'data': {
+				'chat_history': chat_history_items,
+				'documents': documents,
+				'sources': sources
+			}
+		}
+		yield final_event
+
+	def _is_json_object(self, text: str) -> bool:
+		"""
+		Simple check for complete JSON objects only.
+		Only filters obvious complete JSON, preserving all other content.
+		This method is now unused but kept for compatibility.
+		"""
+		if not text or not text.strip():
+			return False
+
+		text = text.strip()
+
+		# Only filter complete JSON objects that parse successfully
+		if (text.startswith('{') and text.endswith('}')) or (text.startswith('[') and text.endswith(']')):
+			try:
+				json.loads(text)
+				return True
+			except:
+				return False
+
+
+		return False

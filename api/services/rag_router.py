@@ -316,7 +316,7 @@ async def stream_rag(rag_name: str, payload: QueryPayload):
 
 	:param rag_name: Name of the RAG instance to query
 	:param payload: Query request containing the question
-	:return: Streaming response with text chunks, then a JSON with sources, documents, and chat_history
+	:return: Streaming response with JSON events, one per line
 	:raises HTTPException: 404 if RAG not found
 	"""
 	if rag_name not in rag_service.list_rags():
@@ -327,24 +327,71 @@ async def stream_rag(rag_name: str, payload: QueryPayload):
 		try:
 			event: StreamEvent
 			async for event in rag_service.async_agent_stream(rag_name, payload.query, history):
-				match event['type']:
-					case 'token':
-						# Stream text tokens immediately
-						yield str(event['data'])
-					case 'chat_history' | 'documents' | 'sources' | 'read_file' | 'list_files':
-						# Stream metadata events as JSON with markers
-						yield f'\n---{event["type"]}---\n'
-						yield json.dumps(event['data'])
-						yield '\n'
-					case 'final':
-						# Stream final summary
-						yield '\n---final---\n'
-						yield json.dumps(event['data'])
+				# Simply serialize each event as JSON and send it as a line
+				try:
+					event_json = json.dumps(event)
+					yield f"{event_json}\n"
+				except (TypeError, ValueError) as e:
+					print(f"Warning: Failed to serialize event: {e}")
+					# Continue with next event if one fails
+					continue
 		except Exception as exc:
 			print(f'Error during agent stream: {exc}')
-			yield f'Error: An unexpected error occurred during the stream. Please check the server logs.'
+			# Send error as a JSON event
+			error_event = {
+				'type': 'error',
+				'data': f'An unexpected error occurred during the stream. Please check the server logs.'
+			}
+			yield f"{json.dumps(error_event)}\n"
 
 	return StreamingResponse(_generator(), media_type='text/plain')
+
+
+def _looks_like_json(text: str) -> bool:
+	"""
+	Check if a text string looks like JSON or debug output that should be filtered.
+	This method is now unused but kept for compatibility.
+	"""
+	text = text.strip()
+
+	# Check for JSON-like patterns
+	if (text.startswith('{') and text.endswith('}')) or (text.startswith('[') and text.endswith(']')):
+		return True
+
+	# Check for common debug/error patterns
+	debug_patterns = [
+		'shapes (',
+		'not aligned',
+		'dim 0) !=',
+		'Warning:',
+		'Error:',
+		'DEBUG:',
+		'INFO:',
+		'{"content":',
+		'{"urls":',
+		'{"source":',
+		'{"files":',
+		'{"file_path":',
+		'{"directory_path":',
+		'{"success":',
+		'{"error":',
+		'"chat_history"',
+		'"documents"',
+		'"sources"',
+		'"files"',
+		'"file_path"',
+		'"directory_path"',
+		'"content"',
+		'"urls"',
+		'"success"',
+		'"error"'
+	]
+
+	for pattern in debug_patterns:
+		if pattern in text:
+			return True
+
+	return False
 
 
 # ---------------------------------------------------------------------

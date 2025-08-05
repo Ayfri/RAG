@@ -89,6 +89,8 @@
 			const session = await chatStorage.createSession(ragName);
 			currentSessionId = session.id;
 			await loadSessions();
+			// Select the new session to trigger the callback
+			await selectSession(session.id);
 			notifications.success('New session created');
 		} catch (err) {
 			console.error('Failed to create session:', err);
@@ -103,6 +105,10 @@
 				currentSessionId = sessionId;
 				// Call parent callback
 				onSessionSelected?.(sessionId, session.messages);
+				// Dispatch event to notify QueryInterface component
+				window.dispatchEvent(new CustomEvent('sessionSelected', {
+					detail: { ragName, sessionId, messages: session.messages }
+				}));
 			}
 		} catch (err) {
 			console.error('Failed to load session:', err);

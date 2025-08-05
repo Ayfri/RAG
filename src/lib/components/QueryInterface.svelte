@@ -622,7 +622,7 @@
 			const session = await chatStorage.getSession(sessionId);
 			if (session) {
 				currentSessionId = sessionId;
-				messages = session.messages;
+				messages = session.messages || [];
 			}
 		} catch (err) {
 			console.error('Failed to load session:', err);

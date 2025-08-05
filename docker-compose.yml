@@ -36,12 +36,11 @@ services:
         - rag-frontend:latest
     image: rag-frontend:latest
     ports:
-      - "3000:3000"
+      - "${PORT}:3000"
     env_file:
       - .env
     environment:
       - VITE_API_URL=http://localhost:8000
-      - PORT=3000
     depends_on:
       - api
     restart: unless-stopped

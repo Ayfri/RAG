@@ -129,6 +129,13 @@
 		const query = currentMessage.trim();
 		currentMessage = '';
 
+		// Force auto-scroll after adding messages
+		if (autoScroll && chatContainer) {
+			requestAnimationFrame(() => {
+				chatContainer.scrollTop = chatContainer.scrollHeight;
+			});
+		}
+
 		// Save user message to storage
 		if (currentSessionId) {
 			await chatStorage.addMessage(currentSessionId, userMessage);

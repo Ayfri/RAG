@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { ChevronDown, FolderOpen, FileIcon } from '@lucide/svelte';
-	import type { FileListResult } from '$lib/types.d.ts';
+	import type {FileListResult} from '$lib/types.d.ts';
+	import {ChevronDown, FileIcon, FolderOpen} from '@lucide/svelte';
 
 	interface Props {
 		fileLists: FileListResult[];

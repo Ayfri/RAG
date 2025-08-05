@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { Bot, Copy, Loader, RefreshCcw, Trash2, User, FileText, Globe, FolderOpen, FileIcon } from '@lucide/svelte';
 	import Markdown from '$lib/components/common/Markdown.svelte';
-	import WebSources from '$lib/components/WebSources.svelte';
-	import DocumentSources from '$lib/components/DocumentSources.svelte';
-	import FilesSources from '$lib/components/FilesSources.svelte';
-	import type { SearchResult, SearchResultUrl, RagDocument, ToolActivity, FileReadResult, FileListResult } from '$lib/types.d.ts';
+	import DocumentSources from '$lib/components/messages/DocumentSources.svelte';
+	import FilesSources from '$lib/components/messages/FilesSources.svelte';
+	import WebSources from '$lib/components/messages/WebSources.svelte';
+	import type {FileListResult, FileReadResult, RagDocument, SearchResult, ToolActivity} from '$lib/types.d.ts';
+	import {Bot, Copy, FileIcon, FileText, FolderOpen, Globe, Loader, RefreshCcw, Trash2, User} from '@lucide/svelte';
 
 	interface Message {
 		content: string;
@@ -83,7 +83,7 @@
 				{#if message.role === 'user'}
 					<p class="whitespace-pre-wrap break-words">{message.content}</p>
 				{:else}
-					{@const hasUrls = message.sources?.some((source) => source.urls.length > 0)}
+					{@const hasUrls = message.sources?.some(source => source.urls.length > 0)}
 					{@const hasDocuments = message.documents && message.documents.length > 0}
 					{@const hasFileLists = message.fileLists && message.fileLists.length > 0}
 

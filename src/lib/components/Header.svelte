@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Database, Menu, MessageSquare, Plus, ChevronDown, X } from '@lucide/svelte';
 	import Button from '$lib/components/common/Button.svelte';
-	import { slide } from 'svelte/transition';
+	import {ChevronDown, Database, Menu, MessageSquare, X} from '@lucide/svelte';
+	import {slide} from 'svelte/transition';
 
 	interface Props {
 		ragCount?: number;
@@ -47,9 +47,7 @@
 			};
 
 			document.addEventListener('click', handleClickOutside);
-			return () => {
-				document.removeEventListener('click', handleClickOutside);
-			};
+			return () => document.removeEventListener('click', handleClickOutside);
 		}
 	});
 </script>

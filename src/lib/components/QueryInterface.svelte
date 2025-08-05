@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { FileText, Trash2, MessageSquare, Bot } from '@lucide/svelte';
-	import Button from '$lib/components/common/Button.svelte';
-	import ChatMessage from '$lib/components/ChatMessage.svelte';
 	import ChatInput from '$lib/components/ChatInput.svelte';
-	import DocumentsModal from '$lib/components/DocumentsModal.svelte';
+	import Button from '$lib/components/common/Button.svelte';
 	import Select from '$lib/components/common/Select.svelte';
-	import { notifications } from '$lib/stores/notifications';
-	import { openAIModels } from '$lib/stores/openai-models';
-	import type { OpenAIModel, FileItem } from '$lib/types.d.ts';
-	import { AgenticStreamingParser } from '$lib/helpers/streaming-parser';
-	import { chatStorage, type ChatMessage as StoredChatMessage } from '$lib/helpers/chat-storage';
+	import DocumentsModal from '$lib/components/DocumentsModal.svelte';
+	import ChatMessage from '$lib/components/messages/ChatMessage.svelte';
+	import {type ChatMessage as StoredChatMessage, chatStorage} from '$lib/helpers/chat-storage';
+	import {AgenticStreamingParser} from '$lib/helpers/streaming-parser';
+	import {notifications} from '$lib/stores/notifications';
+	import {openAIModels} from '$lib/stores/openai-models';
+	import type {FileItem, OpenAIModel} from '$lib/types.d.ts';
+	import {Bot, FileText, MessageSquare, Trash2} from '@lucide/svelte';
 
 	interface Props {
 		ragName: string;
@@ -420,8 +420,8 @@
 	$effect(() => {
 		const unsubscribe = openAIModels.subscribe(models => {
 			allOpenAIModels = [...models.chat, ...models.thinking].filter(model =>
-				(model.id.startsWith('gpt')) ||
-				(model.id.startsWith('o') && !model.id.includes('deep-research'))
+				model.id.startsWith('gpt') ||
+				model.id.startsWith('o') && !model.id.includes('deep-research')
 			);
 		});
 		return unsubscribe;
@@ -445,9 +445,7 @@
 		};
 
 		window.addEventListener('sessionSelected', handleSessionSelected);
-		return () => {
-			window.removeEventListener('sessionSelected', handleSessionSelected);
-		};
+		return () => window.removeEventListener('sessionSelected', handleSessionSelected);
 	});
 </script>
 

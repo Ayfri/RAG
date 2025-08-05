@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { ArrowLeft, ArrowRight, CheckCircle, File, Loader, Plus, Upload, X } from '@lucide/svelte';
-	import Button from './common/Button.svelte';
-	import Input from './common/Input.svelte';
-	import Modal from './common/Modal.svelte';
+	import Button from '$lib/components/common/Button.svelte';
+	import Input from '$lib/components/common/Input.svelte';
+	import Modal from '$lib/components/common/Modal.svelte';
+	import {ArrowLeft, ArrowRight, CheckCircle, File, Loader, Plus, Upload, X} from '@lucide/svelte';
 
 	interface Props {
 		oncreated: (event: CustomEvent<string>) => void;

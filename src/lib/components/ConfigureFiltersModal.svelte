@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { Settings, X, Plus, Edit3, Check, AlertCircle, Loader } from '@lucide/svelte';
 	import Button from '$lib/components/common/Button.svelte';
 	import Input from '$lib/components/common/Input.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
+	import {AlertCircle, Check, Loader, Plus, Settings, X} from '@lucide/svelte';
 
 	interface Props {
 		ragName?: string;

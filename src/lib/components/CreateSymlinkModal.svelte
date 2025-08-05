@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { Link, X, FolderOpen, FileText, Plus, Check, AlertCircle, Loader } from '@lucide/svelte';
 	import Button from '$lib/components/common/Button.svelte';
 	import Input from '$lib/components/common/Input.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
-	import { notifications } from '$lib/stores/notifications';
+	import {notifications} from '$lib/stores/notifications';
+	import {AlertCircle, Check, FolderOpen, Link, Loader, Plus, X} from '@lucide/svelte';
 
 	interface Props {
 		ragName: string;

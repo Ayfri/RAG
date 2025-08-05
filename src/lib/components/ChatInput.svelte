@@ -21,7 +21,7 @@
 			}
 
 			textareaElement.style.height = 'auto';
-			textareaElement.style.height = textareaElement.scrollHeight + 'px';
+			textareaElement.style.height = `${textareaElement.scrollHeight}px`;
 		}
 	}
 

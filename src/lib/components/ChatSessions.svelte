@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { MessageSquare, Plus, Trash2, Pencil, Loader2 } from '@lucide/svelte';
 	import Button from '$lib/components/common/Button.svelte';
-	import type { ChatSession } from '$lib/helpers/chat-storage';
-	import { chatStorage } from '$lib/helpers/chat-storage';
-	import { notifications } from '$lib/stores/notifications';
+	import type {ChatSession} from '$lib/helpers/chat-storage';
+	import {chatStorage} from '$lib/helpers/chat-storage';
+	import {notifications} from '$lib/stores/notifications';
+	import {Loader2, MessageSquare, Pencil, Plus, Trash2} from '@lucide/svelte';
 
 	interface Props {
 		ragName: string;
@@ -64,7 +64,7 @@
 
 	function getMessagePreview(session: ChatSession): string {
 		const lastUserMessage = [...session.messages].reverse().find(m => m.role === 'user');
-		return lastUserMessage?.content.slice(0, 50) + ((lastUserMessage?.content.length ?? 0) > 50 ? '...' : '') || 'No message';
+		return `${lastUserMessage?.content.slice(0, 50)}${(lastUserMessage?.content.length ?? 0) > 50 ? '...' : ''}` || 'No message';
 	}
 
 	// Session management functions

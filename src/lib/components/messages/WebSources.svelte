@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { ChevronDown, Globe } from '@lucide/svelte';
-	import type { SearchResult, SearchResultUrl } from '$lib/types.d.ts';
+	import type {SearchResult, SearchResultUrl} from '$lib/types.d.ts';
+	import {ChevronDown, Globe} from '@lucide/svelte';
 
 	interface Props {
 		sources: SearchResult[];
@@ -23,7 +23,7 @@
 		isOpen = !isOpen;
 	}
 
-	let filteredSources = $derived(sources.filter((source) => source.urls.length > 0));
+	let filteredSources = $derived(sources.filter(source => source.urls.length > 0));
 	let totalUrls = $derived(filteredSources.reduce((count, source) => count + source.urls.length, 0));
 </script>
 

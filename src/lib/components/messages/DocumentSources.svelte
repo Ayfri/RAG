@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { ChevronDown, FileText } from '@lucide/svelte';
-	import type { RagDocument } from '$lib/types.d.ts';
+	import type {RagDocument} from '$lib/types.d.ts';
+	import {ChevronDown, FileText} from '@lucide/svelte';
 
 	interface Props {
 		documents: RagDocument[];
@@ -48,7 +48,7 @@
 	}
 
 	function toggleFile(idx: number) {
-		openFiles = openFiles.map((open, i) => (i === idx ? !open : open));
+		openFiles = openFiles.map((open, i) => i === idx ? !open : open);
 	}
 
 	$effect(() => {

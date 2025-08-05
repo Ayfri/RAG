@@ -51,7 +51,7 @@
 
 	function handleKeydown(e: KeyboardEvent) {
 		const onMobile = window.innerWidth < 768;
-		if (e.key === 'Enter' && !e.shiftKey && !onMobile) {
+		if (e.key === 'Enter' && !e.shiftKey && !onMobile && !loading) {
 			e.preventDefault();
 			onSubmit();
 		}
@@ -59,13 +59,15 @@
 
 	function handleSubmit(e: Event) {
 		e.preventDefault();
-		onSubmit();
-		// Keep focus on textarea after submit with a small delay to ensure DOM updates are complete
-		setTimeout(() => {
-			if (textareaElement) {
-				textareaElement.focus();
-			}
-		}, 0);
+		if (!loading) {
+			onSubmit();
+			// Keep focus on textarea after submit with a small delay to ensure DOM updates are complete
+			setTimeout(() => {
+				if (textareaElement) {
+					textareaElement.focus();
+				}
+			}, 0);
+		}
 	}
 </script>
 
@@ -75,15 +77,19 @@
 			<TextArea
 				bind:value
 				bind:textareaRef={textareaElement}
-				placeholder="Ask your question..."
-				disabled={loading}
+				placeholder={loading ? "Message being sent..." : "Ask your question..."}
+				disabled={false}
 				onkeydown={handleKeydown}
 				minHeight="44px"
 				class="max-h-[200px] overflow-y-auto"
 			/>
 			<div class="flex items-center justify-between">
 				<div class="hidden md:block text-xs text-slate-400">
-					Press <span class="font-bold">Enter</span> to submit
+					{#if loading}
+						<span class="text-amber-400">⏳ Message being sent...</span>
+					{:else}
+						Press <span class="font-bold">Enter</span> to submit
+					{/if}
 				</div>
 				{#if value.length > 0}
 					<div class="text-xs text-slate-400">
@@ -97,9 +103,10 @@
 			disabled={!value.trim() || loading}
 			size="icon"
 			variant="secondary"
+			title={loading ? "Message being sent..." : "Send message"}
 		>
 			{#if loading}
-				<Loader size={24} class="animate-spin" />
+				<Loader size={24} class="animate-spin text-slate-400" />
 			{:else}
 				<SendHorizontal size={24} class="group-hover:scale-110 transition-transform duration-200" />
 			{/if}

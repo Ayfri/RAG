@@ -20,7 +20,7 @@ COPY svelte.config.js vite.config.ts tsconfig.json .npmrc ./
 RUN pnpm build
 
 # Expose port
-EXPOSE 4173
+EXPOSE 3000
 
 # Start the production server using the built Node.js app
 CMD ["node", "build/index.js"]

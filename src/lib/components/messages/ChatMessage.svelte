@@ -74,7 +74,7 @@
 		{/if}
 	</div>
 	<div class="flex-1 w-0">
-		<div class="flex items-center gap-2 mb-1.5 {message.role === 'user' ? 'justify-end' : ''}">
+		<div class="flex items-center gap-2 mb-1.5 {message.role === 'user' ? 'flex-row-reverse' : ''}">
 			<span class="text-xs font-medium text-slate-300">
 				{message.role === 'user' ? 'You' : 'Assistant'}
 			</span>
@@ -85,7 +85,7 @@
 				{message.content.length} chars
 			</span>
 
-			<div class="flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+			<div class="flex items-center lg:opacity-0 group-hover:opacity-100 transition-opacity duration-200">
 				{#if message.role === 'user' && !isEditing}
 					<Button title="Edit" onclick={startEditing} size="icon" variant="secondary">
 						<Edit size={14} />
@@ -107,7 +107,7 @@
 			</div>
 		</div>
 		<div class="flex items-start {message.role === 'user' ? 'flex-row-reverse' : ''} gap-2">
-			<div class="p-3 rounded-xl {message.role === 'user'
+			<div class="p-2.5 rounded-xl {message.role === 'user'
 				? 'bg-gradient-to-r from-cyan-700 to-cyan-800 text-white'
 				: 'bg-slate-800/50 border border-slate-600'
 			} flex-1 min-w-0 break-words">

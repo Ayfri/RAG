@@ -115,7 +115,7 @@
 	});
 </script>
 
-<div class="markdown-content">
+<div class="markdown-content text-sm">
 	{@html htmlContent}
 </div>
 

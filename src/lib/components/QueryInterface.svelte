@@ -10,6 +10,7 @@
 	import {AgenticStreamingParser} from '$lib/helpers/streaming-parser';
 	import {notifications} from '$lib/stores/notifications';
 	import {openAIModels} from '$lib/stores/openai-models';
+	import {selectedState} from '$lib/stores/selectedState';
 	import type {FileItem, OpenAIModel} from '$lib/types.d.ts';
 	import {Bot, FileText, MessageSquare, Settings, Trash2} from '@lucide/svelte';
 
@@ -38,6 +39,66 @@
 
 	// Chat sessions state
 	let currentSessionId: string | null = $state(null);
+
+	// Auto-scroll state
+	let autoScroll = $state(true);
+	let userScrolled = $state(false);
+
+	// Restore session from persistent state
+	$effect(() => {
+		if (ragName) {
+			const unsubscribe = selectedState.subscribe(state => {
+				if (state.ragName === ragName && state.sessionId && !currentSessionId) {
+					selectSession(state.sessionId);
+				}
+			});
+			return unsubscribe;
+		}
+	});
+
+	// Update persistent state when session changes
+	$effect(() => {
+		if (currentSessionId) {
+			selectedState.update(state => ({
+				...state,
+				ragName,
+				sessionId: currentSessionId
+			}));
+		}
+	});
+
+	// Load files and config when ragName changes
+	$effect(() => {
+		if (ragName) {
+			loadFiles();
+			loadRagConfig();
+		}
+	});
+
+	// Auto-scroll when streaming or new messages arrive
+	$effect(() => {
+		if (autoScroll && chatContainer && (streaming || messages.length > 0)) {
+			requestAnimationFrame(() => {
+				chatContainer.scrollTop = chatContainer.scrollHeight;
+			});
+		}
+	});
+
+	// Handle scroll events to detect user scrolling
+	function handleScroll() {
+		if (!chatContainer) return;
+
+		const { scrollTop, scrollHeight, clientHeight } = chatContainer;
+		const isAtBottom = scrollTop + clientHeight >= scrollHeight - 10; // 10px tolerance
+
+		if (isAtBottom) {
+			userScrolled = false;
+			autoScroll = true;
+		} else {
+			userScrolled = true;
+			autoScroll = false;
+		}
+	}
 
 	async function sendMessage() {
 		if (!currentMessage.trim() || loading) return;
@@ -136,13 +197,6 @@
 						}
 					}
 				}
-
-				// Auto-scroll to bottom as we receive data
-				setTimeout(() => {
-					if (chatContainer) {
-						chatContainer.scrollTop = chatContainer.scrollHeight;
-					}
-				}, 0);
 			}
 
 			// Finalize parsing
@@ -323,13 +377,6 @@
 						}
 					}
 				}
-
-				// Auto-scroll to bottom as we receive data
-				setTimeout(() => {
-					if (chatContainer) {
-						chatContainer.scrollTop = chatContainer.scrollHeight;
-					}
-				}, 0);
 			}
 
 			// Finalize parsing
@@ -528,6 +575,11 @@
 			const session = await chatStorage.createSession(ragName);
 			currentSessionId = session.id;
 			messages = [];
+			// Update persistent state
+			selectedState.set({
+				ragName: ragName,
+				sessionId: session.id
+			});
 			// Dispatch event to notify ChatSessions component
 			window.dispatchEvent(new CustomEvent('sessionCreated', {
 				detail: { ragName, sessionId: session.id }
@@ -558,6 +610,11 @@
 			if (currentSessionId === sessionId) {
 				currentSessionId = null;
 				messages = [];
+				// Clear persistent state for this session
+				selectedState.set({
+					ragName: ragName,
+					sessionId: null
+				});
 			}
 			// Dispatch event to notify ChatSessions component
 			window.dispatchEvent(new CustomEvent('sessionDeleted', {
@@ -584,22 +641,7 @@
 		}
 	}
 
-	// Load files and RAG config when component mounts or ragName changes
-	$effect(() => {
-		if (ragName) {
-			loadFiles();
-			loadRagConfig();
-		}
-	});
 
-	// Auto-scroll when new messages arrive
-	$effect(() => {
-		if (messages.length > 0 && chatContainer) {
-			setTimeout(() => {
-				chatContainer.scrollTop = chatContainer.scrollHeight;
-			}, 100);
-		}
-	});
 
 	// Subscribe to OpenAI models store
 	$effect(() => {
@@ -697,6 +739,7 @@
 		<div
 			bind:this={chatContainer}
 			class="flex-1 overflow-y-auto overflow-x-hidden p-1 md:p-3 space-y-2 md:space-y-4 min-h-0"
+			onscroll={handleScroll}
 		>
 			{#if messages.length === 0}
 				<div class="flex flex-col items-center justify-center h-full text-center px-4">

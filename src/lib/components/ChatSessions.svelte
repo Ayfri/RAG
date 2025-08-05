@@ -3,6 +3,7 @@
 	import type {ChatSession} from '$lib/helpers/chat-storage';
 	import {chatStorage} from '$lib/helpers/chat-storage';
 	import {notifications} from '$lib/stores/notifications';
+	import {selectedState} from '$lib/stores/selectedState';
 	import {Loader2, MessageSquare, Pencil, Plus, Trash2} from '@lucide/svelte';
 
 	interface Props {
@@ -18,6 +19,8 @@
 	let loading = $state(false);
 	let editingSessionId = $state('');
 	let editingTitle = $state('');
+
+
 
 	function startEditing(session: ChatSession) {
 		editingSessionId = session.id;
@@ -136,6 +139,32 @@
 	$effect(() => {
 		if (ragName) {
 			loadSessions();
+		}
+	});
+
+	// Restore selected session when sessions are loaded
+	$effect(() => {
+		if (sessions.length > 0 && !currentSessionId) {
+			const unsubscribe = selectedState.subscribe(state => {
+				if (state.ragName === ragName && state.sessionId) {
+					const sessionExists = sessions.some(s => s.id === state.sessionId);
+					if (sessionExists) {
+						selectSession(state.sessionId);
+					}
+				}
+			});
+			return unsubscribe;
+		}
+	});
+
+	// Update persistent state when session changes
+	$effect(() => {
+		if (currentSessionId) {
+			selectedState.update(state => ({
+				...state,
+				ragName,
+				sessionId: currentSessionId
+			}));
 		}
 	});
 

@@ -7,6 +7,7 @@
 	import ChatSessions from '$lib/components/ChatSessions.svelte';
 	import Button from '$lib/components/common/Button.svelte';
 	import { fly } from 'svelte/transition';
+	import { selectedState } from '$lib/stores/selectedState';
 
 	let rags: string[] = $state([]);
 	let ragDocumentCounts: Record<string, number> = $state({});
@@ -39,7 +40,6 @@
 				const response = await fetch(`/api/rag/${rag}/files`);
 				if (response.ok) {
 					const files = await response.json();
-					// Calculate total files like in FilesModal.svelte
 					counts[rag] = files.reduce((acc: number, file: any) => acc + (file.file_count ?? 0), 0);
 				} else {
 					counts[rag] = 0;
@@ -54,7 +54,6 @@
 
 	async function loadTotalChatCount() {
 		try {
-			// Import chatStorage to count all sessions across all RAGs
 			const { chatStorage } = await import('$lib/helpers/chat-storage');
 			await chatStorage.init();
 			const allSessions = await chatStorage.getAllSessions();
@@ -70,11 +69,9 @@
 		showCreateModal = false;
 	}
 
-	// Listen for session events to update chat count
 	function handleSessionEvent() {
 		loadTotalChatCount();
 	}
-
 
 	function toggleMobileSidebar() {
 		showMobileSidebar = !showMobileSidebar;
@@ -84,10 +81,31 @@
 		showMobileSidebar = false;
 	}
 
+	// Restore selected RAG from persistent state
+	$effect(() => {
+		if (!loading && rags.length > 0) {
+			const unsubscribe = selectedState.subscribe(state => {
+				if (state.ragName && rags.includes(state.ragName)) {
+					selectedRag = state.ragName;
+				}
+			});
+			return unsubscribe;
+		}
+	});
+
+	// Update persistent state when selectedRag changes
+	$effect(() => {
+		if (selectedRag) {
+			selectedState.update(state => ({
+				...state,
+				ragName: selectedRag
+			}));
+		}
+	});
+
 	onMount(() => {
 		loadRags();
 
-		// Listen for session events
 		window.addEventListener('sessionCreated', handleSessionEvent);
 		window.addEventListener('sessionDeleted', handleSessionEvent);
 		window.addEventListener('sessionRenamed', handleSessionEvent);

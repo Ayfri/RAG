@@ -1,11 +1,12 @@
 <script lang="ts">
 	import Button from '$lib/components/common/Button.svelte';
 	import Markdown from '$lib/components/common/Markdown.svelte';
+	import TextArea from '$lib/components/common/TextArea.svelte';
 	import DocumentSources from '$lib/components/messages/DocumentSources.svelte';
 	import FilesSources from '$lib/components/messages/FilesSources.svelte';
 	import WebSources from '$lib/components/messages/WebSources.svelte';
 	import type {FileListResult, FileReadResult, RagDocument, SearchResult, ToolActivity} from '$lib/types.d.ts';
-	import {Bot, Copy, FileIcon, FileText, FolderOpen, Globe, Loader, RefreshCcw, Trash2, User} from '@lucide/svelte';
+	import {Bot, Copy, Edit, FileIcon, FileText, FolderOpen, Globe, Loader, RefreshCcw, SendHorizontal, Trash2, User, X} from '@lucide/svelte';
 
 	interface Message {
 		content: string;
@@ -24,15 +25,36 @@
 		isStreaming?: boolean;
 		message: Message;
 		onDelete?: (id: string) => void;
+		onEdit?: (id: string, newContent: string) => void;
 		onRegenerate?: (id: string) => void;
 	}
 
-	let { message, isStreaming = false, isLastMessage = false, onDelete, onRegenerate }: Props = $props();
+	let { message, isStreaming = false, isLastMessage = false, onDelete, onEdit, onRegenerate }: Props = $props();
+
+	let isEditing = $state(false);
+	let editedContent = $state(message.content);
 
 	console.log($state.snapshot(message));
 
 	function copyToClipboard() {
 		navigator.clipboard.writeText(message.content);
+	}
+
+	function startEditing() {
+		isEditing = true;
+		editedContent = message.content;
+	}
+
+	function cancelEditing() {
+		isEditing = false;
+		editedContent = message.content;
+	}
+
+	function saveEdit() {
+		if (editedContent.trim() && editedContent !== message.content) {
+			onEdit?.(message.id, editedContent.trim());
+		}
+		isEditing = false;
 	}
 
 	function formatTime(date: Date) {
@@ -64,6 +86,11 @@
 			</span>
 
 			<div class="flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+				{#if message.role === 'user' && !isEditing}
+					<Button title="Edit" onclick={startEditing} size="icon" variant="secondary">
+						<Edit size={14} />
+					</Button>
+				{/if}
 				<Button title="Copy" onclick={copyToClipboard} size="icon" variant="secondary">
 					<Copy size={14} />
 				</Button>
@@ -81,10 +108,37 @@
 		</div>
 		<div class="flex items-start {message.role === 'user' ? 'flex-row-reverse' : ''} gap-2">
 			<div class="p-3 rounded-xl {message.role === 'user'
-				? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-white'
+				? 'bg-gradient-to-r from-cyan-700 to-cyan-800 text-white'
 				: 'bg-slate-800/50 border border-slate-600'
 			} flex-1 min-w-0 break-words">
-				{#if message.role === 'user'}
+				{#if message.role === 'user' && isEditing}
+					<!-- Edit mode for user messages -->
+					<div class="space-y-3">
+						<TextArea
+							bind:value={editedContent}
+							placeholder="Edit your message..."
+							class="w-full min-h-[80px] bg-white/10 border-white/20 text-white placeholder-white/60"
+							onkeydown={(e) => {
+								if (e.key === 'Enter' && e.ctrlKey) {
+									saveEdit();
+								} else if (e.key === 'Escape') {
+									cancelEditing();
+								}
+							}}
+						/>
+						<div class="flex items-center justify-end space-x-2">
+							<Button onclick={cancelEditing} size="default" variant="secondary">
+								<X size={14} />
+								Cancel
+							</Button>
+							<Button onclick={saveEdit} size="default" variant="primary">
+								<SendHorizontal size={14} />
+								Send
+							</Button>
+						</div>
+					</div>
+				{:else if message.role === 'user'}
+					<!-- Display mode for user messages -->
 					<p class="whitespace-pre-wrap break-words text-sm">{message.content}</p>
 				{:else}
 					{@const hasUrls = message.sources?.some(source => source.urls.length > 0)}

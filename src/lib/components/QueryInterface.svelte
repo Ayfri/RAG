@@ -206,6 +206,129 @@
 		}
 	}
 
+	async function handleEditMessage(id: string, newContent: string) {
+		const messageIndex = messages.findIndex(m => m.id === id);
+		if (messageIndex === -1 || messages[messageIndex].role !== 'user') return;
+
+		// Update the message content
+		messages[messageIndex] = { ...messages[messageIndex], content: newContent };
+
+		// Remove all messages after this user message
+		messages = messages.slice(0, messageIndex + 1);
+
+		// Update in storage
+		if (currentSessionId) {
+			await chatStorage.updateMessage(currentSessionId, id, { content: newContent });
+			// Delete all messages after this one from storage
+			for (let i = messageIndex + 1; i < messages.length; i++) {
+				await chatStorage.deleteMessage(currentSessionId, messages[i].id);
+			}
+			// Dispatch event to notify ChatSessions component
+			window.dispatchEvent(new CustomEvent('messageEdited', {
+				detail: { ragName, sessionId: currentSessionId }
+			}));
+		}
+
+		// Create a new assistant message and regenerate response
+		const assistantMessage: Message = {
+			id: crypto.randomUUID(),
+			role: 'assistant',
+			content: '',
+			timestamp: new Date(),
+			toolActivities: [],
+			contentParts: [],
+			fileLists: []
+		};
+
+		messages = [...messages, assistantMessage];
+		const query = newContent.trim();
+
+		try {
+			loading = true;
+			streaming = true;
+
+			const res = await fetch(`/api/rag/${ragName}/stream`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					query,
+					history: messages.slice(0, -2).map(({ role, content }) => ({ role, content }))
+				})
+			});
+
+			if (!res.ok) throw new Error('Failed to stream response');
+
+			const reader = res.body?.getReader();
+			if (!reader) throw new Error('No response body');
+
+			const decoder = new TextDecoder();
+			const parser = new AgenticStreamingParser();
+
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+
+				const chunk = decoder.decode(value, { stream: true });
+				const parsedMessage = parser.processChunk(chunk);
+
+				// Update the assistant message with parsed data
+				messages = messages.map((msg, index) =>
+					index === messages.length - 1
+						? {
+							...msg,
+							content: parsedMessage.content,
+							contentParts: parsedMessage.contentParts,
+							toolActivities: parsedMessage.toolActivities,
+							documents: parsedMessage.documents,
+							sources: parsedMessage.sources,
+							fileLists: parsedMessage.fileLists
+						}
+						: msg
+				);
+
+				// Auto-scroll to bottom as we receive data
+				setTimeout(() => {
+					if (chatContainer) {
+						chatContainer.scrollTop = chatContainer.scrollHeight;
+					}
+				}, 0);
+			}
+
+			// Finalize parsing
+			const finalMessage = parser.finalize();
+			const finalAssistantMessage = {
+				...assistantMessage,
+				content: finalMessage.content,
+				contentParts: finalMessage.contentParts,
+				toolActivities: finalMessage.toolActivities,
+				documents: finalMessage.documents,
+				sources: finalMessage.sources,
+				fileLists: finalMessage.fileLists
+			};
+
+			messages = messages.map((msg, index) =>
+				index === messages.length - 1 ? finalAssistantMessage : msg
+			);
+
+			// Save assistant message to storage
+			if (currentSessionId) {
+				await chatStorage.addMessage(currentSessionId, finalAssistantMessage);
+				// Dispatch event to notify ChatSessions component
+				window.dispatchEvent(new CustomEvent('messageAdded', {
+					detail: { ragName, sessionId: currentSessionId }
+				}));
+			}
+		} catch (err) {
+			console.error('Failed to regenerate response:', err);
+			notifications.error('Failed to regenerate response');
+			// Remove the assistant message if there was an error
+			messages = messages.slice(0, -1);
+		} finally {
+			loading = false;
+			streaming = false;
+		}
+	}
+
 	async function handleRegenerateMessage(id: string) {
 		const messageIndex = messages.findIndex(m => m.id === id);
 		if (messageIndex === -1 || messages[messageIndex].role !== 'assistant') return;
@@ -548,6 +671,7 @@
 						isStreaming={streaming}
 						isLastMessage={message === messages[messages.length - 1]}
 						onDelete={handleDeleteMessage}
+						onEdit={handleEditMessage}
 						onRegenerate={handleRegenerateMessage}
 					/>
 				{/each}

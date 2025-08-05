@@ -212,8 +212,8 @@
 											{#if file.type === 'directory' || file.is_symlink}
 												<Button
 													onclick={() => { selectedFolder = file.name; showFiltersModal = true; }}
-													class="p-2 text-slate-500 hover:text-cyan-400 cursor-pointer transition-all duration-200"
 													size="icon"
+													variant="secondary"
 													title="Configure filters for {file.name}"
 												>
 													<Settings size={14} />
@@ -221,7 +221,6 @@
 											{/if}
 											<Button
 												onclick={() => onDeleteFile(file.name)}
-												class="p-2 text-slate-500 hover:text-red-400 cursor-pointer transition-all duration-200"
 												size="icon"
 												variant="danger"
 												title="Delete {file.type}"
@@ -261,8 +260,8 @@
 										{#if file.type === 'directory' || file.is_symlink}
 											<Button
 												onclick={() => { selectedFolder = file.name; showFiltersModal = true; }}
-												class="p-2 text-slate-500 hover:text-cyan-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-200"
 												size="icon"
+												variant="secondary"
 												title="Configure filters for {file.name}"
 											>
 												<Settings size={16} />
@@ -270,7 +269,6 @@
 										{/if}
 										<Button
 											onclick={() => onDeleteFile(file.name)}
-											class="p-2 text-slate-500 hover:text-red-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-200"
 											size="icon"
 											variant="danger"
 											title="Delete {file.type}"

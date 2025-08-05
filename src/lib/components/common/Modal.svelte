@@ -23,14 +23,14 @@
 
 <svelte:window
 	onkeydown={(e) => e.key === 'Escape' && (open = false)}
-	onclick={(e) => e.target === e.currentTarget && (open = false)}
 />
 
 {#if open}
 	<div
-		class="absolute inset-0 flex items-center justify-center z-50 w-screen h-screen bg-black/50 backdrop-blur-sm px-4"
+		class="fixed inset-0 flex items-center justify-center z-50 w-screen h-screen bg-black/50 backdrop-blur-sm px-4"
 		aria-modal="true"
 		aria-labelledby={title}
+		onclick={(e) => e.target === e.currentTarget && (open = false)}
 	>
 		<div
 			class="glass rounded-2xl shadow-2xl w-full max-h-[90vh] overflow-y-auto {sizes[size]} {extraClass}"

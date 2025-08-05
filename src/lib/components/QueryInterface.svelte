@@ -525,15 +525,15 @@
 		<!-- Messages -->
 		<div
 			bind:this={chatContainer}
-			class="flex-1 overflow-y-auto overflow-x-hidden p-2 md:p-6 space-y-3 md:space-y-6 min-h-0"
+			class="flex-1 overflow-y-auto overflow-x-hidden p-1 md:p-3 space-y-2 md:space-y-4 min-h-0"
 		>
 			{#if messages.length === 0}
 				<div class="flex flex-col items-center justify-center h-full text-center px-4">
-					<Bot size={48} class="text-slate-600 mb-3 md:mb-4 md:w-16 md:h-16" />
-					<h3 class="text-base md:text-xl font-bold text-slate-300 mb-2">
+					<Bot size={40} class="text-slate-600 mb-2 md:mb-3 md:w-12 md:h-12" />
+					<h3 class="text-sm md:text-lg font-bold text-slate-300 mb-1">
 						{currentSessionId ? 'Active session' : 'Start a conversation'}
 					</h3>
-					<p class="text-slate-500 max-w-md text-xs md:text-base">
+					<p class="text-slate-500 max-w-md text-xs md:text-sm">
 						{currentSessionId
 							? 'Ask a question about your documents in this session.'
 							: 'Ask a question about your documents. A new session will be created automatically.'}
@@ -549,11 +549,21 @@
 						onRegenerate={handleRegenerateMessage}
 					/>
 				{/each}
+
+				<!-- Total characters count -->
+				{#if messages.length > 0}
+					{@const totalChars = messages.reduce((sum, msg) => sum + msg.content.length, 0)}
+					<div class="text-center py-1">
+						<span class="text-xs text-slate-500 bg-slate-800/50 px-3 py-1 rounded-full border border-slate-700">
+							{messages.length} message{messages.length > 1 ? 's' : ''} • {totalChars.toLocaleString()} characters
+						</span>
+					</div>
+				{/if}
 			{/if}
 		</div>
 
 		<!-- Input Area -->
-		<div class="px-2 flex-shrink-0">
+		<div class="px-1 flex-shrink-0">
 			<ChatInput
 				bind:value={currentMessage}
 				loading={loading}

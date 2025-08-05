@@ -71,8 +71,8 @@
 	}
 </script>
 
-<div class="border-t border-slate-600 pt-2 md:py-4 md:px-1">
-	<form onsubmit={handleSubmit} class="flex space-x-1 md:space-x-3 items-start">
+<div class="border-t border-slate-600 pt-1 md:py-2 md:px-1">
+	<form onsubmit={handleSubmit} class="flex space-x-1 md:space-x-2 items-start">
 		<div class="flex flex-col gap-1 w-full">
 			<TextArea
 				bind:value
@@ -80,8 +80,8 @@
 				placeholder={loading ? "Message being sent..." : "Ask your question..."}
 				disabled={false}
 				onkeydown={handleKeydown}
-				minHeight="44px"
-				class="max-h-[200px] overflow-y-auto"
+				minHeight="40px"
+				class="max-h-[240px] overflow-y-auto"
 			/>
 			<div class="flex items-center justify-between">
 				<div class="hidden md:block text-xs text-slate-400">
@@ -93,7 +93,7 @@
 				</div>
 				{#if value.length > 0}
 					<div class="text-xs text-slate-400">
-						{value.length}
+						{value.length} chars
 					</div>
 				{/if}
 			</div>

@@ -3,7 +3,7 @@
 	import Button from '$lib/components/common/Button.svelte';
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
 	import ChatInput from '$lib/components/ChatInput.svelte';
-	import FilesModal from '$lib/components/FilesModal.svelte';
+	import DocumentsModal from '$lib/components/DocumentsModal.svelte';
 	import Select from '$lib/components/common/Select.svelte';
 	import { notifications } from '$lib/stores/notifications';
 	import { openAIModels } from '$lib/stores/openai-models';
@@ -29,13 +29,11 @@
 	let loadingFiles = $state(false);
 	let uploadingFile = $state(false);
 	let reindexing = $state(false);
-	let showFilesModal = $state(false);
+	let showDocumentsModal = $state(false);
 	let chatContainer: HTMLElement;
 
 	// Chat sessions state
-	let chatSessions: ChatSession[] = $state([]);
 	let currentSessionId: string | null = $state(null);
-	let loadingSessions = $state(false);
 
 	async function sendMessage() {
 		if (!currentMessage.trim() || loading) return;
@@ -498,12 +496,12 @@
 				<!-- Buttons -->
 				<div class="flex items-center justify-between space-x-2 md:space-x-3">
 					<Button
-						onclick={() => showFilesModal = true}
+						onclick={() => showDocumentsModal = true}
 						class="flex items-center space-x-1.5 px-2 py-1.5 md:px-2.5 md:py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white rounded-lg text-xs md:text-sm font-medium transition-all duration-200 shadow-lg flex-1 md:flex-initial justify-center md:justify-start min-h-[36px] md:min-h-0 whitespace-nowrap"
-						title="Toggle files panel"
+						title="Toggle documents panel"
 					>
 						<FileText size={16} class="md:w-[18px] md:h-[18px]" />
-						<span>Files ({files.length})</span>
+						<span>Documents ({files.length})</span>
 					</Button>
 					<Button
 						onclick={clearConversation}
@@ -561,10 +559,10 @@
 	</main>
 </div>
 
-<FilesModal
+<DocumentsModal
 	{ragName}
 	{files}
-	bind:open={showFilesModal}
+	bind:open={showDocumentsModal}
 	loading={loadingFiles}
 	uploading={uploadingFile}
 	reindexing={reindexing}

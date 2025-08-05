@@ -9,7 +9,7 @@
 	import { openAIModels } from '$lib/stores/openai-models';
 	import type { OpenAIModel, FileItem } from '$lib/types.d.ts';
 	import { AgenticStreamingParser } from '$lib/helpers/streaming-parser';
-	import { chatStorage, type ChatMessage as StoredChatMessage, type ChatSession } from '$lib/helpers/chat-storage';
+	import { chatStorage, type ChatMessage as StoredChatMessage } from '$lib/helpers/chat-storage';
 
 	interface Props {
 		ragName: string;
@@ -139,7 +139,6 @@
 			// Save assistant message to storage
 			if (currentSessionId) {
 				await chatStorage.addMessage(currentSessionId, finalAssistantMessage);
-				await loadChatSessions(); // Refresh sessions list
 			}
 
 		} catch (err) {
@@ -338,26 +337,12 @@
 		loadFiles();
 	}
 
-	// Chat session management functions
-	async function loadChatSessions() {
-		try {
-			loadingSessions = true;
-			await chatStorage.init();
-			chatSessions = await chatStorage.getSessionsByRag(ragName);
-		} catch (err) {
-			console.error('Failed to load chat sessions:', err);
-			notifications.error('Failed to load chat sessions');
-		} finally {
-			loadingSessions = false;
-		}
-	}
 
 	async function createNewSession() {
 		try {
 			const session = await chatStorage.createSession(ragName);
 			currentSessionId = session.id;
 			messages = [];
-			await loadChatSessions();
 			// Dispatch event to notify ChatSessions component
 			window.dispatchEvent(new CustomEvent('sessionCreated', {
 				detail: { ragName, sessionId: session.id }
@@ -389,7 +374,6 @@
 				currentSessionId = null;
 				messages = [];
 			}
-			await loadChatSessions();
 			// Dispatch event to notify ChatSessions component
 			window.dispatchEvent(new CustomEvent('sessionDeleted', {
 				detail: { ragName, sessionId }
@@ -404,7 +388,6 @@
 	async function renameSession(sessionId: string, newTitle: string) {
 		try {
 			await chatStorage.updateSessionTitle(sessionId, newTitle);
-			await loadChatSessions();
 			// Dispatch event to notify ChatSessions component
 			window.dispatchEvent(new CustomEvent('sessionRenamed', {
 				detail: { ragName, sessionId, newTitle }
@@ -421,7 +404,6 @@
 		if (ragName) {
 			loadFiles();
 			loadRagConfig();
-			loadChatSessions();
 		}
 	});
 

@@ -508,6 +508,50 @@ class RAGService:
 		config_path.write_text(json.dumps(config.to_dict(), indent=2))
 
 
+	def generate_system_prompt(self, description: str) -> str:
+		"""
+		Generate a system prompt based on a description.
+
+		:param description: Description of the desired role or expertise
+		:return: Generated system prompt
+		"""
+		# Use OpenAI to generate a system prompt based on the description
+		client = openai.OpenAI(api_key=OPENAI_API_KEY)
+
+		prompt = f"""You are an expert in writing system prompts for AI assistants.
+
+Here is a description of a desired role for an AI assistant:
+"{description}"
+
+Generate a professional and detailed system prompt that clearly defines the role, expertise, and expected behavior of the assistant. The prompt should:
+
+1. Clearly define the assistant's identity and expertise
+2. Specify the communication style (formal, casual, technical, etc.)
+3. Indicate the types of tasks the assistant can perform
+4. Mention the expected level of detail in responses
+5. Include guidelines on how to structure responses
+6. Be written in English and be professional
+
+Respond only with the generated system prompt, without additional explanations."""
+
+		try:
+			response = client.chat.completions.create(
+				model='gpt-4.1-mini',
+				messages=[
+					{'role': 'system', 'content': 'You are an expert in writing system prompts.'},
+					{'role': 'user', 'content': prompt}
+				],
+				max_tokens=500,
+				temperature=0.7
+			)
+
+			content = response.choices[0].message.content
+			return content.strip() if content else f"You are an AI assistant specialized in {description}. You can help with questions and tasks related to this domain."
+		except Exception as e:
+			# Fallback to a basic prompt if OpenAI call fails
+			return f"You are an AI assistant specialized in {description}. You can help with questions and tasks related to this domain."
+
+
 	def _load_index(self, rag_name: str) -> VectorStoreIndex:
 		"""
 		Load a persisted RAG index from disk.

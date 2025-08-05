@@ -79,6 +79,15 @@ class FolderPayload(BaseModel):
 	exclude_patterns: list[str] | None = Field(default_factory=list)
 
 
+class GeneratePromptPayload(BaseModel):
+	"""
+	Request payload for generating system prompts.
+
+	:param description: Description of the desired role or expertise
+	"""
+	description: str
+
+
 # ---------------------------------------------------------------------
 # RAG Management
 # ---------------------------------------------------------------------
@@ -137,6 +146,27 @@ async def get_available_models() -> dict:
 	:return: Dictionary containing available chat models and embedding models
 	"""
 	return await get_openai_models()
+
+
+@router.post('/{rag_name}/generate-prompt', response_model=dict)
+async def generate_system_prompt(rag_name: str, payload: GeneratePromptPayload) -> dict:
+	"""
+	Generate a system prompt based on a description.
+
+	:param rag_name: Name of the RAG instance
+	:param payload: Description of the desired role or expertise
+	:return: Generated system prompt
+	:raises HTTPException: 404 if RAG not found
+	"""
+	if rag_name not in rag_service.list_rags():
+		raise HTTPException(status_code=404, detail='RAG not found')
+
+	try:
+		# Use the RAG service to generate a prompt
+		prompt = rag_service.generate_system_prompt(payload.description)
+		return {'prompt': prompt}
+	except Exception as exc:
+		raise HTTPException(status_code=500, detail=f'Failed to generate prompt: {str(exc)}') from exc
 
 
 # ---------------------------------------------------------------------

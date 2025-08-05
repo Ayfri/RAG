@@ -37,6 +37,18 @@
 		}
 	});
 
+	// Keep focus on textarea when it becomes available and is not loading
+	$effect(() => {
+		if (textareaElement && !loading) {
+			// Small delay to ensure the element is fully rendered
+			setTimeout(() => {
+				if (textareaElement && document.activeElement !== textareaElement) {
+					textareaElement.focus();
+				}
+			}, 0);
+		}
+	});
+
 	function handleKeydown(e: KeyboardEvent) {
 		const onMobile = window.innerWidth < 768;
 		if (e.key === 'Enter' && !e.shiftKey && !onMobile) {
@@ -48,10 +60,12 @@
 	function handleSubmit(e: Event) {
 		e.preventDefault();
 		onSubmit();
-		// Keep focus on textarea after submit
-		if (textareaElement) {
-			textareaElement.focus();
-		}
+		// Keep focus on textarea after submit with a small delay to ensure DOM updates are complete
+		setTimeout(() => {
+			if (textareaElement) {
+				textareaElement.focus();
+			}
+		}, 0);
 	}
 </script>
 

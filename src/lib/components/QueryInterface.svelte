@@ -3,13 +3,14 @@
 	import Button from '$lib/components/common/Button.svelte';
 	import Select from '$lib/components/common/Select.svelte';
 	import DocumentsModal from '$lib/components/DocumentsModal.svelte';
+	import RagConfigModal from '$lib/components/RagConfigModal.svelte';
 	import ChatMessage from '$lib/components/messages/ChatMessage.svelte';
 	import {type ChatMessage as StoredChatMessage, chatStorage} from '$lib/helpers/chat-storage';
 	import {AgenticStreamingParser} from '$lib/helpers/streaming-parser';
 	import {notifications} from '$lib/stores/notifications';
 	import {openAIModels} from '$lib/stores/openai-models';
 	import type {FileItem, OpenAIModel} from '$lib/types.d.ts';
-	import {Bot, FileText, MessageSquare, Trash2} from '@lucide/svelte';
+	import {Bot, FileText, MessageSquare, Settings, Trash2} from '@lucide/svelte';
 
 	interface Props {
 		ragName: string;
@@ -30,6 +31,7 @@
 	let uploadingFile = $state(false);
 	let reindexing = $state(false);
 	let showDocumentsModal = $state(false);
+	let showConfigModal = $state(false);
 	let chatContainer: HTMLElement;
 
 	// Chat sessions state
@@ -631,6 +633,14 @@
 						<span>Documents ({files.length})</span>
 					</Button>
 					<Button
+						onclick={() => showConfigModal = true}
+						class="flex items-center space-x-1.5 px-2 py-1.5 md:px-2.5 md:py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white rounded-lg text-xs md:text-sm font-medium transition-all duration-200 shadow-lg flex-1 md:flex-initial justify-center md:justify-start min-h-[36px] md:min-h-0 whitespace-nowrap"
+						title="Configure RAG"
+					>
+						<Settings size={16} class="md:w-[18px] md:h-[18px]" />
+						<span>Settings</span>
+					</Button>
+					<Button
 						onclick={clearConversation}
 						disabled={messages.length === 0}
 						class="flex items-center space-x-1.5 px-2 py-1.5 md:px-2.5 md:py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg text-xs md:text-sm font-medium transition-all duration-200 shadow-lg hover:shadow-red-500/25 flex-1 md:flex-initial justify-center md:justify-start min-h-[36px] md:min-h-0"
@@ -711,4 +721,13 @@
 	onDeleteFile={deleteFile}
 	onReindex={reindexRAG}
 	onSymlinkCreated={handleSymlinkCreated}
+/>
+
+<RagConfigModal
+	{ragName}
+	bind:open={showConfigModal}
+	onupdated={() => {
+		// Reload the model selection after config update
+		loadRagConfig();
+	}}
 />

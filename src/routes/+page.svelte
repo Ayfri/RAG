@@ -3,7 +3,6 @@
 	import { Plus, FileText, Search, Database, MessageSquare, X } from '@lucide/svelte';
 	import Header from '$lib/components/Header.svelte';
 	import CreateRagModal from '$lib/components/CreateRagModal.svelte';
-	import RagConfigModal from '$lib/components/RagConfigModal.svelte';
 	import QueryInterface from '$lib/components/QueryInterface.svelte';
 	import ChatSessions from '$lib/components/ChatSessions.svelte';
 	import Button from '$lib/components/common/Button.svelte';
@@ -13,8 +12,6 @@
 	let ragDocumentCounts: Record<string, number> = $state({});
 	let selectedRag: string | null = $state(null);
 	let showCreateModal = $state(false);
-	let showConfigModal = $state(false);
-	let configRagName = $state('');
 	let loading = $state(true);
 	let error = $state('');
 	let totalChatCount = $state(0);
@@ -77,10 +74,7 @@
 	function handleSessionEvent() {
 		loadTotalChatCount();
 	}
-	function handleConfigUpdated() {
-		// Configuration updated, no need to reload RAGs as the list doesn't change
-		showConfigModal = false;
-	}
+
 
 	function toggleMobileSidebar() {
 		showMobileSidebar = !showMobileSidebar;
@@ -266,12 +260,4 @@
 		bind:open={showCreateModal}
 	/>
 
-	<!-- Config RAG Modal -->
-	{#if configRagName}
-		<RagConfigModal
-			ragName={configRagName}
-			onupdated={handleConfigUpdated}
-			bind:open={showConfigModal}
-		/>
-	{/if}
 </div>

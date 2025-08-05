@@ -458,38 +458,110 @@ class RAGService:
 		return folder_path
 
 
-	async def stream_query(self, rag_name: str, query: str, history: list[dict[str, str]] | None = None) -> AsyncGenerator[str, None]:
+	async def async_agent_stream(self, rag_name: str, query: str, history: list[ChatMessage] | None = None) -> AsyncGenerator[StreamEvent, None]:
 		"""
-		Asynchronously yield the answer token-by-token.
+		Stream agent events in real-time including tokens, sources, and documents.
+		Yields properly typed events as they occur during agent execution.
 
 		:param rag_name: Name of the RAG instance to query
-		:param query: Question to ask the RAG
-		:param history: Conversation history
-		:yield: Individual response tokens as strings
-		:raises FileNotFoundError: If the RAG index doesn't exist
+		:param query: The user's query
+		:param history: Optional conversation history
+		:yield: Typed streaming events (tokens, sources, documents, chat_history, final)
 		"""
-		index = self._load_index(rag_name)
-		config = self._load_rag_config(rag_name)
+		agent = self.get_agent(rag_name)
 		history = history or []
+		sources: list[SearchResultItem] = []
+		documents: list[DocumentItem] = []
+		chat_history: list[ChatMessage] = history[:]
 
-		# Configure LLM with RAG-specific settings
-		llm = OpenAI(
-			api_key=OPENAI_API_KEY,
-			model=config.chat_model,
-			system_prompt=config.system_prompt
-		)
+		handler = agent.run(query, chat_history=history)
+		async for event in handler.stream_events():
+			# Stream answer tokens in real-time
+			if hasattr(event, 'delta') and event.delta:
+				token_event: TokenStreamEvent = {'type': 'token', 'data': event.delta}
+				yield token_event
 
-		chat_history = [ChatMessage(role=msg['role'], content=msg['content']) for msg in history]
-		memory = ChatMemoryBuffer.from_defaults(chat_history=chat_history)
+			# Stream tool results as they're found
+			if isinstance(event, ToolCallResult):
+				print(f"Tool call: {event.tool_name}, params: {event.tool_kwargs}")
+				if event.tool_name.startswith('search'):
+					new_sources = event.tool_output.raw_output
+					sources.append(new_sources)
+					sources_event: SourcesStreamEvent = {'type': 'sources', 'data': new_sources}
+					yield sources_event
+				elif 'rag' in event.tool_name:
+					new_documents: list[DocumentItem] = event.tool_output.raw_output
+					documents.extend(new_documents)
+					documents_event: DocumentsStreamEvent = {'type': 'documents', 'data': new_documents}
+					yield documents_event
+				elif event.tool_name == 'read_file_tool':
+					file_path = event.tool_kwargs.get('rel_path', 'unknown')
+					file_content = event.tool_output.raw_output
 
-		chat_engine = index.as_chat_engine(
-			llm=llm,
-			memory=memory,
-		)
-		response = await chat_engine.astream_chat(query)
+					# Check if operation was successful
+					success = not file_content.startswith('File not found:') and not file_content.startswith('Error reading file:')
+					error = None if success else file_content
 
-		async for chunk in response.async_response_gen():
-			yield chunk
+					read_file_result: FileReadResult = {
+						'content': file_content if success else '',
+						'file_path': file_path,
+						'success': success,
+						'error': error
+					}
+
+					read_file_event: ReadFileStreamEvent = {'type': 'read_file', 'data': read_file_result}
+					yield read_file_event
+				elif event.tool_name == 'list_files_tool':
+					dir_path = event.tool_kwargs.get('rel_dir', 'unknown')
+					file_list = event.tool_output.raw_output
+
+					# Check if operation was successful
+					success = not (isinstance(file_list, list) and len(file_list) == 1 and file_list[0].startswith('Directory not found:'))
+					error = None if success else (file_list[0] if isinstance(file_list, list) and len(file_list) == 1 else 'Unknown error')
+
+					list_files_result: FileListResult = {
+						'files': file_list if success else [],
+						'directory_path': dir_path,
+						'success': success,
+						'error': error
+					}
+
+					list_files_event: ListFilesStreamEvent = {'type': 'list_files', 'data': list_files_result}
+					yield list_files_event
+
+			# Stream chat history updates
+			if isinstance(event, AgentOutput):
+				chat_history.append(event.response)
+				chat_data = event.response.model_dump()
+				# Ensure the data conforms to ChatHistoryItem structure
+				if isinstance(chat_data, dict) and 'role' in chat_data and 'content' in chat_data:
+					stream_chat_item: ChatHistoryItem = {
+						'content': str(chat_data['content']),
+						'role': chat_data['role'] if chat_data['role'] in ['user', 'assistant'] else 'assistant'
+					}
+					chat_event: ChatHistoryStreamEvent = {'type': 'chat_history', 'data': stream_chat_item}
+					yield chat_event
+
+		# Final summary event with all collected data
+		chat_history_items: list[ChatHistoryItem] = []
+		for msg in chat_history:
+			msg_data = msg.model_dump()
+			if isinstance(msg_data, dict) and 'role' in msg_data and 'content' in msg_data:
+				final_chat_item: ChatHistoryItem = {
+					'content': str(msg_data['content']),
+					'role': msg_data['role'] if msg_data['role'] in ['user', 'assistant'] else 'assistant'
+				}
+				chat_history_items.append(final_chat_item)
+
+		final_event: FinalStreamEvent = {
+			'type': 'final',
+			'data': {
+				'chat_history': chat_history_items,
+				'documents': documents,
+				'sources': sources
+			}
+		}
+		yield final_event
 
 
 	def update_rag_config(self, rag_name: str, config: RAGConfig) -> None:
@@ -690,108 +762,3 @@ Respond only with the generated system prompt, without additional explanations."
 					filtered_docs.append(doc)
 
 		return filtered_docs
-
-	async def async_agent_stream(self, rag_name: str, query: str, history: list[ChatMessage] | None = None) -> AsyncGenerator[StreamEvent, None]:
-		"""
-		Stream agent events in real-time including tokens, sources, and documents.
-		Yields properly typed events as they occur during agent execution.
-
-		:param rag_name: Name of the RAG instance to query
-		:param query: The user's query
-		:param history: Optional conversation history
-		:yield: Typed streaming events (tokens, sources, documents, chat_history, final)
-		"""
-		agent = self.get_agent(rag_name)
-		history = history or []
-		sources: list[SearchResultItem] = []
-		documents: list[DocumentItem] = []
-		chat_history: list[ChatMessage] = history[:]
-
-		handler = agent.run(query, chat_history=history)
-		async for event in handler.stream_events():
-			# Stream answer tokens in real-time
-			if hasattr(event, 'delta') and event.delta:
-				token_event: TokenStreamEvent = {'type': 'token', 'data': event.delta}
-				yield token_event
-
-			# Stream tool results as they're found
-			if isinstance(event, ToolCallResult):
-				print(f"Tool call: {event.tool_name}, params: {event.tool_kwargs}")
-				if event.tool_name.startswith('search'):
-					new_sources = event.tool_output.raw_output
-					sources.append(new_sources)
-					sources_event: SourcesStreamEvent = {'type': 'sources', 'data': new_sources}
-					yield sources_event
-				elif 'rag' in event.tool_name:
-					new_documents: list[DocumentItem] = event.tool_output.raw_output
-					documents.extend(new_documents)
-					documents_event: DocumentsStreamEvent = {'type': 'documents', 'data': new_documents}
-					yield documents_event
-				elif event.tool_name == 'read_file_tool':
-					file_path = event.tool_kwargs.get('rel_path', 'unknown')
-					file_content = event.tool_output.raw_output
-
-					# Check if operation was successful
-					success = not file_content.startswith('File not found:') and not file_content.startswith('Error reading file:')
-					error = None if success else file_content
-
-					read_file_result: FileReadResult = {
-						'content': file_content if success else '',
-						'file_path': file_path,
-						'success': success,
-						'error': error
-					}
-
-					read_file_event: ReadFileStreamEvent = {'type': 'read_file', 'data': read_file_result}
-					yield read_file_event
-				elif event.tool_name == 'list_files_tool':
-					dir_path = event.tool_kwargs.get('rel_dir', 'unknown')
-					file_list = event.tool_output.raw_output
-
-					# Check if operation was successful
-					success = not (isinstance(file_list, list) and len(file_list) == 1 and file_list[0].startswith('Directory not found:'))
-					error = None if success else (file_list[0] if isinstance(file_list, list) and len(file_list) == 1 else 'Unknown error')
-
-					list_files_result: FileListResult = {
-						'files': file_list if success else [],
-						'directory_path': dir_path,
-						'success': success,
-						'error': error
-					}
-
-					list_files_event: ListFilesStreamEvent = {'type': 'list_files', 'data': list_files_result}
-					yield list_files_event
-
-			# Stream chat history updates
-			if isinstance(event, AgentOutput):
-				chat_history.append(event.response)
-				chat_data = event.response.model_dump()
-				# Ensure the data conforms to ChatHistoryItem structure
-				if isinstance(chat_data, dict) and 'role' in chat_data and 'content' in chat_data:
-					stream_chat_item: ChatHistoryItem = {
-						'content': str(chat_data['content']),
-						'role': chat_data['role'] if chat_data['role'] in ['user', 'assistant'] else 'assistant'
-					}
-					chat_event: ChatHistoryStreamEvent = {'type': 'chat_history', 'data': stream_chat_item}
-					yield chat_event
-
-		# Final summary event with all collected data
-		chat_history_items: list[ChatHistoryItem] = []
-		for msg in chat_history:
-			msg_data = msg.model_dump()
-			if isinstance(msg_data, dict) and 'role' in msg_data and 'content' in msg_data:
-				final_chat_item: ChatHistoryItem = {
-					'content': str(msg_data['content']),
-					'role': msg_data['role'] if msg_data['role'] in ['user', 'assistant'] else 'assistant'
-				}
-				chat_history_items.append(final_chat_item)
-
-		final_event: FinalStreamEvent = {
-			'type': 'final',
-			'data': {
-				'chat_history': chat_history_items,
-				'documents': documents,
-				'sources': sources
-			}
-		}
-		yield final_event

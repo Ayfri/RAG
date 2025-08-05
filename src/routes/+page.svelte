@@ -42,7 +42,8 @@
 				const response = await fetch(`/api/rag/${rag}/files`);
 				if (response.ok) {
 					const files = await response.json();
-					counts[rag] = files.length;
+					// Calculate total files like in FilesModal.svelte
+					counts[rag] = files.reduce((acc: number, file: any) => acc + (file.file_count ?? 0), 0);
 				} else {
 					counts[rag] = 0;
 				}

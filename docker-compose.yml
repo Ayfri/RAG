@@ -40,7 +40,7 @@ services:
     env_file:
       - .env
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - PUBLIC_API_URL=http://api:8000
     depends_on:
       - api
     restart: unless-stopped

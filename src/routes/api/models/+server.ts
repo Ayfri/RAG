@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { API_BASE_URL } from '$lib/constants';
 
 /**
  * GET /api/models
@@ -8,7 +9,7 @@ import { json } from '@sveltejs/kit';
  */
 export async function GET() {
 	try {
-		const response = await fetch('http://localhost:8000/rag/models');
+		const response = await fetch(`${API_BASE_URL}/rag/models`);
 
 		if (!response.ok) {
 			throw new Error(`Backend API error: ${response.status}`);

@@ -54,7 +54,7 @@ OPENAI_API_KEY=sk-...
 API_HOST=0.0.0.0
 API_PORT=8000
 API_DEBUG=False
-VITE_API_URL=http://localhost:8000
+PUBLIC_API_URL=http://localhost:8000
 ```
 
 ### 2. Backend Setup

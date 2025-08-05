@@ -1,7 +1,6 @@
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-
-const API_BASE_URL = 'http://localhost:8000';
+import { API_BASE_URL } from '$lib/constants';
 
 export const POST: RequestHandler = async ({ params, request }) => {
 	try {

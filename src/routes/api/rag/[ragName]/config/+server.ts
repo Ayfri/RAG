@@ -1,13 +1,12 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-
-const API_BASE = 'http://localhost:8000';
+import { API_BASE_URL } from '$lib/constants';
 
 export const GET: RequestHandler = async ({ params, fetch }) => {
 	const { ragName } = params;
 
 	try {
-		const response = await fetch(`${API_BASE}/rag/${ragName}/config`);
+		const response = await fetch(`${API_BASE_URL}/rag/${ragName}/config`);
 
 		if (!response.ok) {
 			const error = await response.text();
@@ -31,7 +30,7 @@ export const PUT: RequestHandler = async ({ params, request, fetch }) => {
 	try {
 		const config = await request.json();
 
-		const response = await fetch(`${API_BASE}/rag/${ragName}/config`, {
+		const response = await fetch(`${API_BASE_URL}/rag/${ragName}/config`, {
 			method: 'PUT',
 			headers: {
 				'Content-Type': 'application/json',

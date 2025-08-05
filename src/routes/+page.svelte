@@ -232,18 +232,6 @@
 								? 'Get started by creating your first RAG to organize and query your documents.'
 								: 'Choose a RAG from the top bar to start asking questions about your documents.'}
 						</p>
-						{#if rags.length === 0 && !loading}
-							<div class="mt-2">
-								<Button
-									onclick={() => showCreateModal = true}
-									variant="primary"
-									class="group"
-								>
-									<Plus class="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" />
-									<span class="text-sm">Create{rags.length === 0 ? ' Your First' : ''} RAG</span>
-								</Button>
-							</div>
-						{/if}
 					</div>
 				{/if}
 			</div>

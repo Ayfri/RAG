@@ -10,6 +10,7 @@
 	import { fly } from 'svelte/transition';
 
 	let rags: string[] = $state([]);
+	let ragDocumentCounts: Record<string, number> = $state({});
 	let selectedRag: string | null = $state(null);
 	let showCreateModal = $state(false);
 	let showConfigModal = $state(false);
@@ -25,12 +26,32 @@
 			const response = await fetch('/api/rag');
 			if (!response.ok) throw new Error('Failed to load RAGs');
 			rags = await response.json();
+			await loadDocumentCounts();
 			await loadTotalChatCount();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Unknown error';
 		} finally {
 			loading = false;
 		}
+	}
+
+	async function loadDocumentCounts() {
+		const counts: Record<string, number> = {};
+		for (const rag of rags) {
+			try {
+				const response = await fetch(`/api/rag/${rag}/files`);
+				if (response.ok) {
+					const files = await response.json();
+					counts[rag] = files.length;
+				} else {
+					counts[rag] = 0;
+				}
+			} catch (err) {
+				console.error(`Failed to load document count for ${rag}:`, err);
+				counts[rag] = 0;
+			}
+		}
+		ragDocumentCounts = counts;
 	}
 
 	async function loadTotalChatCount() {
@@ -124,7 +145,7 @@
 										class={`!px-3 !py-1.5 text-xs ${selectedRag === rag ? 'bg-cyan-600 text-white shadow-lg' : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-slate-200'}`}
 										title="Click to query this RAG"
 									>
-										{rag} <span class="text-[0.675rem] {selectedRag === rag ? 'text-slate-200' : 'text-slate-400'}">({rag.length} documents)</span>
+										{rag} <span class="text-[0.675rem] {selectedRag === rag ? 'text-slate-200' : 'text-slate-400'}">({ragDocumentCounts[rag] || 0} documents)</span>
 									</Button>
 								{/each}
 								{#if rags.length === 0}

@@ -4,6 +4,7 @@
 	import Select from '$lib/components/common/Select.svelte';
 	import DocumentsModal from '$lib/components/DocumentsModal.svelte';
 	import RagConfigModal from '$lib/components/RagConfigModal.svelte';
+
 	import ChatMessage from '$lib/components/messages/ChatMessage.svelte';
 	import {type ChatMessage as StoredChatMessage, chatStorage} from '$lib/helpers/chat-storage';
 	import {AgenticStreamingParser} from '$lib/helpers/streaming-parser';
@@ -32,6 +33,7 @@
 	let reindexing = $state(false);
 	let showDocumentsModal = $state(false);
 	let showConfigModal = $state(false);
+
 	let chatContainer: HTMLElement;
 
 	// Chat sessions state

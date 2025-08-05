@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { CheckCircle, Loader, RefreshCw, Save, Settings, X } from '@lucide/svelte';
+	import { CheckCircle, Loader, RefreshCw, Save, Settings, Sparkles, X } from '@lucide/svelte';
 	import { openAIModels } from '$lib/stores/openai-models.js';
 	import Button from '$lib/components/common/Button.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import Select from '$lib/components/common/Select.svelte';
+	import SystemPromptGeneratorModal from '$lib/components/SystemPromptGeneratorModal.svelte';
 	import TextArea from '$lib/components/common/TextArea.svelte';
 	import type { OpenAIModel } from '$lib/types.d.ts';
 
@@ -19,18 +20,20 @@
 		chat_model: string;
 		embedding_model: string;
 		system_prompt: string;
+		file_filters?: Record<string, Record<string, string[]>>;
 	}
 
 	let config: RagConfig = $state({
 		chat_model: 'gpt-4o-mini',
 		embedding_model: 'text-embedding-3-large',
-		system_prompt: 'You are a helpful assistant that answers questions based on the provided context. Be concise and accurate.'
+		system_prompt: 'You are a helpful assistant that answers questions based on the provided context. Be concise and accurate.',
+		file_filters: {}
 	});
 
 	let loading = $state(false);
 	let saving = $state(false);
 	let error = $state('');
-	let success = $state(false);
+	let showPromptGeneratorModal = $state(false);
 
 	async function reloadModels() {
 		try {
@@ -64,7 +67,6 @@
 		try {
 			saving = true;
 			error = '';
-			success = false;
 
 			const response = await fetch(`/api/rag/${ragName}/config`, {
 				method: 'PUT',
@@ -78,11 +80,8 @@
 				throw new Error('Failed to save configuration');
 			}
 
-			success = true;
-			setTimeout(() => {
-				onupdated();
-				open = false;
-			}, 1500);
+			onupdated();
+			open = false;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Unknown error';
 		} finally {
@@ -127,12 +126,6 @@
 		<div class="text-center py-12">
 			<Loader class="w-12 h-12 animate-spin text-cyan-400 mx-auto mb-4" />
 			<p class="text-slate-400">Loading configuration...</p>
-		</div>
-	{:else if success}
-		<div class="text-center py-12">
-			<CheckCircle class="w-20 h-20 text-green-400 mx-auto mb-6" />
-			<h3 class="text-2xl font-bold text-slate-100 mb-3">Configuration Updated!</h3>
-			<p class="text-slate-400 text-lg">Settings for "{ragName}" have been saved.</p>
 		</div>
 	{:else}
 		<form onsubmit={(e) => {
@@ -199,9 +192,20 @@
 
 			<!-- System Prompt -->
 			<div class="space-y-3">
-				<label for="system-prompt" class="block text-sm font-medium text-slate-200">
-					System Prompt
-				</label>
+				<div class="flex justify-between items-center">
+					<label for="system-prompt" class="block text-sm font-medium text-slate-200">
+						System Prompt
+					</label>
+					<Button
+						onclick={() => showPromptGeneratorModal = true}
+						variant="secondary"
+						class="px-2 py-1 text-xs"
+						title="Generate system prompt"
+					>
+						<Sparkles size={16} />
+						<span>Generate</span>
+					</Button>
+				</div>
 				<TextArea
 					id="system-prompt"
 					bind:value={config.system_prompt}
@@ -236,3 +240,11 @@
 		</form>
 	{/if}
 </Modal>
+
+<SystemPromptGeneratorModal
+	{ragName}
+	bind:open={showPromptGeneratorModal}
+	onPromptGenerated={(prompt) => {
+		config.system_prompt = prompt;
+	}}
+/>

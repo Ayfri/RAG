@@ -12,7 +12,7 @@
 	import {openAIModels} from '$lib/stores/openai-models';
 	import {selectedState} from '$lib/stores/selectedState';
 	import type {FileItem, OpenAIModel} from '$lib/types.d.ts';
-	import {Bot, FileText, MessageSquare, Settings, Trash2} from '@lucide/svelte';
+	import {Bot, FileText, MessageSquare, Settings, Trash2, ChevronDown} from '@lucide/svelte';
 
 	interface Props {
 		ragName: string;
@@ -43,6 +43,7 @@
 	// Auto-scroll state
 	let autoScroll = $state(true);
 	let userScrolled = $state(false);
+	let showScrollToBottom = $state(false);
 
 	// Restore session from persistent state
 	$effect(() => {
@@ -90,13 +91,26 @@
 
 		const { scrollTop, scrollHeight, clientHeight } = chatContainer;
 		const isAtBottom = scrollTop + clientHeight >= scrollHeight - 10; // 10px tolerance
+		const scrollDistance = scrollHeight - clientHeight - scrollTop;
 
 		if (isAtBottom) {
 			userScrolled = false;
 			autoScroll = true;
+			showScrollToBottom = false;
 		} else {
 			userScrolled = true;
 			autoScroll = false;
+			// Show scroll to bottom button if scrolled up more than 100px
+			showScrollToBottom = scrollDistance > 100;
+		}
+	}
+
+	function scrollToBottom() {
+		if (chatContainer) {
+			chatContainer.scrollTop = chatContainer.scrollHeight;
+			userScrolled = false;
+			autoScroll = true;
+			showScrollToBottom = false;
 		}
 	}
 
@@ -747,10 +761,25 @@
 
 	<main class="flex-1 flex flex-col min-h-0 overflow-hidden relative">
 		<div class="absolute top-0 left-0 w-full px-4 h-6 bg-gradient-to-t from-transparent to-slate-900/80"></div>
+
+		<!-- Scroll to bottom button -->
+		{#if showScrollToBottom}
+			<div class="absolute bottom-24 right-8 z-10">
+				<Button
+					onclick={scrollToBottom}
+					class="flex items-center justify-center size-8 !p-0 bg-slate-600 hover:bg-slate-500 text-white shadow-xl hover:scale-110"
+					title="Scroll to bottom"
+					variant="secondary"
+				>
+					<ChevronDown size={20} />
+				</Button>
+			</div>
+		{/if}
+
 		<!-- Messages -->
 		<div
 			bind:this={chatContainer}
-			class="flex-1 overflow-y-auto overflow-x-hidden p-1 md:p-3 space-y-2 md:space-y-4 min-h-0"
+			class="flex-1 overflow-y-auto overflow-x-hidden p-1 md:p-3 space-y-2 md:space-y-4 min-h-0 scroll-smooth"
 			onscroll={handleScroll}
 		>
 			{#if messages.length === 0}

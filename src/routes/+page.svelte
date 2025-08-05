@@ -112,9 +112,9 @@
 	/>
 
 	<!-- Main Content -->
-	<main class="px-3 md:px-4 lg:px-4 py-3 md:py-4 w-full flex-1 overflow-hidden flex flex-col">
+	<main class="p-3 w-full flex-1 overflow-hidden flex flex-col">
 		{#if error}
-			<div class="mb-4 md:mb-8 bg-red-900/50 border border-red-700 rounded-xl p-4 md:p-6 flex items-center space-x-4">
+			<div class="mb-2 md:mb-8 bg-red-900/50 border border-red-700 rounded-xl p-4 md:p-6 flex items-center space-x-4">
 				<div class="p-2 bg-red-800 rounded-lg flex-shrink-0">
 					<FileText class="w-5 h-5 md:w-6 md:h-6 text-red-200" />
 				</div>
@@ -126,7 +126,7 @@
 		{/if}
 
 		<!-- RAG Selector - Compact top bar (desktop only) -->
-		<div class="mb-4 hidden lg:block">
+		<div class="mb-3 hidden lg:block">
 			<div class="glass rounded-xl shadow-xl p-3">
 				<div class="flex items-center justify-between">
 					<div class="flex items-center space-x-3">

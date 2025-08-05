@@ -26,6 +26,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - rag-network
 
   # SvelteKit Frontend (Production)
   frontend:
@@ -42,8 +44,15 @@ services:
     environment:
       - PUBLIC_API_URL=http://api:8000
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     restart: unless-stopped
+    networks:
+      - rag-network
+
+networks:
+  rag-network:
+    driver: bridge
 
 volumes:
   rag_data:

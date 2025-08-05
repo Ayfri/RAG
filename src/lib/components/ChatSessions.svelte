@@ -165,14 +165,44 @@
 			}
 		};
 
+		const handleMessageAdded = (event: Event) => {
+			const customEvent = event as CustomEvent;
+			const { ragName: eventRagName } = customEvent.detail;
+			if (eventRagName === ragName) {
+				loadSessions();
+			}
+		};
+
+		const handleMessageDeleted = (event: Event) => {
+			const customEvent = event as CustomEvent;
+			const { ragName: eventRagName } = customEvent.detail;
+			if (eventRagName === ragName) {
+				loadSessions();
+			}
+		};
+
+		const handleMessagesCleared = (event: Event) => {
+			const customEvent = event as CustomEvent;
+			const { ragName: eventRagName } = customEvent.detail;
+			if (eventRagName === ragName) {
+				loadSessions();
+			}
+		};
+
 		window.addEventListener('sessionCreated', handleSessionCreated);
 		window.addEventListener('sessionDeleted', handleSessionDeleted);
 		window.addEventListener('sessionRenamed', handleSessionRenamed);
+		window.addEventListener('messageAdded', handleMessageAdded);
+		window.addEventListener('messageDeleted', handleMessageDeleted);
+		window.addEventListener('messagesCleared', handleMessagesCleared);
 
 		return () => {
 			window.removeEventListener('sessionCreated', handleSessionCreated);
 			window.removeEventListener('sessionDeleted', handleSessionDeleted);
 			window.removeEventListener('sessionRenamed', handleSessionRenamed);
+			window.removeEventListener('messageAdded', handleMessageAdded);
+			window.removeEventListener('messageDeleted', handleMessageDeleted);
+			window.removeEventListener('messagesCleared', handleMessagesCleared);
 		};
 	});
 </script>

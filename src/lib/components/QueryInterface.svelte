@@ -67,6 +67,10 @@
 		// Save user message to storage
 		if (currentSessionId) {
 			await chatStorage.addMessage(currentSessionId, userMessage);
+			// Dispatch event to notify ChatSessions component
+			window.dispatchEvent(new CustomEvent('messageAdded', {
+				detail: { ragName, sessionId: currentSessionId }
+			}));
 		}
 
 		try {
@@ -139,6 +143,10 @@
 			// Save assistant message to storage
 			if (currentSessionId) {
 				await chatStorage.addMessage(currentSessionId, finalAssistantMessage);
+				// Dispatch event to notify ChatSessions component
+				window.dispatchEvent(new CustomEvent('messageAdded', {
+					detail: { ragName, sessionId: currentSessionId }
+				}));
 			}
 
 		} catch (err) {
@@ -153,6 +161,10 @@
 			// Save error message to storage
 			if (currentSessionId) {
 				await chatStorage.addMessage(currentSessionId, finalAssistantMessage);
+				// Dispatch event to notify ChatSessions component
+				window.dispatchEvent(new CustomEvent('messageAdded', {
+					detail: { ragName, sessionId: currentSessionId }
+				}));
 			}
 		} finally {
 			loading = false;
@@ -175,6 +187,10 @@
 			if (currentSessionId) {
 				await chatStorage.deleteMessage(currentSessionId, userMessageId);
 				await chatStorage.deleteMessage(currentSessionId, id);
+				// Dispatch event to notify ChatSessions component
+				window.dispatchEvent(new CustomEvent('messageDeleted', {
+					detail: { ragName, sessionId: currentSessionId }
+				}));
 			}
 		} else {
 			messages = messages.filter(m => m.id !== id);
@@ -182,6 +198,10 @@
 			// Delete from storage
 			if (currentSessionId) {
 				await chatStorage.deleteMessage(currentSessionId, id);
+				// Dispatch event to notify ChatSessions component
+				window.dispatchEvent(new CustomEvent('messageDeleted', {
+					detail: { ragName, sessionId: currentSessionId }
+				}));
 			}
 		}
 	}
@@ -205,6 +225,10 @@
 			messages = [];
 			if (currentSessionId) {
 				await chatStorage.clearSessionMessages(currentSessionId);
+				// Dispatch event to notify ChatSessions component
+				window.dispatchEvent(new CustomEvent('messagesCleared', {
+					detail: { ragName, sessionId: currentSessionId }
+				}));
 			}
 		}
 	}

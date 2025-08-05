@@ -252,38 +252,43 @@
 		if (messageIndex === -1) return;
 
 		const messageToDelete = messages[messageIndex];
+		const messagesToDelete: string[] = [];
 
-		if (messageToDelete.role === 'assistant' && messageIndex > 0) {
-			// Also delete the preceding user message
-			const userMessageId = messages[messageIndex - 1].id;
-			messages = messages.filter((_, i) => i !== messageIndex && i !== messageIndex - 1);
-
-			// Delete from storage
-			if (currentSessionId) {
-				await chatStorage.deleteMessage(currentSessionId, userMessageId);
-				await chatStorage.deleteMessage(currentSessionId, id);
-				// Dispatch event to notify ChatSessions component
-				window.dispatchEvent(new CustomEvent('messageDeleted', {
-					detail: { ragName, sessionId: currentSessionId }
-				}));
+		if (messageToDelete.role === 'user') {
+			// Delete user message and the assistant message that follows (if it exists)
+			messagesToDelete.push(id);
+			if (messageIndex + 1 < messages.length && messages[messageIndex + 1].role === 'assistant') {
+				messagesToDelete.push(messages[messageIndex + 1].id);
 			}
-		} else {
-			messages = messages.filter(m => m.id !== id);
-
-			// Delete from storage
-			if (currentSessionId) {
-				await chatStorage.deleteMessage(currentSessionId, id);
-				// Dispatch event to notify ChatSessions component
-				window.dispatchEvent(new CustomEvent('messageDeleted', {
-					detail: { ragName, sessionId: currentSessionId }
-				}));
+		} else if (messageToDelete.role === 'assistant') {
+			// Delete assistant message and the user message that precedes (if it exists)
+			if (messageIndex > 0 && messages[messageIndex - 1].role === 'user') {
+				messagesToDelete.push(messages[messageIndex - 1].id);
 			}
+			messagesToDelete.push(id);
+		}
+
+		// Remove messages from UI
+		messages = messages.filter(m => !messagesToDelete.includes(m.id));
+
+		// Delete from storage
+		if (currentSessionId) {
+			for (const messageId of messagesToDelete) {
+				await chatStorage.deleteMessage(currentSessionId, messageId);
+			}
+			// Dispatch event to notify ChatSessions component
+			window.dispatchEvent(new CustomEvent('messageDeleted', {
+				detail: { ragName, sessionId: currentSessionId }
+			}));
 		}
 	}
 
 	async function handleEditMessage(id: string, newContent: string) {
 		const messageIndex = messages.findIndex(m => m.id === id);
 		if (messageIndex === -1 || messages[messageIndex].role !== 'user') return;
+
+		// Get all messages that will be removed (all messages after this user message)
+		const messagesToDelete = messages.slice(messageIndex + 1).map(m => m.id);
 
 		// Update the message content
 		messages[messageIndex] = { ...messages[messageIndex], content: newContent };
@@ -295,8 +300,8 @@
 		if (currentSessionId) {
 			await chatStorage.updateMessage(currentSessionId, id, { content: newContent });
 			// Delete all messages after this one from storage
-			for (let i = messageIndex + 1; i < messages.length; i++) {
-				await chatStorage.deleteMessage(currentSessionId, messages[i].id);
+			for (const messageId of messagesToDelete) {
+				await chatStorage.deleteMessage(currentSessionId, messageId);
 			}
 			// Dispatch event to notify ChatSessions component
 			window.dispatchEvent(new CustomEvent('messageEdited', {

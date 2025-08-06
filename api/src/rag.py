@@ -10,6 +10,7 @@ All indices and source documents are stored on the local filesystem:
 import json
 import os
 import re
+import time
 from pathlib import Path
 import textwrap
 from typing import AsyncGenerator
@@ -476,24 +477,79 @@ class RAGService:
 		:return: Document with content and metadata
 		:raises Exception: If fetching or conversion fails
 		"""
+		# Validate URL format first
 		try:
-			# Fetch the webpage
-			headers = {
-				'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-			}
-			response = requests.get(url, headers=headers, timeout=30)
-			response.raise_for_status()
+			parsed_url = urlparse(url)
+			if not parsed_url.scheme or not parsed_url.netloc:
+				raise Exception(f"Invalid URL format: {url}")
+		except Exception as e:
+			raise Exception(f"Invalid URL: {url}")
 
-			# Parse the HTML
-			soup = BeautifulSoup(response.content, 'html.parser')
+		try:
+			# Create a session for better performance and connection reuse
+			with requests.Session() as session:
+				# Configure session with better defaults
+				session.headers.update({
+					'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+					'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+					'Accept-Language': 'en-US,en;q=0.5',
+					'Accept-Encoding': 'gzip, deflate',
+					'Connection': 'keep-alive',
+					'Upgrade-Insecure-Requests': '1',
+				})
+
+				# Configure timeouts and retries
+				timeout = (10, 30)  # (connect_timeout, read_timeout)
+				max_retries = 3
+				retry_delay = 1
+
+				for attempt in range(max_retries):
+					try:
+						response = session.get(
+							url,
+							timeout=timeout,
+							allow_redirects=True,
+							verify=True  # SSL verification
+						)
+						response.raise_for_status()
+						break  # Success, exit retry loop
+
+					except requests.exceptions.Timeout as e:
+						if attempt == max_retries - 1:
+							raise Exception(f"Request timeout after {max_retries} attempts: {url}")
+						time.sleep(retry_delay * (attempt + 1))  # Exponential backoff
+						continue
+
+					except requests.exceptions.ConnectionError as e:
+						if attempt == max_retries - 1:
+							raise Exception(f"Connection failed after {max_retries} attempts: {url}")
+						time.sleep(retry_delay * (attempt + 1))
+						continue
+
+					except requests.exceptions.RequestException as e:
+						# Don't retry on HTTP errors (4xx, 5xx)
+						raise e
+
+				# Check content type
+				content_type = response.headers.get('content-type', '').lower()
+				if not any(ct in content_type for ct in ['text/html', 'text/plain', 'application/xhtml+xml']):
+					raise Exception(f"Unsupported content type: {content_type}")
+
+				# Check content length
+				content_length = response.headers.get('content-length')
+				if content_length and int(content_length) > 10 * 1024 * 1024:  # 10MB limit
+					raise Exception(f"Content too large: {content_length} bytes")
+
+				# Parse the HTML
+				soup = BeautifulSoup(response.content, 'html.parser')
 
 			# Remove script and style elements
 			for script in soup(["script", "style"]):
 				script.decompose()
 
-			# Extract title
-			title = soup.find('title')
-			title_text = title.get_text().strip() if title else ''
+				# Extract title
+				title = soup.find('title')
+				title_text = title.get_text().strip() if title else ''
 
 			# Convert HTML to markdown
 			h = html2text.HTML2Text()
@@ -506,16 +562,19 @@ class RAGService:
 			# Clean up the markdown content
 			markdown_content = re.sub(r'\n{3,}', '\n\n', markdown_content)  # Remove excessive newlines
 			markdown_content = re.sub(r' {3,}', ' ', markdown_content)  # Remove excessive spaces
+			markdown_content = markdown_content.strip()
 
 			# Create metadata
-			parsed_url = urlparse(url)
 			metadata = {
 				'file_path': url,
 				'url': url,
 				'domain': parsed_url.netloc,
 				'title': title_text,
 				'source_type': 'web_page',
-				'content_type': 'text/markdown'
+				'content_type': 'text/markdown',
+				'content_length': len(markdown_content),
+				'response_status': response.status_code,
+				'response_headers': dict(response.headers)
 			}
 
 			# Create Document
@@ -526,7 +585,22 @@ class RAGService:
 
 			return document
 
-		except requests.RequestException as e:
+		except requests.exceptions.HTTPError as e:
+			if e.response.status_code == 404:
+				raise Exception(f"URL not found (404): {url}")
+			elif e.response.status_code == 403:
+				raise Exception(f"Access forbidden (403): {url}")
+			elif e.response.status_code == 401:
+				raise Exception(f"Unauthorized access (401): {url}")
+			elif e.response.status_code >= 500:
+				raise Exception(f"Server error ({e.response.status_code}): {url}")
+			else:
+				raise Exception(f"HTTP error {e.response.status_code}: {url}")
+		except requests.exceptions.ConnectionError:
+			raise Exception(f"Connection failed: {url}")
+		except requests.exceptions.Timeout:
+			raise Exception(f"Request timeout: {url}")
+		except requests.exceptions.RequestException as e:
 			raise Exception(f"Failed to fetch URL {url}: {str(e)}")
 		except Exception as e:
 			raise Exception(f"Failed to process URL {url}: {str(e)}")

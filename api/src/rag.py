@@ -19,7 +19,6 @@ import openai
 from llama_index.core import SimpleDirectoryReader, StorageContext, VectorStoreIndex, Settings, load_index_from_storage
 from llama_index.core.agent.workflow import AgentOutput, ToolCallResult
 from llama_index.core.llms import ChatMessage
-from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core.readers.json import JSONReader
 from llama_index.core.response_synthesizers import ResponseMode
 from llama_index.core.schema import Document
@@ -541,6 +540,12 @@ class RAGService:
 		:param url: The URL to add
 		:raises Exception: If fetching or processing fails
 		"""
+		# Check if URL already exists
+		existing_urls = self.list_urls_in_rag(rag_name)
+		for existing_url in existing_urls:
+			if existing_url['url'] == url:
+				raise Exception(f"URL '{url}' already exists in RAG '{rag_name}'")
+
 		# Fetch and convert the URL to a document
 		document = self.fetch_url_content(url)
 
@@ -588,10 +593,17 @@ class RAGService:
 		try:
 			index = self._load_index(rag_name)
 			persist_dir = self._INDICES_DIR / rag_name
+
 			# Get all documents from the index that match the URL
-			for doc in index.docstore.docs.values():
-				if isinstance(doc, Document) and doc.metadata.get('url') == url:
-					index.delete_ref_doc(doc.id_, True)
+			deleted_count = 0
+			for doc_id, doc in index.docstore.docs.items():
+				if doc.metadata.get('url') == url:
+					index.delete_ref_doc(doc_id, delete_from_docstore=True)
+					index.delete_nodes([doc.node_id], delete_from_docstore=True)
+					deleted_count += 1
+
+			if deleted_count == 0:
+				raise Exception(f"URL '{url}' not found in RAG '{rag_name}'")
 
 			# Persist the updated index
 			index.storage_context.persist(persist_dir=str(persist_dir))
@@ -613,14 +625,19 @@ class RAGService:
 
 			# Get all documents from the index
 			documents = []
+			seen_urls: set[str] = set()  # To track unique URLs
+
 			for node in index.docstore.docs.values():
-				if hasattr(node, 'metadata') and node.metadata.get('source_type') == 'web_page':
-					documents.append({
-						'url': node.metadata.get('url', ''),
-						'title': node.metadata.get('title', ''),
-						'domain': node.metadata.get('domain', ''),
-						'content_type': node.metadata.get('content_type', '')
-					})
+				if node.metadata.get('source_type') == 'web_page':
+					url = node.metadata.get('url', '')
+					if url not in seen_urls:  # Only add unique URLs
+						seen_urls.add(url)
+						documents.append({
+							'url': url,
+							'title': node.metadata.get('title', ''),
+							'domain': node.metadata.get('domain', ''),
+							'content_type': node.metadata.get('content_type', '')
+						})
 
 			return documents
 

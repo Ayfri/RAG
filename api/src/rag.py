@@ -182,29 +182,33 @@ class RAGService:
 
 			index.storage_context.persist(persist_dir=str(persist_dir))
 
-			print(f"Index created for {rag_name} with {len(docs)} documents, generating summary...")
+			print(f"Index created for {rag_name} with {len(docs)} documents")
 
-			# Generate and save project summary
-			summary_llm = OpenAI(
-				api_key=OPENAI_API_KEY,
-				model="o4-mini",
-				reasoning_effort="high",
-			)
-			query_engine = index.as_query_engine(
-				llm=summary_llm,
-				response_mode=ResponseMode.COMPACT_ACCUMULATE,
-				similarity_top_k=30,
-			)
+			# Only generate summary if there are documents
+			if len(docs) > 0:
+				print("Generating summary...")
+				summary_llm = OpenAI(
+					api_key=OPENAI_API_KEY,
+					model="o4-mini",
+					reasoning_effort="high",
+				)
+				query_engine = index.as_query_engine(
+					llm=summary_llm,
+					response_mode=ResponseMode.COMPACT_ACCUMULATE,
+					similarity_top_k=30,
+				)
 
-			summary_prompt = """
-				Summarize the project based on the provided documents. Focus on key functionalities, architecture, and purpose. Pin any important information.
-				Use markdown formatting, be exhaustive and complete.
-			"""
-			summary_response = query_engine.query(textwrap.dedent(summary_prompt).strip())
-			summary_path = self._RESUMES_DIR / f'{rag_name}.md'
-			summary_path.write_text(str(summary_response), encoding='utf-8')
+				summary_prompt = """
+					Summarize the project based on the provided documents. Focus on key functionalities, architecture, and purpose. Pin any important information.
+					Use markdown formatting, be exhaustive and complete.
+				"""
+				summary_response = query_engine.query(textwrap.dedent(summary_prompt).strip())
+				summary_path = self._RESUMES_DIR / f'{rag_name}.md'
+				summary_path.write_text(str(summary_response), encoding='utf-8')
 
-			print(f"Generated and saved summary for {rag_name} at {summary_path}")
+				print(f"Generated and saved summary for {rag_name} at {summary_path}")
+			else:
+				print("No documents found, skipping summary generation")
 
 		finally:
 			# Restore original embedding model

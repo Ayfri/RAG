@@ -55,8 +55,8 @@
 			});
 
 			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.detail || 'Failed to add URL');
+				const errorText = await response.text();
+				throw new Error(errorText || 'Failed to add URL');
 			}
 
 			notifications.success('URL added successfully!');

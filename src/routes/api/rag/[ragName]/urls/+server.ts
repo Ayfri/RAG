@@ -32,15 +32,41 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		});
 
 		if (!response.ok) {
-			const errorText = await response.text();
-			return error(response.status, errorText || 'Failed to add URL');
+			let errorMessage = 'Failed to add URL';
+
+			try {
+				// Try to parse as JSON first (FastAPI returns JSON errors)
+				const errorData = await response.json();
+				errorMessage = errorData.detail || errorMessage;
+			} catch {
+				// If JSON parsing fails, try to get text
+				try {
+					const errorText = await response.text();
+					errorMessage = errorText || errorMessage;
+				} catch {
+					// If all else fails, use status text
+					errorMessage = response.statusText || errorMessage;
+				}
+			}
+
+			// Return error with just the message text, not wrapped in JSON
+			return new Response(errorMessage, {
+				status: response.status,
+				headers: { 'Content-Type': 'text/plain' }
+			});
 		}
 
 		const data = await response.json();
 		return json(data, { status: 201 });
 	} catch (err) {
-		console.error('Error adding URL:', err);
-		return error(500, 'Internal server error');
+		// Don't catch HttpError from SvelteKit's error() function
+		if (err && typeof err === 'object' && 'status' in err && 'body' in err) {
+			throw err; // Re-throw HttpError
+		}
+		return new Response('Internal server error', {
+			status: 500,
+			headers: { 'Content-Type': 'text/plain' }
+		});
 	}
 };
 
@@ -57,8 +83,24 @@ export const DELETE: RequestHandler = async ({ params, request }) => {
 		});
 
 		if (!response.ok) {
-			const errorText = await response.text();
-			return error(response.status, errorText || 'Failed to delete URL');
+			let errorMessage = 'Failed to delete URL';
+
+			try {
+				// Try to parse as JSON first (FastAPI returns JSON errors)
+				const errorData = await response.json();
+				errorMessage = errorData.detail || errorMessage;
+			} catch {
+				// If JSON parsing fails, try to get text
+				try {
+					const errorText = await response.text();
+					errorMessage = errorText || errorMessage;
+				} catch {
+					// If all else fails, use status text
+					errorMessage = response.statusText || errorMessage;
+				}
+			}
+
+			return error(response.status, errorMessage);
 		}
 
 		return new Response(null, { status: 204 });

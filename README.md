@@ -2,6 +2,8 @@
 
 A modern **Retrieval-Augmented Generation (RAG)** application with a **FastAPI** backend and **SvelteKit** frontend. Upload documents, create vector indices, and query your knowledge base with an elegant web interface.
 
+**Created by [Ayfri](https://github.com/Ayfri)** - French student and developer passionate about experimenting with new technologies. Check out my other projects at [ayfri.com](https://ayfri.com).
+
 ## 🏗️ Architecture
 
 - **Frontend**: SvelteKit + TypeScript + TailwindCSS

@@ -6,6 +6,11 @@ This folder contains a small **FastAPI** application exposing a minimal, file-ba
 
 ```
 api/
+├── data/                   # Runtime data (not in Git)
+│   ├── configs/<rag-name>.json # Per-RAG configuration files (auto-generated)
+│   ├── files/<rag-name>/       # Source documents (any text-based format supported by LlamaIndex)
+│   ├── indices/<rag-name>/     # Persisted vector index & metadata (auto-generated)
+│   └── resumes/<rag-name>.md   # Auto-generated project summaries (auto-generated)
 ├── main.py                # FastAPI entry-point
 ├── services/
 │   └── rag_router.py     # RAG API routes
@@ -18,16 +23,6 @@ api/
 │   └── types.py          # Shared TypedDict definitions
 ├── requirements.txt      # Python dependencies
 └── README.md             # This file
-```
-
-Additional runtime data live outside the Git index:
-
-```
-data/
-├── files/<rag-name>/       # Source documents (any text-based format supported by LlamaIndex)
-├── indices/<rag-name>/     # Persisted vector index & metadata (auto-generated)
-├── configs/<rag-name>.json # Per-RAG configuration files (auto-generated)
-└── resumes/<rag-name>.md   # Auto-generated project summaries (auto-generated)
 ```
 
 The `data/` directory is listed in the project-level **.gitignore** so you never commit large embeddings.
@@ -50,10 +45,10 @@ pip install -r requirements.txt
 Create a `.env` file at the repository root containing the necessary environment variables, including your OpenAI key. For example:
 
 ```
-OPENAI_API_KEY=sk-...
+API_DEBUG=False
 API_HOST=0.0.0.0
 API_PORT=8000
-API_DEBUG=False
+OPENAI_API_KEY=sk-...
 ```
 
 The `api/src/config.py` module automatically loads these variables on application startup.
@@ -64,17 +59,18 @@ The `api/src/config.py` module automatically loads these variables on applicatio
 
 | Method | Path | Description |
 | ------ | ---- | ----------- |
+| `DELETE` | `/rag/{rag_name}` | Delete a RAG index and all its associated files. |
 | `GET`  | `/rag` | List every existing RAG index. |
 | `POST` | `/rag/{rag_name}` | Build (or rebuild) an index from documents in `data/files/{rag_name}/`. Can be called even if the directory is empty. |
-| `DELETE` | `/rag/{rag_name}` | Delete a RAG index and all its associated files. |
 
 ### RAG Configuration
 
 | Method | Path | Description |
 | ------ | ---- | ----------- |
 | `GET`  | `/rag/{rag_name}/config` | Get the configuration for a specific RAG (chat model, embedding model, system prompt). |
-| `PUT` | `/rag/{rag_name}/config` | Update the configuration for a specific RAG. |
 | `GET`  | `/rag/models` | Get all available OpenAI models for chat and embeddings. |
+| `POST` | `/rag/{rag_name}/generate-prompt` | Generate a system prompt from a description using AI. |
+| `PUT` | `/rag/{rag_name}/config` | Update the configuration for a specific RAG. |
 
 ### Query Operations
 
@@ -86,32 +82,48 @@ The `api/src/config.py` module automatically loads these variables on applicatio
 
 | Method | Path | Description |
 | ------ | ---- | ----------- |
+| `DELETE` | `/rag/{rag_name}/files/{filename}` | Delete a specific file from the RAG's document directory. |
 | `GET`  | `/rag/{rag_name}/files` | List all files and directories in the RAG's document directory. Returns detailed info including type and symlink targets. |
 | `POST` | `/rag/{rag_name}/files` | Upload a document to the RAG's files directory or create a folder with file filters. |
-| `POST` | `/rag/{rag_name}/symlink` | Create a symbolic link to an external file or directory with file filters. |
 | `POST` | `/rag/{rag_name}/reindex` | Manually reindex the RAG from all current files and symlinks. |
-| `DELETE` | `/rag/{rag_name}/files/{filename}` | Delete a specific file from the RAG's document directory. |
+| `POST` | `/rag/{rag_name}/symlink` | Create a symbolic link to an external file or directory with file filters. |
+
+### URL Management
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| `DELETE` | `/rag/{rag_name}/urls` | Remove a URL document from the RAG. |
+| `GET` | `/rag/{rag_name}/urls` | List all URLs in the RAG. |
+| `POST` | `/rag/{rag_name}/urls` | Add a URL as a document to the RAG. |
 
 ## Features
+
+### Advanced File Management
+- **File filtering**: Advanced glob pattern support for including/excluding files
+- **Folder creation**: Create empty folders for organization
+- **Smart file listing**: Detailed metadata including file types, sizes, and symlink targets
+- **Symbolic links**: Link to external files and directories
+- **URL integration**: Add web pages as documents with HTML parsing
+
+### Agent-Based Architecture
+Each RAG uses an intelligent agent with access to multiple tools:
+- **File operations**: Read and list files in the document directory
+- **Local RAG search**: Semantic search through indexed documents
+- **Project summaries**: Auto-generated summaries for better context understanding
+- **Web search**: Real-time web search via OpenAI's web search API
 
 ### Real-Time Streaming
 The RAG system provides **real-time streaming** with an agentic workflow that includes:
 - **Immediate token streaming**: Text appears as the agent generates it
 - **Live metadata updates**: Sources, documents, and chat history stream as they're found
 - **Progressive enhancement**: Users see results instantly, with additional context arriving progressively
-
-### Agent-Based Architecture
-Each RAG uses an intelligent agent with access to multiple tools:
-- **Local RAG search**: Semantic search through indexed documents
-- **Web search**: Real-time web search via DuckDuckGo
-- **File operations**: Read and list files in the document directory
-- **Project summaries**: Auto-generated summaries for better context understanding
+- **Tool activity visualization**: Real-time display of web searches, document retrieval, and file operations
 
 ### Type Safety
 The codebase uses comprehensive TypeScript-style typing:
+- **Pattern matching** for efficient event processing
 - **Shared type definitions** in `src/types.py`
 - **Strict typing** for all streaming events and data structures
-- **Pattern matching** for efficient event processing
 
 ## Configuration
 
@@ -131,12 +143,10 @@ Each RAG instance can be individually configured with its own settings stored in
 ### Available Models
 
 **Chat Models:**
-- `gpt-3.5-turbo`
-- `gpt-4`
 - `gpt-4.1`
-- `gpt-4-turbo`
+- `gpt-4.1-mini`
+- `gpt-4.1-nano`
 - `gpt-4o`
-- `gpt-4o-mini` (default)
 - `o3`
 - `o3-mini`
 - `o4-mini`
@@ -150,14 +160,10 @@ Each RAG instance can be individually configured with its own settings stored in
 
 ```json
 {
-  "chat_model": "gpt-4o-mini",
+  "chat_model": "gpt-4.1-mini",
   "embedding_model": "text-embedding-3-large",
   "system_prompt": "You are a helpful assistant that answers questions based on the provided context. Be concise and accurate.",
   "file_filters": {
-    "_base": {
-      "include": ["*.md", "*.txt"],
-      "exclude": ["*.tmp"]
-    },
     "my-project-docs": {
       "include": ["**/*.py"],
       "exclude": ["venv/**"]
@@ -204,6 +210,23 @@ $config = @{
 } | ConvertTo-Json
 Invoke-RestMethod -Method Put -Uri 'http://localhost:8000/rag/my-docs/config' `
     -Body $config -ContentType 'application/json'
+
+# Generate a system prompt from description
+$promptData = @{
+    description = 'I want the AI to be an expert in web development with React and Node.js'
+} | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri 'http://localhost:8000/rag/my-docs/generate-prompt' `
+    -Body $promptData -ContentType 'application/json'
+
+# Add a URL as a document
+$urlData = @{
+    url = 'https://example.com/documentation'
+} | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri 'http://localhost:8000/rag/my-docs/urls' `
+    -Body $urlData -ContentType 'application/json'
+
+# List URLs in the RAG
+Invoke-RestMethod -Method Get -Uri 'http://localhost:8000/rag/my-docs/urls'
 
 # Stream the answer with real-time agent workflow (PowerShell)
 $body = @{
@@ -256,6 +279,8 @@ The streaming endpoint returns a mixed-format response:
 * **Persistent indices**: Vector indices persist on disk; loading an existing RAG is instant
 * **Per-RAG configuration**: Each RAG has its own config file with model settings and system prompt
 * **File filtering**: Advanced glob pattern support for including/excluding files during indexing
+* **URL integration**: Web pages can be added as documents with HTML parsing and markdown conversion
+* **Symbolic links**: Link to external files and directories with filtering support
 * **Configuration changes** are applied immediately to new queries and index operations
 * All code follows the repository coding guidelines (tabs, single quotes, english)
 * API documentation is available at `http://localhost:8000/docs` when running the server

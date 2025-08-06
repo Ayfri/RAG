@@ -14,26 +14,33 @@ A modern **Retrieval-Augmented Generation (RAG)** application with a **FastAPI**
 ```
 RAG/
 ├── api/                    # FastAPI backend
+│   ├── data/              # Runtime data (not in Git)
+│   │   ├── configs/<rag-name>.json # Per-RAG configurations
+│   │   ├── files/<rag-name>/  # Source documents
+│   │   ├── indices/<rag-name>/ # Vector indices
+│   │   └── resumes/<rag-name>.md # Auto-generated project summaries
 │   ├── main.py            # API entry point
 │   ├── services/
 │   │   └── rag_router.py  # RAG API routes
 │   ├── src/
+│   │   ├── agent.py       # Agent and tools implementation
 │   │   ├── config.py      # Configuration management
-│   │   └── rag.py         # RAGService implementation
+│   │   ├── openai_models.py # OpenAI models management
+│   │   ├── rag.py         # RAGService implementation
+│   │   ├── rag_config.py  # RAG configuration classes
+│   │   └── types.py       # Shared TypedDict definitions
 │   └── requirements.txt   # Python dependencies
-├── src/                   # SvelteKit frontend
-│   ├── routes/
-│   │   ├── api/           # API proxy routes
-│   │   ├── +layout.svelte # App layout
-│   │   └── +page.svelte   # Main page
-│   └── lib/
-│       └── components/    # Reusable Svelte components
-├── data/                  # Runtime data (not in Git)
-│   ├── files/<rag-name>/  # Source documents
-│   ├── indices/<rag-name>/ # Vector indices
-│   └── configs/<rag-name>.json # Per-RAG configurations
 ├── package.json           # Frontend dependencies
-└── README.md              # This file
+├── README.md              # This file
+└── src/                   # SvelteKit frontend
+    ├── lib/
+    │   ├── components/    # Reusable Svelte components
+    │   ├── helpers/       # Utility functions
+    │   └── stores/        # State management
+    └── routes/
+        ├── api/           # API proxy routes
+        ├── +layout.svelte # App layout
+        └── +page.svelte   # Main page
 ```
 
 ## 🚀 Quick Start
@@ -50,10 +57,11 @@ RAG/
 Create a `.env` file at the project root:
 
 ```env
-OPENAI_API_KEY=sk-...
+API_DEBUG=False
 API_HOST=0.0.0.0
 API_PORT=8000
-API_DEBUG=False
+OPENAI_API_KEY=sk-...
+PORT=5173
 PUBLIC_API_URL=http://localhost:8000
 ```
 
@@ -110,7 +118,7 @@ docker-compose down
 - **Dependencies**: Cached separately from source code
 - **Source code**: Rebuilds only when files change
 - **Configuration**: Includes all necessary config files (`svelte.config.js`, `vite.config.ts`, `tsconfig.json`, `.npmrc`)
-- **Production mode**: Frontend runs in production mode with `pnpm preview`
+- **Production mode**: Frontend runs in production mode with `node build/index.js`
 
 The application will be available at:
 - **Frontend**: `http://localhost:5173`
@@ -123,10 +131,11 @@ The application will be available at:
 
 ### 🤖 Agentic AI Workflow
 - **Real-time tool usage**: Watch the AI agent use multiple tools as it works
-- **Web search integration**: AI can search the internet for current information
+- **Web search integration**: AI can search the internet for current information using OpenAI's web search
 - **Document retrieval**: Smart search through your uploaded documents
 - **File operations**: AI can read and explore files in your RAG directories
 - **Progressive streaming**: See responses build up token-by-token with live tool indicators
+- **Tool activity visualization**: Real-time display of web searches, document retrieval, and file operations
 
 ### 📊 RAG Management
 - Create new RAG indices from uploaded documents
@@ -138,6 +147,7 @@ The application will be available at:
 - **Per-RAG model selection**: Choose different OpenAI chat models (GPT-4o, GPT-4o-mini, etc.)
 - **Custom embedding models**: Select from various OpenAI embedding models
 - **System prompt customization**: Define how the AI should respond for each RAG
+- **AI-powered prompt generation**: Generate system prompts from descriptions using AI
 - **Persistent settings**: Configuration stored in JSON files per RAG
 
 ### 📄 Document Management
@@ -145,10 +155,12 @@ The application will be available at:
 - **Folder upload support**: Upload entire directories at once
 - **Symbolic link support**: Link to external files and directories
 - **URL management**: Add and remove website URLs as documents
+- **Advanced file filtering**: Configure include/exclude patterns for specific folders and symlinks
 - Support for PDF, TXT, DOCX, and Markdown files
 - View and delete documents in each RAG
 - **Manual reindexing**: Rebuild indices on demand
 - Smart file listing with type indicators and symlink targets
+- **Project summaries**: Auto-generated summaries for better context understanding
 
 ### 🔍 Intelligent Querying
 - Ask questions about your documents
@@ -157,6 +169,7 @@ The application will be available at:
 - **Progressive response building**: Responses appear token-by-token with inline tool usage
 - Clean, readable response formatting with tool activity indicators
 - **Context-aware responses** based on per-RAG system prompts
+- **File reading and exploration**: AI can read and list files in your document directories
 
 ### 💬 Chat Session Management
 - **Persistent chat history**: Sessions saved locally via IndexedDB
@@ -165,6 +178,8 @@ The application will be available at:
 - **RAG-specific sessions**: Separate chat history for each RAG
 - **Automatic session creation**: New sessions created when starting conversations
 - **Session browser**: View all past conversations with preview and timestamps
+- **Message editing**: Edit and update chat messages
+- **Session clearing**: Clear message history while keeping sessions
 
 ### 🎨 Modern UI
 - Responsive design with TailwindCSS
@@ -172,22 +187,31 @@ The application will be available at:
 - Intuitive file management
 - Real-time loading states and error handling
 - **Configuration modal** for easy RAG customization
+- **System prompt generator** with AI assistance
+- **File filter configuration** for advanced document management
+- **Syntax highlighting** for code and markdown content
+- **Notification system** for user feedback
 
 ## 🛠️ Technology Stack
-
-### Frontend
-- **SvelteKit 2.25+** - Full-stack framework
-- **Svelte 5.36+** - Component framework with modern runes
-- **TypeScript 5.8+** - Type-safe JavaScript
-- **TailwindCSS 4.1+** - Utility-first CSS framework
-- **Lucide Svelte** - Beautiful icons
-- **Vite 7.0+** - Fast build tool
 
 ### Backend
 - **FastAPI 0.116+** - Modern Python web framework
 - **LlamaIndex 0.12+** - RAG framework
 - **OpenAI API** - Language model and embeddings
 - **Uvicorn** - ASGI server
+- **BeautifulSoup** - HTML parsing
+- **html2text** - HTML to markdown conversion
+
+### Frontend
+- **SvelteKit 2.25+** - Full-stack framework
+- **Svelte 5.36+** - Component framework with modern runes
+- **TypeScript 5.8+** - Type-safe JavaScript
+- **TailwindCSS 4.1+** - Utility-first CSS framework
+- **Vite 7.0+** - Fast build tool
+- **Lucide Svelte** - Beautiful icons
+- **Shiki** - Syntax highlighting
+- **Marked** - Markdown rendering
+- **DOMPurify** - XSS protection
 
 ## 📖 Usage
 
@@ -204,10 +228,11 @@ The application will be available at:
 2. Choose your preferred **OpenAI chat model** (GPT-4o, GPT-4o-mini, etc.)
 3. Select an **embedding model** for document processing
 4. Customize the **system prompt** to define the AI's behavior
-5. Save your configuration
+5. Use the **AI prompt generator** to create system prompts from descriptions
+6. Save your configuration
 
 **Available Models:**
-- **Chat**: gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4, gpt-3.5-turbo
+- **Chat**: gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, o3, o3-mini, o4-mini
 - **Embeddings**: text-embedding-3-large, text-embedding-3-small, text-embedding-ada-002
 
 ### Querying Documents
@@ -218,6 +243,7 @@ The application will be available at:
    - **Tool usage**: See when the AI searches the web or your documents
    - **Progressive responses**: Text appears as it's generated
    - **Live tool activity**: Inline indicators show search results and document retrieval
+   - **File operations**: Watch the AI read and explore files
 4. View the complete AI-generated answer with all sources and documents used
 
 ### Managing Chat Sessions
@@ -227,6 +253,8 @@ The application will be available at:
 - **Switch sessions**: Click on any session to resume that conversation
 - **Rename sessions**: Click the edit icon to give sessions meaningful names
 - **Delete sessions**: Remove sessions you no longer need
+- **Edit messages**: Modify existing chat messages
+- **Clear sessions**: Remove message history while keeping the session
 - **Persistent storage**: All conversations are saved locally in your browser
 
 ### Managing Files
@@ -235,6 +263,7 @@ The application will be available at:
 - **Add folders**: Use the "Add Folder" button to upload entire directories
 - **Create symlinks**: Use the "Link" button to reference external files/folders
 - **Add URLs**: Use the "Add URL" button to include website content
+- **Configure filters**: Set include/exclude patterns for specific folders and symlinks
 - **Delete files**: Click the trash icon next to any file
 - **Delete URLs**: Click the trash icon next to any URL
 - **Manual reindex**: Use the "Reindex" button to rebuild the vector index
@@ -266,22 +295,41 @@ uvicorn api.main:app --reload  # Development server with auto-reload
 
 ## 🌐 API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/rag` | List all RAGs |
-| `POST` | `/rag/{name}` | Create/rebuild RAG |
-| `DELETE` | `/rag/{name}` | Delete RAG |
-| `GET` | `/rag/{name}/config` | Get RAG configuration |
-| `PUT` | `/rag/{name}/config` | Update RAG configuration |
-| `POST` | `/rag/{name}/stream` | Stream agentic query response with real-time tool usage |
-| `GET` | `/rag/{name}/files` | List RAG files and directories |
-| `POST` | `/rag/{name}/files` | Upload file |
-| `POST` | `/rag/{name}/symlink` | Create symbolic link |
-| `POST` | `/rag/{name}/urls` | Add URL |
-| `DELETE` | `/rag/{name}/urls` | Remove URL |
-| `GET` | `/rag/{name}/urls` | List URLs |
-| `POST` | `/rag/{name}/reindex` | Manually reindex RAG |
-| `DELETE` | `/rag/{name}/files/{filename}` | Delete file |
+### RAG Management
+| Method   | Endpoint                | Description                                 |
+|----------|-------------------------|---------------------------------------------|
+| `GET`    | `/rag`                  | List all RAGs                               |
+| `POST`   | `/rag/{name}`           | Create or rebuild a RAG                     |
+| `DELETE` | `/rag/{name}`           | Delete a RAG                                |
+
+### RAG Configuration
+| Method   | Endpoint                        | Description                                 |
+|----------|---------------------------------|---------------------------------------------|
+| `GET`    | `/rag/{name}/config`            | Get RAG configuration                       |
+| `PUT`    | `/rag/{name}/config`            | Update RAG configuration                    |
+| `GET`    | `/rag/models`                   | Get available OpenAI models                 |
+| `POST`   | `/rag/{name}/generate-prompt`   | Generate system prompt from description     |
+
+### File & Folder Management
+| Method   | Endpoint                              | Description                                 |
+|----------|---------------------------------------|---------------------------------------------|
+| `GET`    | `/rag/{name}/files`                   | List RAG files and directories              |
+| `POST`   | `/rag/{name}/files`                   | Upload file or create folder                |
+| `DELETE` | `/rag/{name}/files/{filename}`        | Delete file                                 |
+| `POST`   | `/rag/{name}/symlink`                 | Create symbolic link                        |
+| `POST`   | `/rag/{name}/reindex`                 | Manually reindex RAG                        |
+
+### URL Management
+| Method   | Endpoint                        | Description                                 |
+|----------|---------------------------------|---------------------------------------------|
+| `GET`    | `/rag/{name}/urls`              | List URLs                                   |
+| `POST`   | `/rag/{name}/urls`              | Add URL                                     |
+| `DELETE` | `/rag/{name}/urls`              | Remove URL                                  |
+
+### Query
+| Method   | Endpoint                        | Description                                 |
+|----------|---------------------------------|---------------------------------------------|
+| `POST`   | `/rag/{name}/stream`            | Stream agentic query response with real-time tool usage |
 
 ## 🔒 Security Notes
 
@@ -289,6 +337,7 @@ uvicorn api.main:app --reload  # Development server with auto-reload
 - File uploads are validated by type
 - CORS is configured for local development
 - Production deployments should use HTTPS
+- XSS protection via DOMPurify
 
 ## 📦 Deployment
 

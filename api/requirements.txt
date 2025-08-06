@@ -7,7 +7,7 @@ llama-index-readers-file==0.4.11
 llama-index-tools-duckduckgo==0.3.0
 
 # openai
-openai==1.97.1
+openai==1.98.0
 
 # api
 fastapi==0.116.1

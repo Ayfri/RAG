@@ -5,29 +5,56 @@ from typing import Callable, Literal
 from llama_index.core import VectorStoreIndex
 from llama_index.core.agent.workflow import FunctionAgent
 from llama_index.llms.openai import OpenAI
+from openai.types.chat import ChatCompletionToolParam
+from openai.types.responses import WebSearchToolParam
 
 from src.config import OPENAI_API_KEY
 from src.rag_config import RAGConfig
 from src.types import DocumentItem, SearchResultItem, SearchResultUrl
 
 
-def search(query: str) -> SearchResultItem:
+def search(query: str, search_number: Literal["low", "medium", "high"] = "medium") -> SearchResultItem:
 	"""
 	Search the web for information. Use a detailed plain text question as input.
 	"""
-	response = openai.chat.completions.create(
-		model="gpt-4o-search-preview",
-		messages=[{"role": "user", "content": query}],
+
+	response = openai.responses.create(
+		model="gpt-4.1",
+		input=query,
+		tools=[{
+			"type": "web_search_preview",
+			"search_context_size": search_number,
+		}],
+		tool_choice={
+			"type": "web_search_preview",
+		}
 	)
+
+	urls: list[SearchResultUrl] = []
+
+	def extract_urls_from_output(output_item):
+		if output_item.type != 'message':
+			return
+		for content_item in output_item.content:
+			if content_item.type != 'output_text':
+				continue
+			for annotation in content_item.annotations:
+				if annotation.type == 'url_citation':
+					urls.append(SearchResultUrl(
+						title=annotation.title,
+						url=annotation.url
+					))
+
+	if response.output:
+		for output_item in response.output:
+			try:
+				extract_urls_from_output(output_item)
+			except Exception:
+				continue
+
 	result: SearchResultItem = {
-		'content': response.choices[0].message.content or "No answer found.",
-		'urls': [
-			SearchResultUrl(
-				title=annotation.url_citation.title,
-				url=annotation.url_citation.url
-			)
-			for annotation in response.choices[0].message.annotations or []
-		]
+		'content': response.output_text or 'No answer found.',
+		'urls': urls
 	}
 	return result
 
@@ -88,14 +115,10 @@ def get_agent(
 
 	complete_system_prompt = f"""
 You are a helpful assistant that answers questions based on the provided context. Be accurate and do not hallucinate or make up information.
-
-You have access to the following tools:
-- rag: Search relevant documents using the '{rag_name}' documents index. Use a short sentence as input.
-- duckduckgo_search: Search the web for information. Use a short sentence as input.
-- read_file: Read the content of a specific file in data/files. Input: relative file path from data/files.
-- list_files: List files in a directory in data/files. Input: relative directory path from data/files.
-
-If you are not sure about the answer, it has a big chance to be related to the documents you have access to, so you should use the {rag_name}_rag tool.
+If the user asks about anything related to {rag_name} or that could be related to that, use the `rag` tool.
+If the user asks for a file, use the read_file tool, you can search for the file using the `list_files` tool.
+If the user asks for a list of files/folders/symlinks, use the `list_files` tool.
+If you need to search the web or are unsure about the question, use the `search` tool.
 
 Project name: {rag_name}
 --------------------------------

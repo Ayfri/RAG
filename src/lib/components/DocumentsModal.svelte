@@ -7,6 +7,7 @@
 	import ConfigureFiltersModal from '$lib/components/ConfigureFiltersModal.svelte';
 	import AddUrlModal from '$lib/components/AddUrlModal.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
+	import { notifications } from '$lib/stores/notifications';
 
 	interface FileItem {
 		name: string;
@@ -27,38 +28,20 @@
 
 	interface Props {
 		ragName: string;
-		files: FileItem[];
-		urls: UrlItem[];
-		loading: boolean;
-		uploading: boolean;
-		reindexing: boolean;
-		onUploadFile: (event: Event) => void;
-		onUploadFolder: (event: Event) => void;
-		onDeleteFile: (filename: string) => void;
-		onDeleteUrl: (url: string) => void;
-		onReindex: () => void;
-		onSymlinkCreated: () => void;
-		onUrlAdded: () => void;
 		open: boolean;
 	}
 
-	let {
-		ragName,
-		files,
-		urls,
-		loading,
-		uploading,
-		reindexing,
-		onUploadFile,
-		onUploadFolder,
-		onDeleteFile,
-		onDeleteUrl,
-		onReindex,
-		onSymlinkCreated,
-		onUrlAdded,
-		open = $bindable(false)
-	}: Props = $props();
+	let { ragName, open = $bindable(false) }: Props = $props();
 
+	// Local state
+	let files: FileItem[] = $state([]);
+	let urls: UrlItem[] = $state([]);
+	let loading = $state(false);
+	let uploading = $state(false);
+	let reindexing = $state(false);
+	let deletingUrl = $state(false);
+
+	// Modal states
 	let showSymlinkModal = $state(false);
 	let showFiltersModal = $state(false);
 	let showUploadFolderModal = $state(false);
@@ -71,14 +54,6 @@
 		} else {
 			return item.is_symlink ? Link : FileText;
 		}
-	}
-
-	function handleSymlinkCreated() {
-		onSymlinkCreated();
-	}
-
-	function handleUrlAdded() {
-		onUrlAdded();
 	}
 
 	function formatBytes(bytes: number, decimals = 2) {
@@ -96,6 +71,153 @@
 
 	const totalSize = $derived(files.reduce((acc, file) => acc + (file.size ?? 0), 0));
 	const totalItems = $derived(files.length + urls.length);
+
+	// API functions
+	async function loadFiles() {
+		try {
+			loading = true;
+			const res = await fetch(`/api/rag/${ragName}/files`);
+			if (!res.ok) throw new Error('Failed to load files');
+			files = await res.json();
+		} catch (err) {
+			console.error('Failed to load files:', err);
+		} finally {
+			loading = false;
+		}
+	}
+
+	async function loadUrls() {
+		try {
+			const res = await fetch(`/api/rag/${ragName}/urls`);
+			if (!res.ok) throw new Error('Failed to load URLs');
+			urls = await res.json();
+		} catch (err) {
+			console.error('Failed to load URLs:', err);
+		}
+	}
+
+	async function deleteUrl(url: string) {
+		if (deletingUrl) return; // Prevent multiple clicks
+
+		try {
+			deletingUrl = true;
+			const res = await fetch(`/api/rag/${ragName}/urls`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ url })
+			});
+			if (!res.ok) throw new Error('Failed to delete URL');
+
+			notifications.success('URL deleted successfully!');
+			await loadUrls();
+			await loadFiles(); // Also reload files to update the UI
+		} catch (err) {
+			notifications.error(`Delete failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		} finally {
+			deletingUrl = false;
+		}
+	}
+
+	async function deleteFile(filename: string) {
+		try {
+			const res = await fetch(`/api/rag/${ragName}/files/${filename}`, { method: 'DELETE' });
+			if (!res.ok) throw new Error('Failed to delete file');
+
+			notifications.success(`Deleted ${filename}`);
+			await loadFiles();
+		} catch (err) {
+			notifications.error(`Delete failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		}
+	}
+
+	async function uploadFile(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		try {
+			uploading = true;
+			const formData = new FormData();
+			formData.append('file', file);
+
+			const res = await fetch(`/api/rag/${ragName}/files`, {
+				method: 'POST',
+				body: formData
+			});
+
+			if (!res.ok) throw new Error('Failed to upload file');
+
+			notifications.success('File uploaded successfully!');
+			await loadFiles();
+		} catch (err) {
+			notifications.error(`Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		} finally {
+			uploading = false;
+			input.value = '';
+		}
+	}
+
+	async function uploadFolder(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const files_list = input.files;
+		if (!files_list || files_list.length === 0) return;
+
+		try {
+			uploading = true;
+
+			// Upload each file individually
+			for (const file of files_list) {
+				const formData = new FormData();
+				formData.append('file', file);
+
+				const res = await fetch(`/api/rag/${ragName}/files`, {
+					method: 'POST',
+					body: formData
+				});
+
+				if (!res.ok) throw new Error(`Failed to upload ${file.name}`);
+			}
+
+			notifications.success('Folder uploaded successfully!');
+			await loadFiles();
+		} catch (err) {
+			notifications.error(`Folder upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		} finally {
+			uploading = false;
+			input.value = '';
+		}
+	}
+
+	async function reindexRAG() {
+		try {
+			reindexing = true;
+			const res = await fetch(`/api/rag/${ragName}/reindex`, { method: 'POST' });
+			if (!res.ok) throw new Error('Failed to reindex RAG');
+
+			notifications.success('RAG reindexed successfully!');
+			await loadFiles(); // Reload files after successful reindex
+		} catch (err) {
+			notifications.error(`Reindex failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		} finally {
+			reindexing = false;
+		}
+	}
+
+	function handleSymlinkCreated() {
+		loadFiles();
+	}
+
+	function handleUrlAdded() {
+		loadUrls();
+	}
+
+	// Load data when modal opens
+	$effect(() => {
+		if (open && ragName) {
+			loadFiles();
+			loadUrls();
+		}
+	});
 </script>
 
 <Modal title="Manage Files" bind:open size="xl">
@@ -104,7 +226,7 @@
 		<div class="p-3 sm:p-4 border-b border-slate-700">
 			<div class="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
 				<Button
-					onclick={onReindex}
+					onclick={reindexRAG}
 					disabled={reindexing}
 					class="flex items-center justify-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-lg cursor-pointer text-xs sm:text-sm font-medium transition-all duration-200"
 					title="Manually reindex RAG"
@@ -144,7 +266,7 @@
 						accept='.txt,.pdf,.docx,.md'
 						disabled={uploading}
 						id='file-input'
-						onchange={onUploadFile}
+						onchange={uploadFile}
 					/>
 				</label>
 
@@ -252,7 +374,7 @@
 												</Button>
 											{/if}
 											<Button
-												onclick={() => onDeleteFile(file.name)}
+												onclick={() => deleteFile(file.name)}
 												size="icon"
 												variant="danger"
 												title="Delete {file.type}"
@@ -300,7 +422,7 @@
 											</Button>
 										{/if}
 										<Button
-											onclick={() => onDeleteFile(file.name)}
+											onclick={() => deleteFile(file.name)}
 											size="icon"
 											variant="danger"
 											title="Delete {file.type}"
@@ -339,10 +461,15 @@
 										</div>
 										<div class="flex items-center ml-2">
 											<Button
-												onclick={() => onDeleteUrl(url.url)}
+												onclick={(e) => {
+													e.preventDefault();
+													e.stopPropagation();
+													deleteUrl(url.url);
+												}}
 												size="icon"
 												variant="danger"
 												title="Delete URL"
+												disabled={deletingUrl}
 											>
 												<Trash2 size={16} />
 											</Button>
@@ -369,10 +496,15 @@
 
 									<div class="col-span-2 flex justify-end space-x-1">
 										<Button
-											onclick={() => onDeleteUrl(url.url)}
+											onclick={(e) => {
+												e.preventDefault();
+												e.stopPropagation();
+												deleteUrl(url.url);
+											}}
 											size="icon"
 											variant="danger"
 											title="Delete URL"
+											disabled={deletingUrl}
 										>
 											<Trash2 size={18} />
 										</Button>
@@ -396,7 +528,7 @@
 <UploadFolderModal
 	{ragName}
 	bind:open={showUploadFolderModal}
-	onFolderUploaded={onReindex}
+	onFolderUploaded={reindexRAG}
 />
 
 <ConfigureFiltersModal

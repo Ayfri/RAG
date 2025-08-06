@@ -28,11 +28,6 @@
 	let messages: Message[] = $state([]);
 	let loading = $state(false);
 	let streaming = $state(false);
-	let files: FileItem[] = $state([]);
-	let urls: any[] = $state([]);
-	let loadingFiles = $state(false);
-	let uploadingFile = $state(false);
-	let reindexing = $state(false);
 	let showDocumentsModal = $state(false);
 	let showConfigModal = $state(false);
 
@@ -69,11 +64,9 @@
 		}
 	});
 
-	// Load files and config when ragName changes
+	// Load config when ragName changes
 	$effect(() => {
 		if (ragName) {
-			loadFiles();
-			loadUrls();
 			loadRagConfig();
 		}
 	});
@@ -469,133 +462,7 @@
 		}
 	}
 
-	async function loadFiles() {
-		try {
-			loadingFiles = true;
-			const res = await fetch(`/api/rag/${ragName}/files`);
-			if (!res.ok) throw new Error('Failed to load files');
-			files = await res.json();
-		} catch (err) {
-			console.error('Failed to load files:', err);
-		} finally {
-			loadingFiles = false;
-		}
-	}
 
-	async function loadUrls() {
-		try {
-			const res = await fetch(`/api/rag/${ragName}/urls`);
-			if (!res.ok) throw new Error('Failed to load URLs');
-			urls = await res.json();
-		} catch (err) {
-			console.error('Failed to load URLs:', err);
-		}
-	}
-
-	async function deleteUrl(url: string) {
-		try {
-			const res = await fetch(`/api/rag/${ragName}/urls`, {
-				method: 'DELETE',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ url })
-			});
-			if (!res.ok) throw new Error('Failed to delete URL');
-
-			notifications.success('URL deleted successfully!');
-			loadUrls();
-		} catch (err) {
-			notifications.error(`Delete failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
-		}
-	}
-
-	function handleUrlAdded() {
-		loadUrls();
-	}
-
-	async function uploadFile(event: Event) {
-		const input = event.target as HTMLInputElement;
-		const file = input.files?.[0];
-		if (!file) return;
-
-		try {
-			uploadingFile = true;
-			const formData = new FormData();
-			formData.append('file', file);
-
-			const res = await fetch(`/api/rag/${ragName}/files`, {
-				method: 'POST',
-				body: formData
-			});
-
-			if (!res.ok) throw new Error('Failed to upload file');
-
-			notifications.success('File uploaded successfully!');
-			loadFiles();
-		} catch (err) {
-			notifications.error(`Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
-		} finally {
-			uploadingFile = false;
-			input.value = '';
-		}
-	}
-
-	async function uploadFolder(event: Event) {
-		const input = event.target as HTMLInputElement;
-		const files_list = input.files;
-		if (!files_list || files_list.length === 0) return;
-
-		try {
-			uploadingFile = true;
-
-			// Upload each file individually
-			for (const file of files_list) {
-				const formData = new FormData();
-				formData.append('file', file);
-
-				const res = await fetch(`/api/rag/${ragName}/files`, {
-					method: 'POST',
-					body: formData
-				});
-
-				if (!res.ok) throw new Error(`Failed to upload ${file.name}`);
-			}
-
-			notifications.success('Folder uploaded successfully!');
-			loadFiles();
-		} catch (err) {
-			notifications.error(`Folder upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
-		} finally {
-			uploadingFile = false;
-			input.value = '';
-		}
-	}
-
-	async function deleteFile(filename: string) {
-		try {
-			const res = await fetch(`/api/rag/${ragName}/files/${filename}`, { method: 'DELETE' });
-			if (!res.ok) throw new Error('Failed to delete file');
-
-			notifications.success(`Deleted ${filename}`);
-			loadFiles();
-		} catch (err) {
-			notifications.error(`Delete failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
-		}
-	}
-
-	async function reindexRAG() {
-		try {
-			reindexing = true;
-			const res = await fetch(`/api/rag/${ragName}/reindex`, { method: 'POST' });
-			if (!res.ok) throw new Error('Failed to reindex RAG');
-
-			notifications.success('RAG reindexed successfully!');
-			loadFiles(); // Reload files after successful reindex
-		} catch (err) {
-			notifications.error(`Reindex failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
-		} finally {
-			reindexing = false;
-		}
-	}
 
 	async function loadRagConfig() {
 		try {
@@ -623,9 +490,7 @@
 		}
 	}
 
-	function handleSymlinkCreated() {
-		loadFiles();
-	}
+
 
 
 	async function createNewSession() {
@@ -766,7 +631,7 @@
 						title="Toggle documents panel"
 					>
 						<FileText size={16} class="md:w-[18px] md:h-[18px]" />
-						<span>Documents ({files.length + urls.length})</span>
+						<span>Documents</span>
 					</Button>
 					<Button
 						onclick={() => showConfigModal = true}
@@ -863,19 +728,7 @@
 
 <DocumentsModal
 	{ragName}
-	{files}
-	{urls}
 	bind:open={showDocumentsModal}
-	loading={loadingFiles}
-	uploading={uploadingFile}
-	reindexing={reindexing}
-	onUploadFile={uploadFile}
-	onUploadFolder={uploadFolder}
-	onDeleteFile={deleteFile}
-	onDeleteUrl={deleteUrl}
-	onReindex={reindexRAG}
-	onSymlinkCreated={handleSymlinkCreated}
-	onUrlAdded={handleUrlAdded}
 />
 
 <RagConfigModal

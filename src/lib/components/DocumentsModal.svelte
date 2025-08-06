@@ -204,7 +204,7 @@
 						<Loader size={48} class="animate-spin text-cyan-400 mx-auto mb-4 sm:w-16 sm:h-16" />
 						<p class="text-slate-300 text-sm sm:text-md">Loading files...</p>
 					</div>
-				{:else if files.length === 0}
+				{:else if files.length === 0 && urls.length === 0}
 					<div class="p-4 sm:p-6 text-center">
 						<FileText size={48} class="text-slate-600 mx-auto mb-4 sm:w-16 sm:h-16" />
 						<p class="text-slate-300 font-semibold text-base sm:text-lg">No Documents</p>

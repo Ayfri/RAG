@@ -146,7 +146,7 @@ The application will be available at:
 - **Configure individual RAG settings** (OpenAI models, system prompts)
 
 ### ⚙️ RAG Configuration
-- **Per-RAG model selection**: Choose different OpenAI chat models (GPT-4o, GPT-4o-mini, etc.)
+- **Per-RAG model selection**: Choose different OpenAI chat models (o4-mini, GPT-4.1-mini, etc.)
 - **Custom embedding models**: Select from various OpenAI embedding models
 - **System prompt customization**: Define how the AI should respond for each RAG
 - **AI-powered prompt generation**: Generate system prompts from descriptions using AI

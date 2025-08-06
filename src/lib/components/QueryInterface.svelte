@@ -29,6 +29,7 @@
 	let loading = $state(false);
 	let streaming = $state(false);
 	let files: FileItem[] = $state([]);
+	let urls: any[] = $state([]);
 	let loadingFiles = $state(false);
 	let uploadingFile = $state(false);
 	let reindexing = $state(false);
@@ -72,6 +73,7 @@
 	$effect(() => {
 		if (ragName) {
 			loadFiles();
+			loadUrls();
 			loadRagConfig();
 		}
 	});
@@ -480,6 +482,36 @@
 		}
 	}
 
+	async function loadUrls() {
+		try {
+			const res = await fetch(`/api/rag/${ragName}/urls`);
+			if (!res.ok) throw new Error('Failed to load URLs');
+			urls = await res.json();
+		} catch (err) {
+			console.error('Failed to load URLs:', err);
+		}
+	}
+
+	async function deleteUrl(url: string) {
+		try {
+			const res = await fetch(`/api/rag/${ragName}/urls`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ url })
+			});
+			if (!res.ok) throw new Error('Failed to delete URL');
+
+			notifications.success('URL deleted successfully!');
+			loadUrls();
+		} catch (err) {
+			notifications.error(`Delete failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		}
+	}
+
+	function handleUrlAdded() {
+		loadUrls();
+	}
+
 	async function uploadFile(event: Event) {
 		const input = event.target as HTMLInputElement;
 		const file = input.files?.[0];
@@ -734,7 +766,7 @@
 						title="Toggle documents panel"
 					>
 						<FileText size={16} class="md:w-[18px] md:h-[18px]" />
-						<span>Documents ({files.length})</span>
+						<span>Documents ({files.length + urls.length})</span>
 					</Button>
 					<Button
 						onclick={() => showConfigModal = true}
@@ -832,6 +864,7 @@
 <DocumentsModal
 	{ragName}
 	{files}
+	{urls}
 	bind:open={showDocumentsModal}
 	loading={loadingFiles}
 	uploading={uploadingFile}
@@ -839,8 +872,10 @@
 	onUploadFile={uploadFile}
 	onUploadFolder={uploadFolder}
 	onDeleteFile={deleteFile}
+	onDeleteUrl={deleteUrl}
 	onReindex={reindexRAG}
 	onSymlinkCreated={handleSymlinkCreated}
+	onUrlAdded={handleUrlAdded}
 />
 
 <RagConfigModal

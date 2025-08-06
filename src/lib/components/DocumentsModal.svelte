@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { FileText, Trash2, Upload, RefreshCw, Link, FolderOpen, Loader, HardDrive, Clock, FileStack, Settings, FolderPlus } from '@lucide/svelte';
+	import { FileText, Trash2, Upload, RefreshCw, Link, FolderOpen, Loader, HardDrive, Clock, FileStack, Settings, FolderPlus, Globe } from '@lucide/svelte';
 	import Button from '$lib/components/common/Button.svelte';
 	import FileInput from '$lib/components/common/FileInput.svelte';
 	import CreateSymlinkModal from '$lib/components/CreateSymlinkModal.svelte';
 	import UploadFolderModal from '$lib/components/UploadFolderModal.svelte';
 	import ConfigureFiltersModal from '$lib/components/ConfigureFiltersModal.svelte';
+	import AddUrlModal from '$lib/components/AddUrlModal.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 
 	interface FileItem {
@@ -18,37 +19,50 @@
 		last_modified?: number;
 	}
 
+	interface UrlItem {
+		url: string;
+		title?: string;
+		added_at?: string;
+	}
+
 	interface Props {
 		ragName: string;
 		files: FileItem[];
+		urls: UrlItem[];
 		loading: boolean;
 		uploading: boolean;
 		reindexing: boolean;
 		onUploadFile: (event: Event) => void;
 		onUploadFolder: (event: Event) => void;
 		onDeleteFile: (filename: string) => void;
+		onDeleteUrl: (url: string) => void;
 		onReindex: () => void;
 		onSymlinkCreated: () => void;
+		onUrlAdded: () => void;
 		open: boolean;
 	}
 
 	let {
 		ragName,
 		files,
+		urls,
 		loading,
 		uploading,
 		reindexing,
 		onUploadFile,
 		onUploadFolder,
 		onDeleteFile,
+		onDeleteUrl,
 		onReindex,
 		onSymlinkCreated,
+		onUrlAdded,
 		open = $bindable(false)
 	}: Props = $props();
 
 	let showSymlinkModal = $state(false);
 	let showFiltersModal = $state(false);
 	let showUploadFolderModal = $state(false);
+	let showAddUrlModal = $state(false);
 	let selectedFolder = $state<string | null>(null);
 
 	function getFileIcon(item: FileItem) {
@@ -61,6 +75,10 @@
 
 	function handleSymlinkCreated() {
 		onSymlinkCreated();
+	}
+
+	function handleUrlAdded() {
+		onUrlAdded();
 	}
 
 	function formatBytes(bytes: number, decimals = 2) {
@@ -77,13 +95,14 @@
 	}
 
 	const totalSize = $derived(files.reduce((acc, file) => acc + (file.size ?? 0), 0));
+	const totalItems = $derived(files.length + urls.length);
 </script>
 
 <Modal title="Manage Files" bind:open size="xl">
 	<div class="flex flex-col h-full">
 		<!-- Action buttons - responsive grid -->
 		<div class="p-3 sm:p-4 border-b border-slate-700">
-			<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+			<div class="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
 				<Button
 					onclick={onReindex}
 					disabled={reindexing}
@@ -138,6 +157,16 @@
 					<span class="hidden sm:inline">Upload Folder</span>
 					<span class="sm:hidden">Folder</span>
 				</Button>
+
+				<Button
+					onclick={() => showAddUrlModal = true}
+					class="flex items-center justify-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg cursor-pointer text-xs sm:text-sm font-medium transition-all duration-200"
+					title="Add a website URL"
+				>
+					<Globe size={16} class="sm:w-[18px] sm:h-[18px]" />
+					<span class="hidden sm:inline">Add URL</span>
+					<span class="sm:hidden">URL</span>
+				</Button>
 			</div>
 		</div>
 
@@ -146,8 +175,11 @@
 			<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 text-xs text-slate-400">
 				<div class="flex items-center space-x-2">
 					<FileStack size={16} class="sm:w-[18px] sm:h-[18px]" />
-					<span>{files.length} entries</span>
-					<span class="px-2 py-0.5 rounded-full bg-slate-700 text-xs text-slate-300">{files.reduce((acc, file) => acc + (file.file_count ?? 0), 0)} total files</span>
+					<span>{totalItems} entries</span>
+					<span class="px-2 py-0.5 rounded-full bg-slate-700 text-xs text-slate-300">{files.reduce((acc, file) => acc + (file.file_count ?? 0), 0)} files</span>
+					{#if urls.length > 0}
+						<span class="px-2 py-0.5 rounded-full bg-blue-700 text-xs text-blue-300">{urls.length} URLs</span>
+					{/if}
 				</div>
 				<div class="flex items-center space-x-2">
 					<HardDrive size={16} class="sm:w-[18px] sm:h-[18px]" />
@@ -281,6 +313,75 @@
 						{/each}
 					</div>
 				{/if}
+
+				<!-- URLs Section -->
+				{#if urls.length > 0}
+					<div class="divide-y divide-slate-800">
+						{#each urls as url}
+							<div class="px-2.5 py-1 hover:bg-slate-700/50 transition-all duration-200 group active:bg-slate-700/75">
+								<!-- Mobile layout (single column) -->
+								<div class="sm:hidden">
+									<div class="flex items-start justify-between">
+										<div class="flex items-start space-x-3 flex-1 min-w-0">
+											<Globe size={18} class="flex-shrink-0 mt-0.5 text-blue-400" />
+											<div class="min-w-0 flex-1">
+												<a href={url.url} target="_blank" rel="noopener" class="text-slate-200 text-sm font-medium block hover:text-blue-300 transition-colors">
+													{url.title || url.url}
+												</a>
+												<div class="text-xs text-slate-500 break-all">{url.url}</div>
+												{#if url.added_at}
+													<div class="flex items-center space-x-1 mt-2 text-xs text-slate-400">
+														<Clock size={14} />
+														<span>{new Date(url.added_at).toLocaleString()}</span>
+													</div>
+												{/if}
+											</div>
+										</div>
+										<div class="flex items-center ml-2">
+											<Button
+												onclick={() => onDeleteUrl(url.url)}
+												size="icon"
+												variant="danger"
+												title="Delete URL"
+											>
+												<Trash2 size={16} />
+											</Button>
+										</div>
+									</div>
+								</div>
+
+								<!-- Desktop layout (grid) -->
+								<div class="hidden sm:grid grid-cols-12 items-center gap-4">
+									<div class="col-span-8 flex items-center space-x-3">
+										<Globe size={18} class="flex-shrink-0 text-blue-400" />
+										<div class="min-w-0 flex-1">
+											<a href={url.url} target="_blank" rel="noopener" class="text-slate-200 text-base font-medium block truncate hover:text-blue-300 transition-colors">
+												{url.title || url.url}
+											</a>
+											<div class="text-xs text-slate-500 truncate">{url.url}</div>
+										</div>
+									</div>
+
+									<div class="col-span-2 text-sm text-slate-400 flex items-center space-x-2">
+										<Clock size={18} />
+										<span>{url.added_at ? new Date(url.added_at).toLocaleString() : 'N/A'}</span>
+									</div>
+
+									<div class="col-span-2 flex justify-end space-x-1">
+										<Button
+											onclick={() => onDeleteUrl(url.url)}
+											size="icon"
+											variant="danger"
+											title="Delete URL"
+										>
+											<Trash2 size={18} />
+										</Button>
+									</div>
+								</div>
+							</div>
+						{/each}
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</div>
@@ -302,4 +403,10 @@
 	{ragName}
 	bind:open={showFiltersModal}
 	folderName={selectedFolder}
+/>
+
+<AddUrlModal
+	{ragName}
+	bind:open={showAddUrlModal}
+	onUrlAdded={handleUrlAdded}
 />

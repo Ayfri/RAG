@@ -144,6 +144,7 @@ The application will be available at:
 - Upload files via drag-and-drop or file picker
 - **Folder upload support**: Upload entire directories at once
 - **Symbolic link support**: Link to external files and directories
+- **URL management**: Add and remove website URLs as documents
 - Support for PDF, TXT, DOCX, and Markdown files
 - View and delete documents in each RAG
 - **Manual reindexing**: Rebuild indices on demand
@@ -233,9 +234,11 @@ The application will be available at:
 - **Add files**: Use the "Add File" button in the Documents section
 - **Add folders**: Use the "Add Folder" button to upload entire directories
 - **Create symlinks**: Use the "Link" button to reference external files/folders
+- **Add URLs**: Use the "Add URL" button to include website content
 - **Delete files**: Click the trash icon next to any file
+- **Delete URLs**: Click the trash icon next to any URL
 - **Manual reindex**: Use the "Reindex" button to rebuild the vector index
-- **File types**: Files, directories, and symbolic links are clearly distinguished
+- **File types**: Files, directories, symbolic links, and URLs are clearly distinguished
 
 ## 🔧 Development
 
@@ -274,6 +277,9 @@ uvicorn api.main:app --reload  # Development server with auto-reload
 | `GET` | `/rag/{name}/files` | List RAG files and directories |
 | `POST` | `/rag/{name}/files` | Upload file |
 | `POST` | `/rag/{name}/symlink` | Create symbolic link |
+| `POST` | `/rag/{name}/urls` | Add URL |
+| `DELETE` | `/rag/{name}/urls` | Remove URL |
+| `GET` | `/rag/{name}/urls` | List URLs |
 | `POST` | `/rag/{name}/reindex` | Manually reindex RAG |
 | `DELETE` | `/rag/{name}/files/{filename}` | Delete file |
 

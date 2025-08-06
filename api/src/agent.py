@@ -5,8 +5,6 @@ from typing import Callable, Literal
 from llama_index.core import VectorStoreIndex
 from llama_index.core.agent.workflow import FunctionAgent
 from llama_index.llms.openai import OpenAI
-from openai.types.chat import ChatCompletionToolParam
-from openai.types.responses import WebSearchToolParam
 
 from src.config import OPENAI_API_KEY
 from src.rag_config import RAGConfig

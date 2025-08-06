@@ -88,6 +88,15 @@ class GeneratePromptPayload(BaseModel):
 	description: str
 
 
+class UrlPayload(BaseModel):
+	"""
+	Request payload for URL operations.
+
+	:param url: The URL to add or remove
+	"""
+	url: str
+
+
 # ---------------------------------------------------------------------
 # RAG Management
 # ---------------------------------------------------------------------
@@ -172,6 +181,64 @@ async def generate_system_prompt(rag_name: str, payload: GeneratePromptPayload) 
 # ---------------------------------------------------------------------
 # Document Management
 # ---------------------------------------------------------------------
+
+@router.post('/{rag_name}/urls', status_code=201)
+async def add_url_to_rag(rag_name: str, payload: UrlPayload):
+	"""
+	Add a URL as a document to a RAG index.
+
+	:param rag_name: Name of the RAG instance
+	:param payload: URL to add
+	:return: JSON response with URL details
+	:raises HTTPException: 404 if RAG not found, 400 if URL processing fails
+	"""
+	if rag_name not in rag_service.list_rags():
+		raise HTTPException(status_code=404, detail='RAG not found')
+
+	try:
+		rag_service.add_url_to_rag(rag_name, payload.url)
+		return JSONResponse({
+			'detail': 'URL added successfully to RAG index',
+			'url': payload.url
+		}, status_code=201)
+	except Exception as exc:
+		raise HTTPException(status_code=400, detail=f'Failed to add URL: {str(exc)}') from exc
+
+
+@router.delete('/{rag_name}/urls', status_code=204)
+async def remove_url_from_rag(rag_name: str, payload: UrlPayload):
+	"""
+	Remove a URL document from a RAG index.
+
+	:param rag_name: Name of the RAG instance
+	:param payload: URL to remove
+	:raises HTTPException: 404 if RAG not found, 400 if removal fails
+	"""
+	if rag_name not in rag_service.list_rags():
+		raise HTTPException(status_code=404, detail='RAG not found')
+
+	try:
+		rag_service.remove_url_from_rag(rag_name, payload.url)
+	except Exception as exc:
+		raise HTTPException(status_code=400, detail=f'Failed to remove URL: {str(exc)}') from exc
+
+
+@router.get('/{rag_name}/urls', response_model=list[dict])
+async def list_urls_in_rag(rag_name: str) -> list[dict]:
+	"""
+	List all URLs in a RAG index.
+
+	:param rag_name: Name of the RAG instance
+	:return: List of URL documents with metadata
+	:raises HTTPException: 404 if RAG not found
+	"""
+	if rag_name not in rag_service.list_rags():
+		raise HTTPException(status_code=404, detail='RAG not found')
+
+	try:
+		return rag_service.list_urls_in_rag(rag_name)
+	except Exception as exc:
+		raise HTTPException(status_code=500, detail=f'Failed to list URLs: {str(exc)}') from exc
 
 @router.delete('/{rag_name}/files/{filename}', status_code=204)
 async def delete_file(rag_name: str, filename: str):

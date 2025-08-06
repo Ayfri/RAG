@@ -9,9 +9,11 @@ All indices and source documents are stored on the local filesystem:
 
 import json
 import os
+import re
 from pathlib import Path
 import textwrap
 from typing import AsyncGenerator
+from urllib.parse import urlparse
 
 import openai
 from llama_index.core import SimpleDirectoryReader, StorageContext, VectorStoreIndex, Settings, load_index_from_storage
@@ -23,6 +25,11 @@ from llama_index.core.response_synthesizers import ResponseMode
 from llama_index.core.schema import Document
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
+
+# Web scraping imports
+import html2text
+import requests
+from bs4 import BeautifulSoup
 
 from src.agent import get_agent
 from src.config import OPENAI_API_KEY
@@ -456,6 +463,165 @@ class RAGService:
 
 		folder_path.mkdir(parents=True, exist_ok=True)
 		return folder_path
+
+
+	def fetch_url_content(self, url: str) -> Document:
+		"""
+		Fetch content from a URL and convert it to a Document.
+
+		:param url: The URL to fetch
+		:return: Document with content and metadata
+		:raises Exception: If fetching or conversion fails
+		"""
+		try:
+			# Fetch the webpage
+			headers = {
+				'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+			}
+			response = requests.get(url, headers=headers, timeout=30)
+			response.raise_for_status()
+
+			# Parse the HTML
+			soup = BeautifulSoup(response.content, 'html.parser')
+
+			# Remove script and style elements
+			for script in soup(["script", "style"]):
+				script.decompose()
+
+			# Extract title
+			title = soup.find('title')
+			title_text = title.get_text().strip() if title else ''
+
+			# Convert HTML to markdown
+			h = html2text.HTML2Text()
+			h.body_width = 0  # No line wrapping
+
+			# Get the HTML content
+			html_content = str(soup)
+			markdown_content = h.handle(html_content)
+
+			# Clean up the markdown content
+			markdown_content = re.sub(r'\n{3,}', '\n\n', markdown_content)  # Remove excessive newlines
+			markdown_content = re.sub(r' {3,}', ' ', markdown_content)  # Remove excessive spaces
+
+			# Create metadata
+			parsed_url = urlparse(url)
+			metadata = {
+				'file_path': url,
+				'url': url,
+				'domain': parsed_url.netloc,
+				'title': title_text,
+				'source_type': 'web_page',
+				'content_type': 'text/markdown'
+			}
+
+			# Create Document
+			document = Document(
+				text=markdown_content,
+				metadata=metadata
+			)
+
+			return document
+
+		except requests.RequestException as e:
+			raise Exception(f"Failed to fetch URL {url}: {str(e)}")
+		except Exception as e:
+			raise Exception(f"Failed to process URL {url}: {str(e)}")
+
+
+	def add_url_to_rag(self, rag_name: str, url: str) -> None:
+		"""
+		Add a URL as a document to a RAG index.
+
+		:param rag_name: Name of the RAG instance
+		:param url: The URL to add
+		:raises Exception: If fetching or processing fails
+		"""
+		# Fetch and convert the URL to a document
+		document = self.fetch_url_content(url)
+
+		# Load or create configuration for this RAG
+		config = self._load_rag_config(rag_name)
+
+		# Configure embedding model for this specific RAG
+		embed_model = OpenAIEmbedding(
+			api_key=OPENAI_API_KEY,
+			model=config.embedding_model,
+		)
+
+		# Load existing index or create new one
+		try:
+			index = self._load_index(rag_name)
+		except FileNotFoundError:
+			# Create new index if it doesn't exist
+			index = VectorStoreIndex.from_documents([])
+
+		# Add the new document to the index
+		original_embed_model = Settings.embed_model
+		Settings.embed_model = embed_model
+
+		try:
+			index.insert(document)
+
+			# Persist the updated index
+			persist_dir = self._INDICES_DIR / rag_name
+			persist_dir.mkdir(parents=True, exist_ok=True)
+			index.storage_context.persist(persist_dir=str(persist_dir))
+
+		finally:
+			# Restore original embedding model
+			Settings.embed_model = original_embed_model
+
+
+	def remove_url_from_rag(self, rag_name: str, url: str) -> None:
+		"""
+		Remove a URL document from a RAG index.
+
+		:param rag_name: Name of the RAG instance
+		:param url: The URL to remove
+		:raises Exception: If removal fails
+		"""
+		try:
+			index = self._load_index(rag_name)
+			persist_dir = self._INDICES_DIR / rag_name
+			# Get all documents from the index that match the URL
+			for doc in index.docstore.docs.values():
+				if isinstance(doc, Document) and doc.metadata.get('url') == url:
+					index.delete_ref_doc(doc.id_, True)
+
+			# Persist the updated index
+			index.storage_context.persist(persist_dir=str(persist_dir))
+
+		except FileNotFoundError:
+			raise Exception(f"RAG '{rag_name}' not found")
+
+
+	def list_urls_in_rag(self, rag_name: str) -> list[dict]:
+		"""
+		List all URLs in a RAG index.
+
+		:param rag_name: Name of the RAG instance
+		:return: List of URL documents with metadata
+		:raises Exception: If listing fails
+		"""
+		try:
+			index = self._load_index(rag_name)
+
+			# Get all documents from the index
+			documents = []
+			for node in index.docstore.docs.values():
+				if hasattr(node, 'metadata') and node.metadata.get('source_type') == 'web_page':
+					documents.append({
+						'url': node.metadata.get('url', ''),
+						'title': node.metadata.get('title', ''),
+						'domain': node.metadata.get('domain', ''),
+						'content_type': node.metadata.get('content_type', '')
+					})
+
+			return documents
+
+		except FileNotFoundError:
+			raise Exception(f"RAG '{rag_name}' not found")
 
 
 	def update_rag_config(self, rag_name: str, config: RAGConfig) -> None:

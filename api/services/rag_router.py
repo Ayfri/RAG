@@ -414,53 +414,6 @@ async def stream_rag(rag_name: str, payload: QueryPayload):
 	return StreamingResponse(_generator(), media_type='text/plain')
 
 
-def _looks_like_json(text: str) -> bool:
-	"""
-	Check if a text string looks like JSON or debug output that should be filtered.
-	This method is now unused but kept for compatibility.
-	"""
-	text = text.strip()
-
-	# Check for JSON-like patterns
-	if (text.startswith('{') and text.endswith('}')) or (text.startswith('[') and text.endswith(']')):
-		return True
-
-	# Check for common debug/error patterns
-	debug_patterns = [
-		'shapes (',
-		'not aligned',
-		'dim 0) !=',
-		'Warning:',
-		'Error:',
-		'DEBUG:',
-		'INFO:',
-		'{"content":',
-		'{"urls":',
-		'{"source":',
-		'{"files":',
-		'{"file_path":',
-		'{"directory_path":',
-		'{"success":',
-		'{"error":',
-		'"chat_history"',
-		'"documents"',
-		'"sources"',
-		'"files"',
-		'"file_path"',
-		'"directory_path"',
-		'"content"',
-		'"urls"',
-		'"success"',
-		'"error"'
-	]
-
-	for pattern in debug_patterns:
-		if pattern in text:
-			return True
-
-	return False
-
-
 # ---------------------------------------------------------------------
 # RAG Index Management
 # ---------------------------------------------------------------------

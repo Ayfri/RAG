@@ -6,7 +6,7 @@ export default defineConfig({
 	plugins: [sveltekit(), tailwindcss()],
 	server: {
 		watch: {
-			ignored: ['./api/**']
-		},
-	}
+			ignored: ['api/**']
+		}
+	},
 });

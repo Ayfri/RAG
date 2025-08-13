@@ -104,14 +104,12 @@ def _is_deprecated_model(model_id: str) -> bool:
 	"""
 	deprecated_patterns = [
 		# Legacy GPT-3.5 versions
-		'gpt-3.5-turbo-0301',
-		'gpt-3.5-turbo-0613',
-		'gpt-3.5-turbo-1106',
+		'gpt-3.5-turbo',
 		# Legacy GPT-4 versions
 		'gpt-4-0314',
 		'gpt-4-0613',
 		'gpt-4-32k',
-		'gpt-4-turbo-2024-04-09',  # Retiring September 2025
+		'gpt-4-turbo',
 		'gpt-4.5-preview', # This model was a preview and is being replaced by GPT-4.1
 		# Old text completion models
 		'text-davinci',
@@ -188,7 +186,7 @@ def _is_thinking_model(model_id: str) -> bool:
 	:param model_id: The model identifier
 	:return: True if the model is a thinking model
 	"""
-	thinking_patterns = ['o1', 'o3', 'o4', 'deep-research']
+	thinking_patterns = ['o1', 'o3', 'o4', 'deep-research', 'gpt-5']
 	# Ensure it's not also an embedding or special model
 	return any(pattern in model_id.lower() for pattern in thinking_patterns) and \
 		not _is_embedding_model(model_id) and \
@@ -230,6 +228,13 @@ def _get_display_name(model_id: str) -> str:
 	"""
 	# Map common model IDs to friendly names
 	name_mappings = {
+		# GPT-5 family
+		'gpt-5': 'GPT-5',
+		'gpt-5-2025-08-07': 'GPT-5',
+		'gpt-5-mini': 'GPT-5 Mini',
+		'gpt-5-mini-2025-08-07': 'GPT-5 Mini',
+		'gpt-5-nano': 'GPT-5 Nano',
+		'gpt-5-nano-2025-08-07': 'GPT-5 Nano',
 		# GPT-4 family
 		'gpt-4.1': 'GPT-4.1',
 		'gpt-4.1-2025-04-14': 'GPT-4.1',
@@ -237,20 +242,10 @@ def _get_display_name(model_id: str) -> str:
 		'gpt-4.1-mini-2025-04-14': 'GPT-4.1 Mini',
 		'gpt-4.1-nano': 'GPT-4.1 Nano',
 		'gpt-4.1-nano-2025-04-14': 'GPT-4.1 Nano',
-		'gpt-4.5-preview': 'GPT-4.5 Preview',
-		'gpt-4.5-preview-2025-02-27': 'GPT-4.5 Preview',
 		'gpt-4o': 'GPT-4o',
 		'gpt-4o-2024-08-06': 'GPT-4o',
-		'gpt-4o-audio-preview': 'GPT-4o Audio Preview',
-		'gpt-4o-audio-preview-2025-06-03': 'GPT-4o Audio Preview',
-		'gpt-4o-realtime-preview': 'GPT-4o Realtime Preview',
-		'gpt-4o-realtime-preview-2025-06-03': 'GPT-4o Realtime Preview',
 		'gpt-4o-mini': 'GPT-4o Mini',
 		'gpt-4o-mini-2024-07-18': 'GPT-4o Mini',
-		'gpt-4o-mini-audio-preview': 'GPT-4o Mini Audio Preview',
-		'gpt-4o-mini-audio-preview-2024-12-17': 'GPT-4o Mini Audio Preview',
-		'gpt-4o-mini-realtime-preview': 'GPT-4o Mini Realtime Preview',
-		'gpt-4o-mini-realtime-preview-2024-12-17': 'GPT-4o Mini Realtime Preview',
 		'gpt-4o-mini-search-preview': 'GPT-4o Mini Search Preview',
 		'gpt-4o-mini-search-preview-2025-03-11': 'GPT-4o Mini Search Preview',
 		'gpt-4o-search-preview': 'GPT-4o Search Preview',
@@ -263,8 +258,6 @@ def _get_display_name(model_id: str) -> str:
 		# Reasoning models
 		'o1': 'o1',
 		'o1-2024-12-17': 'o1',
-		'o1-mini': 'o1 Mini',
-		'o1-mini-2024-09-12': 'o1 Mini',
 		'o1-pro': 'o1 Pro',
 		'o1-pro-2025-03-19': 'o1 Pro',
 		'o3': 'o3',

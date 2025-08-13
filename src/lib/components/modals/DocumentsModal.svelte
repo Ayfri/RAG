@@ -2,10 +2,10 @@
 	import { FileText, Trash2, Upload, RefreshCw, Link, FolderOpen, Loader, HardDrive, Clock, FileStack, Settings, FolderPlus, Globe } from '@lucide/svelte';
 	import Button from '$lib/components/common/Button.svelte';
 	import FileInput from '$lib/components/common/FileInput.svelte';
-	import CreateSymlinkModal from '$lib/components/CreateSymlinkModal.svelte';
-	import UploadFolderModal from '$lib/components/UploadFolderModal.svelte';
-	import ConfigureFiltersModal from '$lib/components/ConfigureFiltersModal.svelte';
-	import AddUrlModal from '$lib/components/AddUrlModal.svelte';
+	import CreateSymlinkModal from '$lib/components/modals/CreateSymlinkModal.svelte';
+	import UploadFolderModal from '$lib/components/modals/UploadFolderModal.svelte';
+	import ConfigureFiltersModal from '$lib/components/modals/ConfigureFiltersModal.svelte';
+	import AddUrlModal from '$lib/components/modals/AddUrlModal.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import { notifications } from '$lib/stores/notifications';
 

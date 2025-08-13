@@ -4,7 +4,7 @@
 	import Button from '$lib/components/common/Button.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import Select from '$lib/components/common/Select.svelte';
-	import SystemPromptGeneratorModal from '$lib/components/SystemPromptGeneratorModal.svelte';
+	import SystemPromptGeneratorModal from '$lib/components/modals/SystemPromptGeneratorModal.svelte';
 	import TextArea from '$lib/components/common/TextArea.svelte';
 	import type { OpenAIModel, RagConfig } from '$lib/types.d.ts';
 	import { fetchRagConfig, updateRagConfig } from '$lib/helpers/rag-api';

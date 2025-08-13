@@ -2,10 +2,9 @@
 	import ChatInput from '$lib/components/ChatInput.svelte';
 	import Button from '$lib/components/common/Button.svelte';
 	import Select from '$lib/components/common/Select.svelte';
-	import DocumentsModal from '$lib/components/DocumentsModal.svelte';
-
+	import DocumentsModal from '$lib/components/modals/DocumentsModal.svelte';
     import ChatMessage from '$lib/components/messages/ChatMessage.svelte';
-	import RagConfigModal from '$lib/components/RagConfigModal.svelte';
+	import RagConfigModal from '$lib/components/modals/RagConfigModal.svelte';
 	import {type ChatMessage as StoredChatMessage, chatStorage} from '$lib/helpers/chat-storage';
 	import {AgenticStreamingParser} from '$lib/helpers/streaming-parser';
 	import {dispatchUI} from '$lib/helpers/ui-events';

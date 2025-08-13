@@ -2,13 +2,13 @@
 	import { onMount } from 'svelte';
 	import { Plus, FileText, Search, Database, MessageSquare, X } from '@lucide/svelte';
 	import Header from '$lib/components/Header.svelte';
-	import CreateRagModal from '$lib/components/CreateRagModal.svelte';
+	import CreateRagModal from '$lib/components/modals/CreateRagModal.svelte';
 	import QueryInterface from '$lib/components/QueryInterface.svelte';
 	import ChatSessions from '$lib/components/ChatSessions.svelte';
 	import Button from '$lib/components/common/Button.svelte';
 	import { fly } from 'svelte/transition';
-import { selectedState } from '$lib/stores/selectedState';
-import { dispatchUI } from '$lib/helpers/ui-events';
+	import { selectedState } from '$lib/stores/selectedState';
+	import { dispatchUI } from '$lib/helpers/ui-events';
 
 	let rags: string[] = $state([]);
 	let ragDocumentCounts: Record<string, number> = $state({});

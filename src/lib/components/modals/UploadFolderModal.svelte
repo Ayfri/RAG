@@ -4,7 +4,7 @@
 	import Input from '$lib/components/common/Input.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import { notifications } from '$lib/stores/notifications';
-	import FileInput from './common/FileInput.svelte';
+	import FileInput from '../common/FileInput.svelte';
 
 	interface Props {
 		ragName?: string;

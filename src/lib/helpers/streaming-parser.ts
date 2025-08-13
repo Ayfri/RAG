@@ -9,6 +9,8 @@ export interface ContentPart {
 export interface ParsedMessage {
 	content: string;
 	contentParts: ContentPart[];
+	/** True when there is effectively no user-visible content (only an empty final event, no tokens, no tool data). */
+	isEmpty: boolean;
 	toolActivities: ToolActivity[];
 	documents?: any[];
 	sources?: any[];
@@ -170,9 +172,17 @@ export class AgenticStreamingParser {
 	 * Get the current state of the parsed message
 	 */
 	private getCurrentState(): ParsedMessage {
+		const hasNonEmptyText = this.currentTextContent.trim().length > 0;
+		const hasTextPartWithContent = this.contentParts.some(p => p.type === 'text' && p.content.trim().length > 0);
+		const hasAnyTools = this.toolActivities.length > 0;
+		const hasDocuments = this.documents.length > 0;
+		const hasSources = this.sources.length > 0;
+		const hasFileLists = this.fileLists.length > 0;
+		const isEmpty = !(hasNonEmptyText || hasTextPartWithContent || hasAnyTools || hasDocuments || hasSources || hasFileLists);
 		return {
 			content: this.currentTextContent,
 			contentParts: this.contentParts,
+			isEmpty,
 			toolActivities: this.toolActivities,
 			documents: this.documents.length > 0 ? this.documents : undefined,
 			sources: this.sources.length > 0 ? this.sources : undefined,

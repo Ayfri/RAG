@@ -1,6 +1,6 @@
 import openai
 from pathlib import Path
-from typing import Callable, Literal
+from typing import Callable, Literal, cast
 
 from llama_index.core import VectorStoreIndex
 from llama_index.core.agent.workflow import FunctionAgent
@@ -160,7 +160,7 @@ User instructions:
 		return [
 			DocumentItem(
 				content=node.text,
-				source=node.node.metadata["file_path"]
+				source=cast(str, node.node.metadata.get("file_path", ""))
 			)
 			for node in response
 		]

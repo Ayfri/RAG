@@ -240,11 +240,13 @@
 				}
 			}
 
+
 			// Finalize parsing
 			const finalMessage = parser.finalize();
 			const finalAssistantMessage = {
 				...assistantMessage,
 				content: finalMessage.content,
+				isError: finalMessage.isEmpty,
 				contentParts: finalMessage.contentParts,
 				toolActivities: finalMessage.toolActivities,
 				documents: finalMessage.documents,
@@ -259,7 +261,7 @@
 			// Save assistant message to storage
 			if (currentSessionId) {
 				await chatStorage.addMessage(currentSessionId, finalAssistantMessage);
-		dispatchUI('messageAdded', { ragName, sessionId: currentSessionId });
+				dispatchUI('messageAdded', { ragName, sessionId: currentSessionId });
 			}
 
 		} catch (err) {
@@ -274,7 +276,7 @@
 			// Save error message to storage
 			if (currentSessionId) {
 				await chatStorage.addMessage(currentSessionId, finalAssistantMessage);
-			dispatchUI('messageAdded', { ragName, sessionId: currentSessionId });
+				dispatchUI('messageAdded', { ragName, sessionId: currentSessionId });
 			}
 		} finally {
 			loading = false;

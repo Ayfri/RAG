@@ -10,15 +10,16 @@
 	import {Bot, Copy, Edit, FileIcon, FileText, FolderOpen, Globe, Loader, RefreshCcw, SendHorizontal, Trash2, User, X} from '@lucide/svelte';
 
 	interface Message {
+		contentParts?: Array<{type: 'text' | 'tool'; content: string; activity?: ToolActivity}>;
 		content: string;
 		documents?: RagDocument[];
 		fileLists?: FileListResult[];
 		id: string;
+		isError?: boolean;
 		role: 'user' | 'assistant';
 		sources?: SearchResult[];
 		timestamp: Date;
 		toolActivities?: ToolActivity[];
-		contentParts?: Array<{type: 'text' | 'tool'; content: string; activity?: ToolActivity}>;
 	}
 
 	interface Props {
@@ -111,7 +112,7 @@
 			<div class="p-2.5 rounded-xl {message.role === 'user'
 					? 'bg-gradient-to-r from-cyan-700 to-cyan-800 text-white'
 					: 'bg-slate-800/50 border border-slate-600'
-				} flex-1 min-w-0 break-words"
+				} flex-1 min-w-0 break-words {message.isError ? '!bg-red-900/20 !border-red-700/60' : ''}"
 				bind:this={assistantContentEl}
 			>
 				{#if message.role === 'user' && isEditing}
@@ -245,6 +246,11 @@
 					{:else if message.content.length > 0}
 						<!-- Fallback to regular content display -->
 						<Markdown content={message.content} />
+					{:else if message.isError}
+						<!-- Explicit empty content placeholder -->
+						<div class="text-xs text-red-300 rounded-md px-2 py-1">
+							No answer was generated.
+						</div>
 					{/if}
 
 					{#if isStreaming && isLastMessage}

@@ -139,9 +139,27 @@ async def update_rag_config(rag_name: str, config_data: dict[str, Any]):
 	:raises HTTPException: 404 if RAG not found, 400 if invalid config
 	"""
 	try:
-		config = RAGConfig.model_validate(config_data)
-		rag_service.update_rag_config(rag_name, config)
-		return JSONResponse({'detail': 'Configuration updated successfully'})
+		# Load existing config to avoid resetting unspecified fields
+		existing_config = rag_service.get_rag_config(rag_name)
+
+		if len(config_data) == 0:
+			raise HTTPException(status_code=400, detail='Invalid configuration: body must be a non-empty JSON object')
+
+		# Only apply provided fields
+		allowed_keys = {'chat_model', 'embedding_model', 'file_filters', 'system_prompt'}
+		updates: dict[str, Any] = {k: v for k, v in config_data.items() if k in allowed_keys}
+
+		if len(updates) == 0:
+			# Nothing to update
+			return JSONResponse({'detail': 'No changes provided'}, status_code=200)
+
+		# Validate updates by constructing a partial model merged into existing
+		new_config = existing_config.model_copy(update=updates)
+		# Full-model validation
+		validated_config = RAGConfig.model_validate(new_config.model_dump())
+
+		rag_service.update_rag_config(rag_name, validated_config)
+		return validated_config.model_dump()
 	except FileNotFoundError as exc:
 		raise HTTPException(status_code=404, detail=str(exc)) from exc
 	except (KeyError, ValueError) as exc:

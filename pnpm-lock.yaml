@@ -17,6 +17,9 @@ importers:
       dompurify:
         specifier: ^3.2.6
         version: 3.2.6
+      gpt-tokenizer:
+        specifier: ^3.0.1
+        version: 3.0.1
       marked:
         specifier: ^16.1.1
         version: 16.1.1
@@ -654,6 +657,9 @@ packages:
 
   function-bind@1.1.2:
     resolution: {integrity: sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==}
+
+  gpt-tokenizer@3.0.1:
+    resolution: {integrity: sha512-5jdaspBq/w4sWw322SvQj1Fku+CN4OAfYZeeEg8U7CWtxBz+zkxZ3h0YOHD43ee+nZYZ5Ud70HRN0ANcdIj4qg==}
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
@@ -1494,6 +1500,8 @@ snapshots:
     optional: true
 
   function-bind@1.1.2: {}
+
+  gpt-tokenizer@3.0.1: {}
 
   graceful-fs@4.2.11: {}
 

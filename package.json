@@ -25,6 +25,7 @@
 		"@lucide/svelte": "^0.525.0",
 		"@shikijs/transformers": "^3.8.1",
 		"dompurify": "^3.2.6",
+		"gpt-tokenizer": "^3.0.1",
 		"marked": "^16.1.1",
 		"shiki": "^3.8.1"
 	}

@@ -250,7 +250,7 @@
 					{#if isStreaming && isLastMessage}
 						<div class="flex items-center space-x-2" class:mt-2={message.content.length}>
 							<Loader class="w-3 h-3 animate-spin text-cyan-400" />
-							<span class="text-xs text-slate-400">Assistant is thinking...</span>
+							<span class="text-xs text-slate-400 animate-pulse">Assistant is thinking...</span>
 						</div>
 					{/if}
 

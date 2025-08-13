@@ -393,11 +393,10 @@
 			messages = [];
 			if (currentSessionId) {
 				await chatStorage.clearSessionMessages(currentSessionId);
-			dispatchUI('messagesCleared', { ragName, sessionId: currentSessionId });
+				dispatchUI('messagesCleared', { ragName, sessionId: currentSessionId });
 			}
 		}
 	}
-
 
 
 	async function loadRagConfig() {
@@ -418,8 +417,6 @@
 			notifications.error(`Failed to update chat model: ${err instanceof Error ? err.message : 'Unknown error'}`);
 		}
 	}
-
-
 
 
 	async function createNewSession() {
@@ -502,7 +499,7 @@
 
 <div class="h-full max-h-screen flex flex-col overflow-hidden">
 	<!-- Header -->
-	<header class="glass border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700 py-2 px-3 rounded-xl flex-shrink-0">
+	<header class="glass border-b border-slate-600 bg-gradient-to-r from-slate-800 to-slate-700 py-2 px-3 rounded-xl flex-shrink-0 z-10">
 		<div class="flex flex-col space-y-2 md:space-y-0 md:flex-row md:items-center md:justify-between">
 			<!-- Title section -->
 			<div class="flex items-center space-x-3">
@@ -515,7 +512,7 @@
 			<!-- Controls section -->
 			<div class="flex flex-col space-y-2 md:space-y-0 md:flex-row md:items-center md:space-x-3">
 				<!-- Model selector -->
-				<div class="w-full md:w-48">
+				<div class="w-full md:w-64">
 					<Select
 						options={allOpenAIModels.map(model => ({ label: model.name, value: model.id }))}
 						bind:value={selectedModel}

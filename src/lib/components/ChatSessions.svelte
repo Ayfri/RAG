@@ -2,6 +2,7 @@
 	import Button from '$lib/components/common/Button.svelte';
 	import type {ChatSession} from '$lib/helpers/chat-storage';
 	import {chatStorage} from '$lib/helpers/chat-storage';
+	import {dispatchUI} from '$lib/helpers/ui-events';
 	import {notifications} from '$lib/stores/notifications';
 	import {selectedState} from '$lib/stores/selectedState';
 	import {Loader2, MessageSquare, Pencil, Plus, Trash2} from '@lucide/svelte';
@@ -105,10 +106,7 @@
 				currentSessionId = sessionId;
 				// Call parent callback
 				onSessionSelected?.(sessionId, session.messages);
-				// Dispatch event to notify QueryInterface component
-				window.dispatchEvent(new CustomEvent('sessionSelected', {
-					detail: { ragName, sessionId, messages: session.messages }
-				}));
+                dispatchUI('sessionSelected', { ragName, sessionId, messages: session.messages });
 			}
 		} catch (err) {
 			console.error('Failed to load session:', err);

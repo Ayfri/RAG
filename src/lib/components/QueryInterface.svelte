@@ -8,13 +8,13 @@
 	import RagConfigModal from '$lib/components/RagConfigModal.svelte';
 	import {type ChatMessage as StoredChatMessage, chatStorage} from '$lib/helpers/chat-storage';
 	import {AgenticStreamingParser} from '$lib/helpers/streaming-parser';
+	import {dispatchUI} from '$lib/helpers/ui-events';
 	import {notifications} from '$lib/stores/notifications';
 	import {openAIModels} from '$lib/stores/openai-models';
 	import {selectedState} from '$lib/stores/selectedState';
 	import type { OpenAIModel } from '$lib/types';
 	import {Bot, FileText, MessageSquare, Settings, Trash2, ChevronDown} from '@lucide/svelte';
     import { fetchRagConfig, updateRagConfig } from '$lib/helpers/rag-api';
-    import { countTokensFromText } from '$lib/helpers/tokenizer';
     import MessageStats from '$lib/components/common/MessageStats.svelte';
 
 	interface Props {
@@ -41,24 +41,58 @@
 
 	// Auto-scroll state
 	let autoScroll = $state(true);
-	let userScrolled = $state(false);
 	let showScrollToBottom = $state(false);
+
+	// Utilities
+	function createAssistantMessage(): Message {
+		return {
+			id: crypto.randomUUID(),
+			role: 'assistant',
+			content: '',
+			timestamp: new Date(),
+			toolActivities: [],
+			contentParts: [],
+			fileLists: []
+		};
+	}
+
+	function scheduleScrollToBottom() {
+		if (chatContainer) {
+			requestAnimationFrame(() => {
+				chatContainer.scrollTop = chatContainer.scrollHeight;
+			});
+		}
+	}
 
     function getTotalText(msgs: Message[]): string {
         if (!msgs || msgs.length === 0) return '';
         return msgs.map(m => m.content).join('\n');
     }
 
-	// Restore session from persistent state
 	$effect(() => {
+		let unsubSelectedState: (() => void) | undefined;
+		const handleSessionSelected = (event: Event) => {
+			const customEvent = event as CustomEvent;
+			const { sessionId, messages: sessionMessages, ragName: eventRagName } = customEvent.detail;
+			if (eventRagName === ragName) {
+				currentSessionId = sessionId;
+				messages = sessionMessages;
+			}
+		};
+
 		if (ragName) {
-			const unsubscribe = selectedState.subscribe(state => {
+			unsubSelectedState = selectedState.subscribe(state => {
 				if (state.ragName === ragName && state.sessionId && !currentSessionId) {
 					selectSession(state.sessionId);
 				}
 			});
-			return unsubscribe;
 		}
+
+		window.addEventListener('sessionSelected', handleSessionSelected);
+		return () => {
+			unsubSelectedState?.();
+			window.removeEventListener('sessionSelected', handleSessionSelected);
+		};
 	});
 
 	// Update persistent state when session changes
@@ -82,9 +116,7 @@
 	// Auto-scroll when streaming or new messages arrive
 	$effect(() => {
 		if (autoScroll && chatContainer && (streaming || messages.length > 0)) {
-			requestAnimationFrame(() => {
-				chatContainer.scrollTop = chatContainer.scrollHeight;
-			});
+			scheduleScrollToBottom();
 		}
 	});
 
@@ -97,11 +129,9 @@
 		const scrollDistance = scrollHeight - clientHeight - scrollTop;
 
 		if (isAtBottom) {
-			userScrolled = false;
 			autoScroll = true;
 			showScrollToBottom = false;
 		} else {
-			userScrolled = true;
 			autoScroll = false;
 			// Show scroll to bottom button if scrolled up more than 100px
 			showScrollToBottom = scrollDistance > 100;
@@ -111,7 +141,6 @@
 	function scrollToBottom() {
 		if (chatContainer) {
 			chatContainer.scrollTop = chatContainer.scrollHeight;
-			userScrolled = false;
 			autoScroll = true;
 			showScrollToBottom = false;
 		}
@@ -132,34 +161,19 @@
 			timestamp: new Date()
 		};
 
-		const assistantMessage: Message = {
-			id: crypto.randomUUID(),
-			role: 'assistant',
-			content: '',
-			timestamp: new Date(),
-			toolActivities: [],
-			contentParts: [],
-			fileLists: []
-		};
+		const assistantMessage: Message = createAssistantMessage();
 
 		messages = [...messages, userMessage, assistantMessage];
 		const query = currentMessage.trim();
 		currentMessage = '';
 
 		// Force auto-scroll after adding messages
-		if (autoScroll && chatContainer) {
-			requestAnimationFrame(() => {
-				chatContainer.scrollTop = chatContainer.scrollHeight;
-			});
-		}
+		if (autoScroll) scheduleScrollToBottom();
 
 		// Save user message to storage
 		if (currentSessionId) {
 			await chatStorage.addMessage(currentSessionId, userMessage);
-			// Dispatch event to notify ChatSessions component
-			window.dispatchEvent(new CustomEvent('messageAdded', {
-				detail: { ragName, sessionId: currentSessionId }
-			}));
+			dispatchUI('messageAdded', { ragName, sessionId: currentSessionId });
 		}
 
 		await streamResponse(query, assistantMessage);
@@ -246,10 +260,7 @@
 			// Save assistant message to storage
 			if (currentSessionId) {
 				await chatStorage.addMessage(currentSessionId, finalAssistantMessage);
-				// Dispatch event to notify ChatSessions component
-				window.dispatchEvent(new CustomEvent('messageAdded', {
-					detail: { ragName, sessionId: currentSessionId }
-				}));
+		dispatchUI('messageAdded', { ragName, sessionId: currentSessionId });
 			}
 
 		} catch (err) {
@@ -264,10 +275,7 @@
 			// Save error message to storage
 			if (currentSessionId) {
 				await chatStorage.addMessage(currentSessionId, finalAssistantMessage);
-				// Dispatch event to notify ChatSessions component
-				window.dispatchEvent(new CustomEvent('messageAdded', {
-					detail: { ragName, sessionId: currentSessionId }
-				}));
+			dispatchUI('messageAdded', { ragName, sessionId: currentSessionId });
 			}
 		} finally {
 			loading = false;
@@ -296,7 +304,6 @@
 			messagesToDelete.push(id);
 		}
 
-		// Remove messages from UI
 		messages = messages.filter(m => !messagesToDelete.includes(m.id));
 
 		// Delete from storage
@@ -304,10 +311,7 @@
 			for (const messageId of messagesToDelete) {
 				await chatStorage.deleteMessage(currentSessionId, messageId);
 			}
-			// Dispatch event to notify ChatSessions component
-			window.dispatchEvent(new CustomEvent('messageDeleted', {
-				detail: { ragName, sessionId: currentSessionId }
-			}));
+			dispatchUI('messageDeleted', { ragName, sessionId: currentSessionId });
 		}
 	}
 
@@ -324,29 +328,17 @@
 		// Remove all messages after this user message
 		messages = messages.slice(0, messageIndex + 1);
 
-		// Update in storage
 		if (currentSessionId) {
 			await chatStorage.updateMessage(currentSessionId, id, { content: newContent });
 			// Delete all messages after this one from storage
 			for (const messageId of messagesToDelete) {
 				await chatStorage.deleteMessage(currentSessionId, messageId);
 			}
-			// Dispatch event to notify ChatSessions component
-			window.dispatchEvent(new CustomEvent('messageEdited', {
-				detail: { ragName, sessionId: currentSessionId }
-			}));
+			dispatchUI('messageEdited', { ragName, sessionId: currentSessionId });
 		}
 
 		// Create a new assistant message and regenerate response
-		const assistantMessage: Message = {
-			id: crypto.randomUUID(),
-			role: 'assistant',
-			content: '',
-			timestamp: new Date(),
-			toolActivities: [],
-			contentParts: [],
-			fileLists: []
-		};
+		const assistantMessage: Message = createAssistantMessage();
 
 		messages = [...messages, assistantMessage];
 		const query = newContent.trim();
@@ -370,33 +362,18 @@
 
 		const userMessage = messages[userMessageIndex];
 
-		// Determine all messages after the user message that must be removed (including the current assistant and following)
 		const messagesToDelete = messages.slice(userMessageIndex + 1).map(m => m.id);
 
-		// Update UI first: keep up to and including the user message
 		messages = messages.slice(0, userMessageIndex + 1);
 
-		// Delete persisted messages after the user message
 		if (currentSessionId && messagesToDelete.length > 0) {
 			for (const messageId of messagesToDelete) {
 				await chatStorage.deleteMessage(currentSessionId, messageId);
 			}
-			// Notify others that messages changed
-			window.dispatchEvent(new CustomEvent('messageDeleted', {
-				detail: { ragName, sessionId: currentSessionId }
-			}));
+			dispatchUI('messageDeleted', { ragName, sessionId: currentSessionId });
 		}
 
-		// Create a fresh assistant placeholder and stream a new response using the existing user content
-		const assistantMessage: Message = {
-			id: crypto.randomUUID(),
-			role: 'assistant',
-			content: '',
-			timestamp: new Date(),
-			toolActivities: [],
-			contentParts: [],
-			fileLists: []
-		};
+		const assistantMessage: Message = createAssistantMessage();
 
 		messages = [...messages, assistantMessage];
 
@@ -415,10 +392,7 @@
 			messages = [];
 			if (currentSessionId) {
 				await chatStorage.clearSessionMessages(currentSessionId);
-				// Dispatch event to notify ChatSessions component
-				window.dispatchEvent(new CustomEvent('messagesCleared', {
-					detail: { ragName, sessionId: currentSessionId }
-				}));
+			dispatchUI('messagesCleared', { ragName, sessionId: currentSessionId });
 			}
 		}
 	}
@@ -452,15 +426,11 @@
 			const session = await chatStorage.createSession(ragName);
 			currentSessionId = session.id;
 			messages = [];
-			// Update persistent state
 			selectedState.set({
 				ragName: ragName,
 				sessionId: session.id
 			});
-			// Dispatch event to notify ChatSessions component
-			window.dispatchEvent(new CustomEvent('sessionCreated', {
-				detail: { ragName, sessionId: session.id }
-			}));
+			dispatchUI('sessionCreated', { ragName, sessionId: session.id });
 			notifications.success('New session created');
 		} catch (err) {
 			console.error('Failed to create session:', err);
@@ -487,16 +457,12 @@
 			if (currentSessionId === sessionId) {
 				currentSessionId = null;
 				messages = [];
-				// Clear persistent state for this session
 				selectedState.set({
 					ragName: ragName,
 					sessionId: null
 				});
 			}
-			// Dispatch event to notify ChatSessions component
-			window.dispatchEvent(new CustomEvent('sessionDeleted', {
-				detail: { ragName, sessionId }
-			}));
+			dispatchUI('sessionDeleted', { ragName, sessionId });
 			notifications.success('Session deleted');
 		} catch (err) {
 			console.error('Failed to delete session:', err);
@@ -507,18 +473,13 @@
 	async function renameSession(sessionId: string, newTitle: string) {
 		try {
 			await chatStorage.updateSessionTitle(sessionId, newTitle);
-			// Dispatch event to notify ChatSessions component
-			window.dispatchEvent(new CustomEvent('sessionRenamed', {
-				detail: { ragName, sessionId, newTitle }
-			}));
+			dispatchUI('sessionRenamed', { ragName, sessionId, newTitle });
 			notifications.success('Session renamed');
 		} catch (err) {
 			console.error('Failed to rename session:', err);
 			notifications.error('Failed to rename session');
 		}
 	}
-
-
 
 	// Subscribe to OpenAI models store
 	$effect(() => {
@@ -535,21 +496,6 @@
 		if (selectedModel) {
 			updateModelConfig(selectedModel);
 		}
-	});
-
-	// Listen for session selection events from sidebar
-	$effect(() => {
-		const handleSessionSelected = (event: Event) => {
-			const customEvent = event as CustomEvent;
-			const { sessionId, messages: sessionMessages, ragName: eventRagName } = customEvent.detail;
-			if (eventRagName === ragName) {
-				currentSessionId = sessionId;
-				messages = sessionMessages;
-			}
-		};
-
-		window.addEventListener('sessionSelected', handleSessionSelected);
-		return () => window.removeEventListener('sessionSelected', handleSessionSelected);
 	});
 </script>
 
@@ -608,7 +554,6 @@
 			</div>
 		</div>
 	</header>
-
 
 	<main class="flex-1 flex flex-col min-h-0 overflow-hidden relative">
 		<div class="absolute top-0 left-0 w-full px-4 h-6 bg-gradient-to-t from-transparent to-slate-900/80"></div>
@@ -688,8 +633,5 @@
 <RagConfigModal
 	{ragName}
 	bind:open={showConfigModal}
-	onupdated={() => {
-		// Reload the model selection after config update
-		loadRagConfig();
-	}}
+	onupdated={() => loadRagConfig()}
 />

@@ -7,7 +7,8 @@
 	import ChatSessions from '$lib/components/ChatSessions.svelte';
 	import Button from '$lib/components/common/Button.svelte';
 	import { fly } from 'svelte/transition';
-	import { selectedState } from '$lib/stores/selectedState';
+import { selectedState } from '$lib/stores/selectedState';
+import { dispatchUI } from '$lib/helpers/ui-events';
 
 	let rags: string[] = $state([]);
 	let ragDocumentCounts: Record<string, number> = $state({});
@@ -182,10 +183,13 @@
 		<div class="flex-1 min-h-0 flex flex-col lg:flex-row gap-3 lg:gap-6 relative">
 			<!-- Mobile Sidebar Overlay -->
 			{#if showMobileSidebar}
-				<div
-					class="fixed inset-0 bg-black/50 z-40 lg:hidden"
-					onclick={closeMobileSidebar}
-				></div>
+                <div
+                    class="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                    role="button"
+                    tabindex="0"
+                    onclick={closeMobileSidebar}
+                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') closeMobileSidebar() }}
+                ></div>
 			{/if}
 
 			<!-- Chat Sessions Sidebar -->
@@ -221,10 +225,7 @@
 								<ChatSessions
 									ragName={selectedRag}
 									onSessionSelected={(sessionId, messages) => {
-										// Pass the session data to QueryInterface via custom event
-										window.dispatchEvent(new CustomEvent('sessionSelected', {
-											detail: { sessionId, messages, ragName: selectedRag }
-										}));
+                                        dispatchUI('sessionSelected', { sessionId, messages, ragName: selectedRag });
 										// Close mobile sidebar when session is selected
 										closeMobileSidebar();
 									}}
@@ -245,11 +246,9 @@
 				{#if selectedRag}
 					<div class="flex h-full gap-5">
 						<div class="hidden lg:block border w-80 bg-slate-800/50 p-2.5 border-slate-700 rounded-xl">
-							<ChatSessions ragName={selectedRag} onSessionSelected={(sessionId, messages) => {
-								window.dispatchEvent(new CustomEvent('sessionSelected', {
-									detail: { sessionId, messages, ragName: selectedRag }
-								}));
-							}} />
+                            <ChatSessions ragName={selectedRag} onSessionSelected={(sessionId, messages) => {
+                                dispatchUI('sessionSelected', { sessionId, messages, ragName: selectedRag });
+                            }} />
 						</div>
 						<div class="flex-1">
 							<QueryInterface ragName={selectedRag} />
@@ -277,5 +276,4 @@
 		oncreated={handleRagCreated}
 		bind:open={showCreateModal}
 	/>
-
 </div>

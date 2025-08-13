@@ -5,7 +5,8 @@
 	import DocumentsModal from '$lib/components/modals/DocumentsModal.svelte';
     import ChatMessage from '$lib/components/messages/ChatMessage.svelte';
 	import RagConfigModal from '$lib/components/modals/RagConfigModal.svelte';
-	import {type ChatMessage as StoredChatMessage, chatStorage} from '$lib/helpers/chat-storage';
+	import { chatStorage } from '$lib/helpers/chat-storage';
+	import type { ChatMessage as StoredChatMessage } from '$lib/types.d.ts';
 	import {AgenticStreamingParser} from '$lib/helpers/streaming-parser';
 	import {dispatchUI} from '$lib/helpers/ui-events';
 	import {notifications} from '$lib/stores/notifications';
@@ -57,7 +58,9 @@
 			timestamp: new Date(),
 			toolActivities: [],
 			contentParts: [],
-			fileLists: []
+			fileLists: [],
+			responseMs: 0,
+			ttftMs: 0
 		};
 	}
 
@@ -185,9 +188,27 @@
 	}
 
 	async function streamResponse(query: string, assistantMessage: StoredChatMessage) {
+		let liveTimerId: number | null = null;
 		try {
 			loading = true;
 			streaming = true;
+			const startTs = performance.now();
+			let ttftMsCaptured: number | undefined = undefined;
+
+			// Start a lightweight timer to keep UI timers updating even without chunks
+			liveTimerId = window.setInterval(() => {
+				const now = performance.now();
+				const liveElapsedMs = Math.max(0, now - startTs);
+				messages = messages.map((msg, index) =>
+					index === messages.length - 1
+						? {
+							...msg,
+							responseMs: liveElapsedMs,
+							ttftMs: ttftMsCaptured ?? liveElapsedMs
+						}
+						: msg
+				);
+			}, 100);
 
 			const res = await fetch(`/api/rag/${ragName}/stream`, {
 				method: 'POST',
@@ -225,17 +246,26 @@
 							const event = JSON.parse(line.trim());
 							const parsedMessage = parser.processEvent(event);
 
-							// Update the assistant message with parsed data
+							// Capture TTFT when the first token event is observed
+							if (ttftMsCaptured === undefined && event?.type === 'token') {
+								ttftMsCaptured = Math.max(0, performance.now() - startTs);
+							}
+
+							// Update the assistant message with parsed data and live timers
+							const now = performance.now();
+							const liveElapsedMs = Math.max(0, now - startTs);
 							messages = messages.map((msg, index) =>
 								index === messages.length - 1
 									? {
 										...msg,
 										content: parsedMessage.content,
 										contentParts: parsedMessage.contentParts,
-										toolActivities: parsedMessage.toolActivities,
 										documents: parsedMessage.documents,
+										fileLists: parsedMessage.fileLists,
 										sources: parsedMessage.sources,
-										fileLists: parsedMessage.fileLists
+										toolActivities: parsedMessage.toolActivities,
+										responseMs: liveElapsedMs,
+										ttftMs: ttftMsCaptured ?? liveElapsedMs
 									}
 									: msg
 							);
@@ -249,6 +279,7 @@
 
 			// Finalize parsing
 			const finalMessage = parser.finalize();
+			const elapsedMs = Math.max(0, performance.now() - startTs);
 			const finalAssistantMessage = {
 				...assistantMessage,
 				content: finalMessage.content,
@@ -257,7 +288,9 @@
 				toolActivities: finalMessage.toolActivities,
 				documents: finalMessage.documents,
 				sources: finalMessage.sources,
-				fileLists: finalMessage.fileLists
+				fileLists: finalMessage.fileLists,
+				responseMs: elapsedMs,
+				ttftMs: ttftMsCaptured
 			};
 
 			messages = messages.map((msg, index) =>
@@ -271,8 +304,9 @@
 			}
 
 		} catch (err) {
+			const elapsedMs = 0;
 			const errorMessage = `Error: ${err instanceof Error ? err.message : 'Unknown error'}`;
-			const finalAssistantMessage = { ...assistantMessage, content: errorMessage, isError: true };
+			const finalAssistantMessage = { ...assistantMessage, content: errorMessage, isError: true, responseMs: elapsedMs, ttftMs: undefined };
 
 			// Update the last assistant message with error
 			messages = messages.map((msg, index) =>
@@ -287,6 +321,10 @@
 		} finally {
 			loading = false;
 			streaming = false;
+			if (liveTimerId !== null) {
+				clearInterval(liveTimerId);
+				liveTimerId = null;
+			}
 		}
 	}
 

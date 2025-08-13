@@ -112,6 +112,22 @@ export interface FileListResult {
 }
 
 
+export interface ChatMessage {
+	content: string;
+	contentParts?: Array<{ content: string; activity?: ToolActivity; type: 'text' | 'tool' }>;
+	documents?: RagDocument[];
+	fileLists?: FileListResult[];
+	id: string;
+	isError?: boolean;
+	responseMs?: number;
+	role: 'user' | 'assistant';
+	sources?: SearchResult[];
+	timestamp: Date;
+	toolActivities?: ToolActivity[];
+	ttftMs?: number;
+}
+
+
 // Rag config
 export interface RagConfig {
 	chat_model: string;

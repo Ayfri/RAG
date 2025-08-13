@@ -3,29 +3,17 @@
     import MessageStats from '$lib/components/common/MessageStats.svelte';
 	import Markdown from '$lib/components/common/Markdown.svelte';
 	import TextArea from '$lib/components/common/TextArea.svelte';
-	import DocumentSources from '$lib/components/messages/DocumentSources.svelte';
+    import DocumentSources from '$lib/components/messages/DocumentSources.svelte';
 	import FilesSources from '$lib/components/messages/FilesSources.svelte';
 	import WebSources from '$lib/components/messages/WebSources.svelte';
-	import type {FileListResult, FileReadResult, RagDocument, SearchResult, ToolActivity} from '$lib/types.d.ts';
+    import type {ChatMessage as ChatMessageType, FileListResult, FileReadResult, RagDocument, SearchResult, ToolActivity} from '$lib/types.d.ts';
 	import {Bot, Copy, Edit, FileIcon, FileText, FolderOpen, Globe, Loader, RefreshCcw, SendHorizontal, Trash2, User, X} from '@lucide/svelte';
-
-	interface Message {
-		contentParts?: Array<{type: 'text' | 'tool'; content: string; activity?: ToolActivity}>;
-		content: string;
-		documents?: RagDocument[];
-		fileLists?: FileListResult[];
-		id: string;
-		isError?: boolean;
-		role: 'user' | 'assistant';
-		sources?: SearchResult[];
-		timestamp: Date;
-		toolActivities?: ToolActivity[];
-	}
+	import { countTokensFromText } from '$lib/helpers/tokenizer';
 
 	interface Props {
 		isLastMessage?: boolean;
 		isStreaming?: boolean;
-		message: Message;
+		message: ChatMessageType;
 		onDelete?: (id: string) => void;
 		onEdit?: (id: string, newContent: string) => void;
 		onRegenerate?: (id: string) => void;
@@ -85,7 +73,22 @@
 			<span class="text-xs text-slate-500">
 				{formatTime(message.timestamp)}
 			</span>
-			<MessageStats class="text-slate-500" text={message.content} targetElement={message.role === 'user' ? displayParagraph : assistantContentEl} />
+
+			<!-- Stats -->
+			<div class="flex items-center gap-1 text-xs text-slate-500">
+				<MessageStats text={message.content} targetElement={message.role === 'user' ? displayParagraph : assistantContentEl} hideWhenEmpty={false} />
+				{#if message.role === 'assistant'}
+					{@const timeToFirstToken = Math.round((message.ttftMs ?? 0) / 100) / 10}
+					{@const responseTime = Math.round(((message.responseMs ?? 0) - (message.ttftMs ?? 0)) / 100) / 10}
+					{@const tokensPerSecond = Math.round((countTokensFromText(message.content) / responseTime) * 10) / 10}
+					{#if message.ttftMs !== undefined}
+						<span title="Time to first token">• {timeToFirstToken}s</span>
+					{/if}
+					{#if message.responseMs !== undefined}
+						<span title="Response time ({tokensPerSecond} tokens/s)">, {responseTime}s</span>
+					{/if}
+				{/if}
+			</div>
 
 			<div class="flex items-center lg:opacity-0 group-hover:opacity-100 transition-opacity duration-200">
 				{#if message.role === 'user' && !isEditing}

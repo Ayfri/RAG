@@ -1,16 +1,4 @@
-import type { RagDocument, SearchResult, ToolActivity, FileListResult } from '$lib/types.d.ts';
-
-export interface ChatMessage {
-	content: string;
-	contentParts?: Array<{type: 'text' | 'tool'; content: string; activity?: ToolActivity}>;
-	documents?: RagDocument[];
-	fileLists?: FileListResult[];
-	id: string;
-	role: 'user' | 'assistant';
-	sources?: SearchResult[];
-	timestamp: Date;
-	toolActivities?: ToolActivity[];
-}
+import type { ChatMessage } from '$lib/types.d.ts';
 
 export interface ChatSession {
 	id: string;

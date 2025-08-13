@@ -19,6 +19,7 @@ export interface OpenAIModel {
 	id: string;
 	name: string;
 	created: string;
+	is_reasoning: boolean;
 	year: number;
 }
 

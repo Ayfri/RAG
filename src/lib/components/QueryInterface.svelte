@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ChatInput from '$lib/components/ChatInput.svelte';
 	import Button from '$lib/components/common/Button.svelte';
-	import Select from '$lib/components/common/Select.svelte';
+	import Select, { type SelectOption } from '$lib/components/common/Select.svelte';
 	import DocumentsModal from '$lib/components/modals/DocumentsModal.svelte';
     import ChatMessage from '$lib/components/messages/ChatMessage.svelte';
 	import RagConfigModal from '$lib/components/modals/RagConfigModal.svelte';
@@ -12,26 +12,28 @@
 	import {openAIModels} from '$lib/stores/openai-models';
 	import {selectedState} from '$lib/stores/selectedState';
 	import type { OpenAIModel } from '$lib/types';
-	import {Bot, FileText, MessageSquare, Settings, Trash2, ChevronDown} from '@lucide/svelte';
+	import {Bot, FileText, MessageSquare, Settings, Trash2, ChevronDown, Check} from '@lucide/svelte';
     import { fetchRagConfig, updateRagConfig } from '$lib/helpers/rag-api';
     import MessageStats from '$lib/components/common/MessageStats.svelte';
+    import { Brain } from '@lucide/svelte';
 
 	interface Props {
 		ragName: string;
 	}
 
-	type Message = StoredChatMessage;
 
 	let { ragName }: Props = $props();
 	let allOpenAIModels: OpenAIModel[] = $state([]);
 	let selectedModel = $state('');
 
 	let currentMessage = $state('');
-	let messages: Message[] = $state([]);
+	let messages: StoredChatMessage[] = $state([]);
 	let loading = $state(false);
 	let streaming = $state(false);
 	let showDocumentsModal = $state(false);
 	let showConfigModal = $state(false);
+
+	const modelDateFormatter = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long' });
 
 	let chatContainer: HTMLElement;
 
@@ -42,8 +44,12 @@
 	let autoScroll = $state(true);
 	let showScrollToBottom = $state(false);
 
-	// Utilities
-	function createAssistantMessage(): Message {
+	function getModelById(id: string | undefined): OpenAIModel | undefined {
+		if (!id) return undefined;
+		return allOpenAIModels.find(m => m.id === id);
+	}
+
+	function createAssistantMessage(): StoredChatMessage {
 		return {
 			id: crypto.randomUUID(),
 			role: 'assistant',
@@ -63,7 +69,7 @@
 		}
 	}
 
-    function getTotalText(msgs: Message[]): string {
+    function getTotalText(msgs: StoredChatMessage[]): string {
         if (!msgs || msgs.length === 0) return '';
         return msgs.map(m => m.content).join('\n');
     }
@@ -153,14 +159,14 @@
 			await createNewSession();
 		}
 
-		const userMessage: Message = {
+		const userMessage: StoredChatMessage = {
 			id: crypto.randomUUID(),
 			role: 'user',
 			content: currentMessage.trim(),
 			timestamp: new Date()
 		};
 
-		const assistantMessage: Message = createAssistantMessage();
+		const assistantMessage = createAssistantMessage();
 
 		messages = [...messages, userMessage, assistantMessage];
 		const query = currentMessage.trim();
@@ -178,7 +184,7 @@
 		await streamResponse(query, assistantMessage);
 	}
 
-	async function streamResponse(query: string, assistantMessage: Message) {
+	async function streamResponse(query: string, assistantMessage: StoredChatMessage) {
 		try {
 			loading = true;
 			streaming = true;
@@ -266,7 +272,7 @@
 
 		} catch (err) {
 			const errorMessage = `Error: ${err instanceof Error ? err.message : 'Unknown error'}`;
-			const finalAssistantMessage = { ...assistantMessage, content: errorMessage };
+			const finalAssistantMessage = { ...assistantMessage, content: errorMessage, isError: true };
 
 			// Update the last assistant message with error
 			messages = messages.map((msg, index) =>
@@ -339,7 +345,7 @@
 		}
 
 		// Create a new assistant message and regenerate response
-		const assistantMessage: Message = createAssistantMessage();
+		const assistantMessage: StoredChatMessage = createAssistantMessage();
 
 		messages = [...messages, assistantMessage];
 		const query = newContent.trim();
@@ -374,7 +380,7 @@
 			dispatchUI('messageDeleted', { ragName, sessionId: currentSessionId });
 		}
 
-		const assistantMessage: Message = createAssistantMessage();
+		const assistantMessage: StoredChatMessage = createAssistantMessage();
 
 		messages = [...messages, assistantMessage];
 
@@ -513,11 +519,46 @@
 			<div class="flex flex-col space-y-2 md:space-y-0 md:flex-row md:items-center md:space-x-3">
 				<!-- Model selector -->
 				<div class="w-full md:w-64">
+					{#snippet modelItem(option: SelectOption, { highlighted, selected }: { highlighted: boolean, selected: boolean })}
+						{@const model = getModelById(option.value)}
+						<span class="flex items-center gap-1.5 w-full">
+							{#if selected}
+								<Check size={16} class="text-cyan-400" />
+							{/if}
+							{#if model?.is_reasoning}
+								<span class="text-slate-500" title="Reasoning model">
+									<Brain size={16} />
+								</span>
+							{/if}
+							<span class="truncate {selected ? 'text-cyan-400' : ''}">{option.label}</span>
+							{#if model}
+								<span class="ml-auto text-xs text-slate-500">{modelDateFormatter.format(new Date(model.created))}</span>
+							{/if}
+						</span>
+					{/snippet}
+
+					{#snippet modelSelected(option: SelectOption | undefined)}
+						{@const model = getModelById(option?.value)}
+						<span class="flex items-center gap-2">
+							{#if model?.is_reasoning}
+								<span class="text-slate-500" title="Reasoning model">
+									<Brain size={16} />
+								</span>
+							{/if}
+							<span class="truncate">{option?.label ?? 'Select Chat Model'}</span>
+							{#if model}
+								<span class="text-xs text-slate-500">{modelDateFormatter.format(new Date(model.created))}</span>
+							{/if}
+						</span>
+					{/snippet}
+
 					<Select
-						options={allOpenAIModels.map(model => ({ label: model.name, value: model.id }))}
-						bind:value={selectedModel}
-						placeholder="Select Chat Model"
 						class="w-full"
+						item={modelItem}
+						options={allOpenAIModels.map(model => ({ label: model.name, value: model.id }))}
+						placeholder="Select Chat Model"
+						selected={modelSelected}
+						bind:value={selectedModel}
 					/>
 				</div>
 

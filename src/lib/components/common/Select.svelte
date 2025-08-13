@@ -1,20 +1,20 @@
+<script module lang="ts">
+	export type SelectOption = { label: string; value: string };
+</script>
+
 <script lang="ts">
 	import { Check, ChevronDown } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
-
-	interface Option {
-		label: string;
-		value: string;
-	}
 
 	interface Props {
 		class?: string;
 		disabled?: boolean;
 		id?: string;
-		item?: Snippet<[Option, { highlighted: boolean; selected: boolean }]>;
+		item?: Snippet<[SelectOption, { highlighted: boolean; selected: boolean }]>;
 		onchange?: (e: Event) => void;
-		options: Option[];
+		options: SelectOption[];
 		placeholder?: string;
+		selected?: Snippet<[SelectOption | undefined]>;
 		value?: string;
 	}
 
@@ -26,6 +26,7 @@
 		onchange,
 		options,
 		placeholder,
+		selected,
 		value = $bindable()
 	}: Props = $props();
 
@@ -138,7 +139,13 @@
 		onkeydown={onKeyDown}
 		type="button"
 	>
-		<span>{sortedOptions().find(o => o.value === value)?.label ?? placeholder}</span>
+		<span>
+			{#if selected}
+				{@render selected(sortedOptions().find(o => o.value === value))}
+			{:else}
+				{sortedOptions().find(o => o.value === value)?.label ?? placeholder}
+			{/if}
+		</span>
 		<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
 			<ChevronDown size={18} />
 		</div>

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import Modal from '$lib/components/common/Modal.svelte';
+    import MessageStats from '$lib/components/common/MessageStats.svelte';
+    import Modal from '$lib/components/common/Modal.svelte';
 	import Button from '$lib/components/common/Button.svelte';
 	import TextArea from '$lib/components/common/TextArea.svelte';
 	import { notifications } from '$lib/stores/notifications';
@@ -13,10 +14,12 @@
 
 	let { ragName, open = $bindable(false), onPromptGenerated }: Props = $props();
 
-	let description = $state('');
+    let description = $state('');
 	let generatedPrompt = $state('');
 	let loading = $state(false);
 	let copied = $state(false);
+    let descriptionTextArea: HTMLTextAreaElement | undefined = $state();
+    let generatedPromptContainer: HTMLDivElement | undefined = $state();
 
 	async function generatePrompt() {
 		if (!description.trim()) {
@@ -87,13 +90,17 @@
 			<label for="description" class="block text-sm font-medium text-slate-200">
 				Desired Role Description
 			</label>
-			<TextArea
-				id="description"
-				bind:value={description}
-				placeholder="Ex: I'd like the model to be super good at web development with React and Node.js"
-				minHeight="88px"
-				class="w-full"
-			/>
+            <div class="flex flex-col space-y-2 items-end">
+                <TextArea
+                    id="description"
+                    bind:value={description}
+                    placeholder="Ex: I'd like the model to be super good at web development with React and Node.js"
+                    minHeight="88px"
+                    class="w-full"
+                    bind:textareaRef={descriptionTextArea}
+                />
+                <MessageStats class="text-slate-400" text={description} hideWhenEmpty={false} targetElement={descriptionTextArea!} />
+            </div>
 			<div class="flex justify-between items-center">
 				<p class="text-xs text-slate-400">
 					Describe the role or expertise you want for your assistant
@@ -137,9 +144,12 @@
 						</Button>
 					</div>
 				</div>
-				<div class="bg-slate-800 border border-slate-600 rounded-lg p-4">
-					<pre class="text-sm text-slate-200 whitespace-pre-wrap font-mono">{generatedPrompt}</pre>
-				</div>
+                <div class="bg-slate-800 border border-slate-600 rounded-lg p-4" bind:this={generatedPromptContainer}>
+                    <pre class="text-sm text-slate-200 whitespace-pre-wrap font-mono">{generatedPrompt}</pre>
+                </div>
+                <div class="flex justify-end">
+                    <MessageStats class="text-slate-400" text={generatedPrompt} hideWhenEmpty={false} targetElement={generatedPromptContainer!} />
+                </div>
 			</div>
 		{/if}
 

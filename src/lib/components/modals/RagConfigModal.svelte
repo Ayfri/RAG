@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { CheckCircle, Loader, RefreshCw, Save, Settings, Sparkles, X } from '@lucide/svelte';
-	import { openAIModels } from '$lib/stores/openai-models.js';
-	import Button from '$lib/components/common/Button.svelte';
-	import Modal from '$lib/components/common/Modal.svelte';
-	import Select from '$lib/components/common/Select.svelte';
-	import SystemPromptGeneratorModal from '$lib/components/modals/SystemPromptGeneratorModal.svelte';
-	import TextArea from '$lib/components/common/TextArea.svelte';
+    import { openAIModels } from '$lib/stores/openai-models.js';
+    import Button from '$lib/components/common/Button.svelte';
+    import MessageStats from '$lib/components/common/MessageStats.svelte';
+    import Modal from '$lib/components/common/Modal.svelte';
+    import Select from '$lib/components/common/Select.svelte';
+    import SystemPromptGeneratorModal from '$lib/components/modals/SystemPromptGeneratorModal.svelte';
+    import TextArea from '$lib/components/common/TextArea.svelte';
 	import type { OpenAIModel, RagConfig } from '$lib/types.d.ts';
 	import { fetchRagConfig, updateRagConfig } from '$lib/helpers/rag-api';
 
@@ -28,6 +29,7 @@
 	let saving = $state(false);
 	let error = $state('');
 	let showPromptGeneratorModal = $state(false);
+    let systemPromptTextArea: HTMLTextAreaElement | undefined = $state();
 
 	async function reloadModels() {
 		try {
@@ -170,7 +172,7 @@
 
 			<!-- System Prompt -->
 			<div class="space-y-3">
-				<div class="flex justify-between items-center">
+                <div class="flex justify-between items-center">
 					<label for="system-prompt" class="block text-sm font-medium text-slate-200">
 						System Prompt
 					</label>
@@ -184,12 +186,16 @@
 						<span>Generate</span>
 					</Button>
 				</div>
-				<TextArea
-					id="system-prompt"
-					bind:value={config.system_prompt}
-					placeholder="Enter the system prompt that will guide the AI's responses..."
-					minHeight="120px"
-				/>
+				<div class="flex flex-col space-y-2 items-end">
+					<TextArea
+						id="system-prompt"
+						bind:value={config.system_prompt}
+						placeholder="Enter the system prompt that will guide the AI's responses..."
+						minHeight="120px"
+						bind:textareaRef={systemPromptTextArea}
+					/>
+					<MessageStats class="text-slate-400" text={config.system_prompt} hideWhenEmpty={false} targetElement={systemPromptTextArea!} />
+				</div>
 				<p class="text-xs text-slate-500">Instructions that guide how the AI should respond to queries.</p>
 			</div>
 

@@ -30,6 +30,8 @@ import html2text
 import requests
 from bs4 import BeautifulSoup
 
+from typing import Any, cast
+
 from src.agent import get_agent
 from src.config import OPENAI_API_KEY
 from src.rag_config import RAGConfig
@@ -90,8 +92,9 @@ class RAGService:
 				if event.tool_name.startswith('search'):
 					new_sources = event.tool_output.raw_output
 					if isinstance(new_sources, dict) and 'content' in new_sources and 'urls' in new_sources:
-						sources.append(new_sources)  # type: ignore
-						sources_event: SourcesStreamEvent = {'type': 'sources', 'data': new_sources}  # type: ignore
+						validated_source: SearchResultItem = cast(SearchResultItem, new_sources)
+						sources.append(validated_source)
+						sources_event: SourcesStreamEvent = {'type': 'sources', 'data': validated_source}
 						yield sources_event
 					else:
 						print(f"Warning: Invalid search result format: {new_sources}")
@@ -238,14 +241,27 @@ class RAGService:
 		files = self.get_files(files_path)
 		symlinks = self.get_symlinks(files_path)
 
+		# Also include previously saved web URLs so reindexing keeps them
+		try:
+			existing_index = self._load_index(rag_name)
+			for node in existing_index.docstore.docs.values():
+				if node.metadata.get('source_type') == 'web_page':
+					text = getattr(node, 'text', '')
+					if text:
+						docs.append(Document(text=text, metadata=node.metadata))
+		except FileNotFoundError:
+			pass
+
 		if symlinks:
 			for link_path in symlinks:
 				symlink_name = link_path.name
 				filters = config.get_file_filters_for_path(symlink_name)
-				reader_kwargs = {'recursive': True, 'encoding': 'utf-8'}
-				if filters['exclude']:
-					reader_kwargs['exclude'] = filters['exclude']
-				loaded_docs = SimpleDirectoryReader(str(link_path), **reader_kwargs).load_data(show_progress=True)
+				loaded_docs = SimpleDirectoryReader(
+					input_dir=str(link_path),
+					exclude=filters['exclude'] or None,
+					recursive=True,
+					encoding='utf-8'
+				).load_data(show_progress=True)
 				filtered_docs = self._filter_documents_by_include_globs(loaded_docs, filters['include'])
 				docs.extend(filtered_docs)
 
@@ -256,10 +272,12 @@ class RAGService:
 				for file in filtered_files:
 					docs.extend(JSONReader().load_data(input_file=str(files_path / file)))
 			else:
-				reader_kwargs = {'recursive': True, 'encoding': 'utf-8'}
-				if base_filters['exclude']:
-					reader_kwargs['exclude'] = base_filters['exclude']
-				loaded_docs = SimpleDirectoryReader(str(files_path), **reader_kwargs).load_data(show_progress=True)
+				loaded_docs = SimpleDirectoryReader(
+					input_dir=str(files_path),
+					exclude=base_filters['exclude'] or None,
+					recursive=True,
+					encoding='utf-8'
+				).load_data(show_progress=True)
 				filtered_docs = self._filter_documents_by_include_globs(loaded_docs, base_filters['include'])
 				docs.extend(filtered_docs)
 
@@ -293,7 +311,33 @@ class RAGService:
 				summary_path.write_text(str(summary_response), encoding='utf-8')
 				print(f"Generated and saved summary for {rag_name} at {summary_path}")
 			else:
-				print("No documents found, skipping summary generation")
+				# If there are no local files/symlinks but URLs exist in the existing index, generate summary from that index
+				try:
+					existing_index = self._load_index(rag_name)
+					if existing_index.docstore.docs:
+						print("Generating summary from existing URL documents...")
+						summary_llm = OpenAI(
+							api_key=OPENAI_API_KEY,
+							model="o4-mini",
+							reasoning_effort="high",
+						)
+						query_engine = existing_index.as_query_engine(
+							llm=summary_llm,
+							response_mode=ResponseMode.COMPACT_ACCUMULATE,
+							similarity_top_k=30,
+						)
+						summary_prompt = """
+							Summarize the project based on the provided documents. Focus on key functionalities, architecture, and purpose. Pin any important information.
+							Use markdown formatting, be exhaustive and complete.
+						"""
+						summary_response = query_engine.query(textwrap.dedent(summary_prompt).strip())
+						summary_path = self._RESUMES_DIR / f'{rag_name}.md'
+						summary_path.write_text(str(summary_response), encoding='utf-8')
+						print(f"Generated and saved summary for {rag_name} at {summary_path}")
+					else:
+						print("No documents found, skipping summary generation")
+				except FileNotFoundError:
+					print("No documents found, skipping summary generation")
 		finally:
 			Settings.embed_model = original_embed_model
 
@@ -373,7 +417,7 @@ class RAGService:
 			parsed_url = urlparse(url)
 			if not parsed_url.scheme or not parsed_url.netloc:
 				raise Exception(f"Invalid URL format: {url}")
-		except Exception as e:
+		except Exception:
 			raise Exception(f"Invalid URL: {url}")
 
 		try:
@@ -391,6 +435,7 @@ class RAGService:
 				max_retries = 3
 				retry_delay = 1
 
+				response: requests.Response | None = None
 				for attempt in range(max_retries):
 					try:
 						response = session.get(
@@ -416,6 +461,9 @@ class RAGService:
 
 					except requests.exceptions.RequestException as e:
 						raise e
+
+				if response is None:
+					raise Exception(f"No response received from {url}")
 
 				content_type = response.headers.get('content-type', '').lower()
 				if not any(ct in content_type for ct in ['text/html', 'text/plain', 'application/xhtml+xml']):
@@ -551,15 +599,15 @@ Respond only with the generated system prompt, without additional explanations."
 		return [f for f in input_path.iterdir() if f.is_symlink()]
 
 
-	def list_files(self, rag_name: str) -> list[dict]:
+	def list_files(self, rag_name: str) -> list[dict[str, Any]]:
 		"""List all files and directories in the RAG's document directory with metadata."""
 		files_path = self._FILES_DIR / rag_name
 		if not files_path.exists():
 			raise FileNotFoundError(f'Files directory for RAG "{rag_name}" not found.')
 
-		items = []
+		items: list[dict[str, Any]] = []
 		for item in files_path.iterdir():
-			item_info = {
+			item_info: dict[str, Any] = {
 				'name': item.name,
 				'type': 'directory' if item.is_dir() else 'file',
 				'is_symlink': item.is_symlink()

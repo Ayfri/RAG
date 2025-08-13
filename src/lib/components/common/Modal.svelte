@@ -1,7 +1,7 @@
 
 <script lang="ts">
 	import { X } from '@lucide/svelte';
-	import { fly } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 	import Button from '$lib/components/common/Button.svelte';
 
 	const sizes = {
@@ -31,6 +31,7 @@
 		aria-modal="true"
 		aria-labelledby={title}
 		onclick={(e) => e.target === e.currentTarget && (open = false)}
+		transition:fade={{ duration: 300 }}
 	>
 		<div
 			class="glass rounded-2xl shadow-2xl w-full max-h-[90vh] overflow-y-auto {sizes[size]} {extraClass}"

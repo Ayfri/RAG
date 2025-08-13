@@ -1,7 +1,8 @@
 <script lang="ts">
-	import Button from '$lib/components/common/Button.svelte';
-	import TextArea from '$lib/components/common/TextArea.svelte';
-	import {AlertCircle, Loader, SendHorizontal} from '@lucide/svelte';
+    import Button from '$lib/components/common/Button.svelte';
+    import MessageStats from '$lib/components/common/MessageStats.svelte';
+    import TextArea from '$lib/components/common/TextArea.svelte';
+    import {AlertCircle, Loader, SendHorizontal} from '@lucide/svelte';
 
 	interface Props {
 		value: string;
@@ -101,11 +102,8 @@
 						Press <span class="font-bold">Enter</span> to submit
 					{/if}
 				</div>
-				{#if value.length > 0}
-					<div class="text-xs text-slate-400">
-						{value.length} chars
-					</div>
-				{/if}
+
+				<MessageStats text={value} />
 			</div>
 		</div>
 		<Button

@@ -4,7 +4,7 @@
 	import Select from '$lib/components/common/Select.svelte';
 	import DocumentsModal from '$lib/components/DocumentsModal.svelte';
 
-	import ChatMessage from '$lib/components/messages/ChatMessage.svelte';
+    import ChatMessage from '$lib/components/messages/ChatMessage.svelte';
 	import RagConfigModal from '$lib/components/RagConfigModal.svelte';
 	import {type ChatMessage as StoredChatMessage, chatStorage} from '$lib/helpers/chat-storage';
 	import {AgenticStreamingParser} from '$lib/helpers/streaming-parser';
@@ -13,7 +13,9 @@
 	import {selectedState} from '$lib/stores/selectedState';
 	import type { OpenAIModel } from '$lib/types';
 	import {Bot, FileText, MessageSquare, Settings, Trash2, ChevronDown} from '@lucide/svelte';
-	import { fetchRagConfig, updateRagConfig } from '$lib/helpers/rag-api';
+    import { fetchRagConfig, updateRagConfig } from '$lib/helpers/rag-api';
+    import { countTokensFromText } from '$lib/helpers/tokenizer';
+    import MessageStats from '$lib/components/common/MessageStats.svelte';
 
 	interface Props {
 		ragName: string;
@@ -41,6 +43,11 @@
 	let autoScroll = $state(true);
 	let userScrolled = $state(false);
 	let showScrollToBottom = $state(false);
+
+    function getTotalText(msgs: Message[]): string {
+        if (!msgs || msgs.length === 0) return '';
+        return msgs.map(m => m.content).join('\n');
+    }
 
 	// Restore session from persistent state
 	$effect(() => {
@@ -615,12 +622,12 @@
 					/>
 				{/each}
 
-				<!-- Total characters count -->
+                <!-- Total characters/tokens count -->
 				{#if messages.length > 0}
-					{@const totalChars = messages.reduce((sum, msg) => sum + msg.content.length, 0)}
+                    {@const totalText = getTotalText(messages)}
 					<div class="text-center py-1">
 						<span class="text-xs text-slate-500 bg-slate-800/50 px-3 py-1 rounded-full border border-slate-700">
-							{messages.length} message{messages.length > 1 ? 's' : ''} • {totalChars.toLocaleString()} characters
+                            {messages.length} message{messages.length > 1 ? 's' : ''} • <MessageStats hideWhenEmpty={false} text={totalText} />
 						</span>
 					</div>
 				{/if}

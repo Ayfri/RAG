@@ -1,5 +1,6 @@
 <script lang="ts">
-	import Button from '$lib/components/common/Button.svelte';
+    import Button from '$lib/components/common/Button.svelte';
+    import MessageStats from '$lib/components/common/MessageStats.svelte';
 	import Markdown from '$lib/components/common/Markdown.svelte';
 	import TextArea from '$lib/components/common/TextArea.svelte';
 	import DocumentSources from '$lib/components/messages/DocumentSources.svelte';
@@ -81,9 +82,7 @@
 			<span class="text-xs text-slate-500">
 				{formatTime(message.timestamp)}
 			</span>
-			<span class="text-xs text-slate-500">
-				{message.content.length} chars
-			</span>
+            <MessageStats class="text-slate-500" text={message.content} />
 
 			<div class="flex items-center lg:opacity-0 group-hover:opacity-100 transition-opacity duration-200">
 				{#if message.role === 'user' && !isEditing}
@@ -190,9 +189,9 @@
 													<div class="text-slate-300 mb-1">
 														File read: <span class="text-purple-300 font-mono">{data.file_path}</span>
 													</div>
-													<div class="text-slate-500 text-xs">
-														Content length: {data.content.length} characters
-													</div>
+                                            <div class="text-slate-500 text-xs">
+                                                Content length: <MessageStats hideWhenEmpty={false} text={data.content} />
+                                            </div>
 												{:else}
 													<div class="text-red-300 mb-1">
 														Failed to read: <span class="text-red-200 font-mono">{data.file_path}</span>

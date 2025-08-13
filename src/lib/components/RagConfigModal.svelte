@@ -6,7 +6,8 @@
 	import Select from '$lib/components/common/Select.svelte';
 	import SystemPromptGeneratorModal from '$lib/components/SystemPromptGeneratorModal.svelte';
 	import TextArea from '$lib/components/common/TextArea.svelte';
-	import type { OpenAIModel } from '$lib/types.d.ts';
+	import type { OpenAIModel, RagConfig } from '$lib/types.d.ts';
+	import { fetchRagConfig, updateRagConfig } from '$lib/helpers/rag-api';
 
 	interface Props {
 		ragName: string;
@@ -15,13 +16,6 @@
 	}
 
 	let { ragName, onupdated, open = $bindable(false) }: Props = $props();
-
-	interface RagConfig {
-		chat_model: string;
-		embedding_model: string;
-		system_prompt: string;
-		file_filters?: Record<string, Record<string, string[]>>;
-	}
 
 	let config: RagConfig = $state({
 		chat_model: 'gpt-4o-mini',
@@ -37,7 +31,7 @@
 
 	async function reloadModels() {
 		try {
-			await fetch('/api/models', { headers: { 'Cache-Control': 'no-cache' } });
+			await fetch('/api/models', { headers: { 'Cache-Control': 'no-cache' }});
 		} catch (err) {
 			console.warn('Failed to reload models:', err);
 		}
@@ -48,13 +42,7 @@
 			loading = true;
 			error = '';
 
-			const response = await fetch(`/api/rag/${ragName}/config`);
-
-			if (!response.ok) {
-				throw new Error('Failed to load configuration');
-			}
-
-			const data = await response.json();
+			const data = await fetchRagConfig(ragName);
 			config = { ...data };
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Unknown error';
@@ -68,17 +56,7 @@
 			saving = true;
 			error = '';
 
-			const response = await fetch(`/api/rag/${ragName}/config`, {
-				method: 'PUT',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify(config)
-			});
-
-			if (!response.ok) {
-				throw new Error('Failed to save configuration');
-			}
+			await updateRagConfig(ragName, config);
 
 			onupdated();
 			open = false;

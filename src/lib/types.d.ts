@@ -109,3 +109,12 @@ export interface FileListResult {
 	success: boolean;
 	error?: string;
 }
+
+
+// Rag config
+export interface RagConfig {
+	chat_model: string;
+	embedding_model: string;
+	system_prompt: string;
+	file_filters?: Record<string, Record<string, string[]>>;
+}

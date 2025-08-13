@@ -11,8 +11,9 @@
 	import {notifications} from '$lib/stores/notifications';
 	import {openAIModels} from '$lib/stores/openai-models';
 	import {selectedState} from '$lib/stores/selectedState';
-	import type {FileItem, OpenAIModel} from '$lib/types.d.ts';
+	import type { OpenAIModel } from '$lib/types';
 	import {Bot, FileText, MessageSquare, Settings, Trash2, ChevronDown} from '@lucide/svelte';
+	import { fetchRagConfig, updateRagConfig } from '$lib/helpers/rag-api';
 
 	interface Props {
 		ragName: string;
@@ -466,9 +467,7 @@
 
 	async function loadRagConfig() {
 		try {
-			const res = await fetch(`/api/rag/${ragName}/config`);
-			if (!res.ok) throw new Error('Failed to load RAG config');
-			const config = await res.json();
+			const config = await fetchRagConfig(ragName);
 			selectedModel = config.chat_model;
 		} catch (err) {
 			console.error('Failed to load RAG config:', err);
@@ -476,14 +475,9 @@
 		}
 	}
 
-	async function updateRagConfig(newModel: string) {
+	async function updateModelConfig(newModel: string) {
 		try {
-			const res = await fetch(`/api/rag/${ragName}/config`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ chat_model: newModel })
-			});
-			if (!res.ok) throw new Error('Failed to update RAG config');
+			await updateRagConfig(ragName, { chat_model: newModel });
 		} catch (err) {
 			console.error('Failed to update RAG config:', err);
 			notifications.error(`Failed to update chat model: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -579,7 +573,7 @@
 
 	$effect(() => {
 		if (selectedModel) {
-			updateRagConfig(selectedModel);
+			updateModelConfig(selectedModel);
 		}
 	});
 

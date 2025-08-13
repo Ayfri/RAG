@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { AlertCircle, Check, Loader, Plus, Settings, X } from '@lucide/svelte';
 	import Button from '$lib/components/common/Button.svelte';
 	import Input from '$lib/components/common/Input.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
-	import {AlertCircle, Check, Loader, Plus, Settings, X} from '@lucide/svelte';
+	import TextArea from '$lib/components/common/TextArea.svelte';
+	import { fetchRagConfig, updateRagConfig } from '$lib/helpers/rag-api';
 
 	interface Props {
 		ragName?: string;
@@ -124,7 +126,13 @@
 			loading = true;
 			error = '';
 
-			const response = await fetch(`/api/rag/${ragName}/config`);
+			const response = await fetch(`/api/rag/${ragName}/config`, {
+				headers: {
+					'Cache-Control': 'no-cache',
+					'Pragma': 'no-cache',
+					'Expires': '0'
+				}
+			});
 			if (!response.ok) {
 				throw new Error('Failed to load configuration');
 			}
@@ -151,7 +159,13 @@
 			error = '';
 
 			// Load current config first
-			const response = await fetch(`/api/rag/${ragName}/config`);
+			const response = await fetch(`/api/rag/${ragName}/config`, {
+				headers: {
+					'Cache-Control': 'no-cache',
+					'Pragma': 'no-cache',
+					'Expires': '0'
+				}
+			});
 			if (!response.ok) {
 				throw new Error('Failed to load current configuration');
 			}

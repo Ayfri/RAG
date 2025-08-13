@@ -103,7 +103,7 @@
 					{/if}
 				</div>
 
-				<MessageStats text={value} />
+                <MessageStats text={value} targetElement={textareaElement} />
 			</div>
 		</div>
 		<Button

@@ -1,6 +1,6 @@
 // Default import uses o200k_base which matches modern OpenAI models
 
-import {encode} from 'gpt-tokenizer';
+import {decode, encode} from 'gpt-tokenizer';
 
 export function countTokensFromText(text: string): number {
 	if (!text) return 0;
@@ -19,4 +19,20 @@ export function countTokens(input: string | string[]): number {
 		return countTokensFromText(joined);
 	}
 	return countTokensFromText(input);
+}
+
+export function encodeText(text: string): number[] {
+	try {
+		return encode(text || '');
+	} catch {
+		return [];
+	}
+}
+
+export function decodeSingleToken(tokenId: number): string {
+	try {
+		return decode([tokenId]);
+	} catch {
+		return '';
+	}
 }

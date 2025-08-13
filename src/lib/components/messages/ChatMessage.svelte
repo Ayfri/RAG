@@ -32,8 +32,10 @@
 
 	let { message, isStreaming = false, isLastMessage = false, onDelete, onEdit, onRegenerate }: Props = $props();
 
-	let isEditing = $state(false);
+    let isEditing = $state(false);
 	let editedContent = $state(message.content);
+	let displayParagraph: HTMLParagraphElement | undefined = $state(undefined);
+	let assistantContentEl: HTMLDivElement | undefined = $state(undefined);
 
 	console.log($state.snapshot(message));
 
@@ -82,7 +84,7 @@
 			<span class="text-xs text-slate-500">
 				{formatTime(message.timestamp)}
 			</span>
-            <MessageStats class="text-slate-500" text={message.content} />
+			<MessageStats class="text-slate-500" text={message.content} targetElement={message.role === 'user' ? displayParagraph : assistantContentEl} />
 
 			<div class="flex items-center lg:opacity-0 group-hover:opacity-100 transition-opacity duration-200">
 				{#if message.role === 'user' && !isEditing}
@@ -107,9 +109,11 @@
 		</div>
 		<div class="flex items-start {message.role === 'user' ? 'flex-row-reverse' : ''} gap-2">
 			<div class="p-2.5 rounded-xl {message.role === 'user'
-				? 'bg-gradient-to-r from-cyan-700 to-cyan-800 text-white'
-				: 'bg-slate-800/50 border border-slate-600'
-			} flex-1 min-w-0 break-words">
+					? 'bg-gradient-to-r from-cyan-700 to-cyan-800 text-white'
+					: 'bg-slate-800/50 border border-slate-600'
+				} flex-1 min-w-0 break-words"
+				bind:this={assistantContentEl}
+			>
 				{#if message.role === 'user' && isEditing}
 					<!-- Edit mode for user messages -->
 					<div class="space-y-3">
@@ -136,9 +140,9 @@
 							</Button>
 						</div>
 					</div>
-				{:else if message.role === 'user'}
+                {:else if message.role === 'user'}
 					<!-- Display mode for user messages -->
-					<p class="whitespace-pre-wrap break-words text-sm">{message.content}</p>
+                    <p class="whitespace-pre-wrap break-words text-sm" bind:this={displayParagraph}>{message.content}</p>
 				{:else}
 					{@const hasUrls = message.sources?.some(source => source.urls.length > 0)}
 					{@const hasDocuments = message.documents && message.documents.length > 0}

@@ -19,9 +19,10 @@ openai.api_key = OPENAI_API_KEY
 
 
 class ModelInfo(TypedDict):
-	id: str
-	name: str
 	created: str
+	id: str
+	is_reasoning: bool
+	name: str
 	year: int
 
 
@@ -62,9 +63,10 @@ async def get_openai_models() -> dict[str, list[ModelInfo]]:
 
 			# Create model info object
 			model_info: ModelInfo = {
-				'id': model_id,
-				'name': _get_display_name(model_id),
 				'created': model_created.isoformat(),
+				'id': model_id,
+				'is_reasoning': _is_thinking_model(model_id),
+				'name': _get_display_name(model_id),
 				'year': model_created.year
 			}
 
@@ -110,7 +112,7 @@ def _is_deprecated_model(model_id: str) -> bool:
 		'gpt-4-0613',
 		'gpt-4-32k',
 		'gpt-4-turbo-2024-04-09',  # Retiring September 2025
-		'gpt-4.5-preview', # This model appears to be a preview that is being replaced by GPT-4.1
+		'gpt-4.5-preview', # This model was a preview and is being replaced by GPT-4.1
 		# Old text completion models
 		'text-davinci',
 		'text-curie',
@@ -125,7 +127,10 @@ def _is_deprecated_model(model_id: str) -> bool:
 		# Instruct models
 		'gpt-3.5-turbo-instruct',
 		# Preview models with explicit retirement dates
+		'gpt-4o-audio-preview', # Retiring September 2025
+		'gpt-4o-realtime-preview', # Retiring September 2025
 		'o1-preview',  # Retiring July 2025
+		'o1-mini', # Retiring October 2025
 		# Generic previews if not explicitly handled by special models
 		'-preview', # Catch all for other preview models not explicitly listed
 	]
@@ -160,8 +165,6 @@ def _is_special_model(model_id: str) -> bool:
 		'tts-1',
 		'tts-1-hd',
 		'gpt-4o-mini-realtime-preview',
-		'gpt-4o-realtime-preview',
-		'gpt-4o-audio-preview',
 		'gpt-4o-transcribe',
 		'gpt-4o-mini-tts',
 		'gpt-4o-mini-transcribe',

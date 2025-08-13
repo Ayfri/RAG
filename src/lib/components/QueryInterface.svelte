@@ -369,14 +369,49 @@
 		if (userMessageIndex < 0 || messages[userMessageIndex].role !== 'user') return;
 
 		const userMessage = messages[userMessageIndex];
-		messages = messages.slice(0, userMessageIndex); // Remove all messages from the user message to regenerate
 
-		currentMessage = userMessage.content;
-		await sendMessage();
+		// Determine all messages after the user message that must be removed (including the current assistant and following)
+		const messagesToDelete = messages.slice(userMessageIndex + 1).map(m => m.id);
+
+		// Update UI first: keep up to and including the user message
+		messages = messages.slice(0, userMessageIndex + 1);
+
+		// Delete persisted messages after the user message
+		if (currentSessionId && messagesToDelete.length > 0) {
+			for (const messageId of messagesToDelete) {
+				await chatStorage.deleteMessage(currentSessionId, messageId);
+			}
+			// Notify others that messages changed
+			window.dispatchEvent(new CustomEvent('messageDeleted', {
+				detail: { ragName, sessionId: currentSessionId }
+			}));
+		}
+
+		// Create a fresh assistant placeholder and stream a new response using the existing user content
+		const assistantMessage: Message = {
+			id: crypto.randomUUID(),
+			role: 'assistant',
+			content: '',
+			timestamp: new Date(),
+			toolActivities: [],
+			contentParts: [],
+			fileLists: []
+		};
+
+		messages = [...messages, assistantMessage];
+
+		try {
+			await streamResponse(userMessage.content.trim(), assistantMessage);
+		} catch (err) {
+			console.error('Failed to regenerate response:', err);
+			notifications.error('Failed to regenerate response');
+			// Remove the assistant message if there was an error
+			messages = messages.slice(0, -1);
+		}
 	}
 
 	async function clearConversation() {
-		if (confirm('Vider la conversation actuelle ?')) {
+		if (confirm('Clear the current conversation?')) {
 			messages = [];
 			if (currentSessionId) {
 				await chatStorage.clearSessionMessages(currentSessionId);
@@ -462,7 +497,7 @@
 			window.dispatchEvent(new CustomEvent('sessionDeleted', {
 				detail: { ragName, sessionId }
 			}));
-			notifications.success('Session supprimée');
+			notifications.success('Session deleted');
 		} catch (err) {
 			console.error('Failed to delete session:', err);
 			notifications.error('Failed to delete session');
@@ -476,7 +511,7 @@
 			window.dispatchEvent(new CustomEvent('sessionRenamed', {
 				detail: { ragName, sessionId, newTitle }
 			}));
-			notifications.success('Session renommée');
+			notifications.success('Session renamed');
 		} catch (err) {
 			console.error('Failed to rename session:', err);
 			notifications.error('Failed to rename session');

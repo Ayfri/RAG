@@ -555,7 +555,7 @@
 					<Select
 						class="w-full"
 						item={modelItem}
-						options={allOpenAIModels.map(model => ({ label: model.name, value: model.id }))}
+						options={allOpenAIModels.toSorted((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()).map(model => ({ label: model.name, value: model.id }))}
 						placeholder="Select Chat Model"
 						selected={modelSelected}
 						bind:value={selectedModel}

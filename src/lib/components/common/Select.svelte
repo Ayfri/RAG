@@ -34,16 +34,13 @@
 	let highlightedIndex = $state(-1);
 	let rootEl: HTMLDivElement | null = null;
 
-	const sortedOptions = () => options.toSorted((a, b) => a.label.localeCompare(b.label));
-
 	function findIndexByValue(v: string | undefined) {
-		return sortedOptions().findIndex(o => o.value === v);
+		return options.findIndex(o => o.value === v);
 	}
 
 	function selectByIndex(index: number) {
-		const opts = sortedOptions();
-		if (index < 0 || index >= opts.length) return;
-		const selected = opts[index];
+		if (index < 0 || index >= options.length) return;
+		const selected = options[index];
 		value = selected.value;
 		emitChange();
 		isOpen = false;
@@ -67,7 +64,6 @@
 
 	function onKeyDown(e: KeyboardEvent) {
 		if (disabled) return;
-		const opts = sortedOptions();
 		switch (e.key) {
 			case 'ArrowDown': {
 				e.preventDefault();
@@ -76,7 +72,7 @@
 					highlightedIndex = Math.max(findIndexByValue(value), 0);
 					return;
 				}
-				highlightedIndex = Math.min((highlightedIndex < 0 ? -1 : highlightedIndex) + 1, opts.length - 1);
+				highlightedIndex = Math.min((highlightedIndex < 0 ? -1 : highlightedIndex) + 1, options.length - 1);
 				break;
 			}
 			case 'ArrowUp': {
@@ -95,7 +91,7 @@
 				break;
 			case 'End':
 				e.preventDefault();
-				highlightedIndex = Math.max(opts.length - 1, 0);
+				highlightedIndex = Math.max(options.length - 1, 0);
 				break;
 			case 'Enter':
 			case ' ': {
@@ -141,9 +137,9 @@
 	>
 		<span>
 			{#if selected}
-				{@render selected(sortedOptions().find(o => o.value === value))}
+				{@render selected(options.find(o => o.value === value))}
 			{:else}
-				{sortedOptions().find(o => o.value === value)?.label ?? placeholder}
+				{options.find(o => o.value === value)?.label ?? placeholder}
 			{/if}
 		</span>
 		<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
@@ -158,7 +154,7 @@
 			role="listbox"
 			tabindex="-1"
 		>
-			{#each sortedOptions() as option, i}
+			{#each options as option, i}
 				<li role="none">
 					<button
 						aria-selected={option.value === value}

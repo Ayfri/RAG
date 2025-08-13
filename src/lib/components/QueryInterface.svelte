@@ -155,6 +155,10 @@
 			}));
 		}
 
+		await streamResponse(query, assistantMessage);
+	}
+
+	async function streamResponse(query: string, assistantMessage: Message) {
 		try {
 			loading = true;
 			streaming = true;
@@ -186,7 +190,7 @@
 
 				// Process complete lines (each line is a JSON event)
 				const lines = buffer.split('\n');
-				buffer = lines.pop() || ''; // Keep incomplete line in buffer
+				buffer = lines.pop() || '';
 
 				for (const line of lines) {
 					if (line.trim()) {
@@ -341,98 +345,12 @@
 		const query = newContent.trim();
 
 		try {
-			loading = true;
-			streaming = true;
-
-			const res = await fetch(`/api/rag/${ragName}/stream`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					query,
-					history: messages.slice(0, -2).map(({ role, content }) => ({ role, content }))
-				})
-			});
-
-			if (!res.ok) throw new Error('Failed to stream response');
-
-			const reader = res.body?.getReader();
-			if (!reader) throw new Error('No response body');
-
-			const decoder = new TextDecoder();
-			const parser = new AgenticStreamingParser();
-			let buffer = '';
-
-			while (true) {
-				const { done, value } = await reader.read();
-				if (done) break;
-
-				const chunk = decoder.decode(value, { stream: true });
-				buffer += chunk;
-
-				// Process complete lines (each line is a JSON event)
-				const lines = buffer.split('\n');
-				buffer = lines.pop() || ''; // Keep incomplete line in buffer
-
-				for (const line of lines) {
-					if (line.trim()) {
-						try {
-							// Each line is a complete JSON event
-							const event = JSON.parse(line.trim());
-							const parsedMessage = parser.processEvent(event);
-
-							// Update the assistant message with parsed data
-							messages = messages.map((msg, index) =>
-								index === messages.length - 1
-									? {
-										...msg,
-										content: parsedMessage.content,
-										contentParts: parsedMessage.contentParts,
-										toolActivities: parsedMessage.toolActivities,
-										documents: parsedMessage.documents,
-										sources: parsedMessage.sources,
-										fileLists: parsedMessage.fileLists
-									}
-									: msg
-							);
-						} catch (e) {
-							console.warn('Failed to parse streaming event:', e, line);
-						}
-					}
-				}
-			}
-
-			// Finalize parsing
-			const finalMessage = parser.finalize();
-			const finalAssistantMessage = {
-				...assistantMessage,
-				content: finalMessage.content,
-				contentParts: finalMessage.contentParts,
-				toolActivities: finalMessage.toolActivities,
-				documents: finalMessage.documents,
-				sources: finalMessage.sources,
-				fileLists: finalMessage.fileLists
-			};
-
-			messages = messages.map((msg, index) =>
-				index === messages.length - 1 ? finalAssistantMessage : msg
-			);
-
-			// Save assistant message to storage
-			if (currentSessionId) {
-				await chatStorage.addMessage(currentSessionId, finalAssistantMessage);
-				// Dispatch event to notify ChatSessions component
-				window.dispatchEvent(new CustomEvent('messageAdded', {
-					detail: { ragName, sessionId: currentSessionId }
-				}));
-			}
+			await streamResponse(query, assistantMessage);
 		} catch (err) {
 			console.error('Failed to regenerate response:', err);
 			notifications.error('Failed to regenerate response');
 			// Remove the assistant message if there was an error
 			messages = messages.slice(0, -1);
-		} finally {
-			loading = false;
-			streaming = false;
 		}
 	}
 

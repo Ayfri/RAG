@@ -3,8 +3,7 @@
 	import Button from '$lib/components/common/Button.svelte';
 	import Input from '$lib/components/common/Input.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
-	import TextArea from '$lib/components/common/TextArea.svelte';
-	import { fetchRagConfig, updateRagConfig } from '$lib/helpers/rag-api';
+	import { getRagFileFilters, setRagFileFilters } from '$lib/helpers/rag-api';
 
 	interface Props {
 		ragName?: string;
@@ -121,27 +120,11 @@
 
 	async function loadConfig() {
 		if (!ragName) return;
-
 		try {
 			loading = true;
 			error = '';
-
-			const response = await fetch(`/api/rag/${ragName}/config`, {
-				headers: {
-					'Cache-Control': 'no-cache',
-					'Pragma': 'no-cache',
-					'Expires': '0'
-				}
-			});
-			if (!response.ok) {
-				throw new Error('Failed to load configuration');
-			}
-
-			const config = await response.json();
-			const fileFilters = config.file_filters || {};
 			const key = folderName || '_base';
-			const filters = fileFilters[key] || { include: ['**/*'], exclude: [] };
-
+			const filters = await getRagFileFilters(ragName, key);
 			includePatterns = [...filters.include];
 			excludePatterns = [...filters.exclude];
 		} catch (err) {
@@ -153,49 +136,14 @@
 
 	async function saveConfig() {
 		if (!ragName) return;
-
 		try {
 			loading = true;
 			error = '';
-
-			// Load current config first
-			const response = await fetch(`/api/rag/${ragName}/config`, {
-				headers: {
-					'Cache-Control': 'no-cache',
-					'Pragma': 'no-cache',
-					'Expires': '0'
-				}
-			});
-			if (!response.ok) {
-				throw new Error('Failed to load current configuration');
-			}
-
-			const currentConfig = await response.json();
-			const fileFilters = currentConfig.file_filters || {};
 			const key = folderName || '_base';
-
-			// Update the file filters for this specific folder/symlink
-			fileFilters[key] = {
+			await setRagFileFilters(ragName, key, {
 				include: includePatterns.length > 0 ? includePatterns : ['**/*'],
 				exclude: excludePatterns
-			};
-
-			// Save updated config
-			const updateResponse = await fetch(`/api/rag/${ragName}/config`, {
-				method: 'PUT',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					...currentConfig,
-					file_filters: fileFilters
-				})
 			});
-
-			if (!updateResponse.ok) {
-				throw new Error('Failed to save configuration');
-			}
-
 			open = false;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Unknown error occurred';
@@ -389,5 +337,6 @@
 					{/if}
 				</Button>
 			</div>
+		</div>
 	</div>
 </Modal>

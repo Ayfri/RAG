@@ -34,3 +34,23 @@ export async function updateRagConfig(ragName: string, config: Partial<RagConfig
 
 	return await response.json() as RagConfig;
 }
+
+// Convenience helpers to avoid duplication across components
+export type FileFilters = { include: string[]; exclude: string[] };
+
+export async function getRagFileFilters(ragName: string, key: string): Promise<FileFilters> {
+	const config = await fetchRagConfig(ragName);
+	const fileFilters = (config as any).file_filters ?? {};
+	return (fileFilters[key] as FileFilters) ?? { include: ['**/*'], exclude: [] };
+}
+
+export async function setRagFileFilters(
+	ragName: string,
+	key: string,
+	filters: FileFilters
+): Promise<RagConfig> {
+	const current = await fetchRagConfig(ragName);
+	const currentFilters = (current as any).file_filters ?? {};
+	const nextFilters = { ...currentFilters, [key]: filters };
+	return updateRagConfig(ragName, { ...current, file_filters: nextFilters });
+}

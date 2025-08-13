@@ -170,6 +170,9 @@ def _is_special_model(model_id: str) -> bool:
 		'sora',
 		'gpt-4o-search-preview',
 		'gpt-4o-mini-search-preview',
+		# Models not working with API
+		'chatgpt-4o-latest',
+  		'gpt-5-chat-latest',
 	]
 	model_lower = model_id.lower()
 	return any(pattern in model_lower for pattern in special_patterns)

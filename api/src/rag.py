@@ -13,7 +13,7 @@ import re
 import time
 from pathlib import Path
 import textwrap
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 from urllib.parse import urlparse
 
 import openai
@@ -55,10 +55,10 @@ openai.api_key = OPENAI_API_KEY
 
 
 class RAGService:
-	_FILES_DIR = Path('data/files')
-	_INDICES_DIR = Path('data/indices')
-	_CONFIGS_DIR = Path('data/configs')
-	_RESUMES_DIR = Path('data/resumes')
+	_FILES_DIR: Path = Path('data/files')
+	_INDICES_DIR: Path = Path('data/indices')
+	_CONFIGS_DIR: Path = Path('data/configs')
+	_RESUMES_DIR: Path = Path('data/resumes')
 
 
 	def __init__(self):
@@ -116,7 +116,7 @@ class RAGService:
 						print(f"Warning: Invalid documents format: {new_documents}")
 
 				elif event.tool_name == 'read_file_tool':
-					file_path = event.tool_kwargs.get('rel_path', 'unknown')
+					file_path = cast(str, event.tool_kwargs.get('rel_path', 'unknown'))
 					file_content = event.tool_output.raw_output
 
 					success = not file_content.startswith('File not found:') and not file_content.startswith('Error reading file:')
@@ -133,7 +133,7 @@ class RAGService:
 					yield read_file_event
 
 				elif event.tool_name == 'list_files_tool':
-					dir_path = event.tool_kwargs.get('rel_dir', 'unknown')
+					dir_path = cast(str, event.tool_kwargs.get('rel_dir', 'unknown'))
 					file_list = event.tool_output.raw_output
 
 					success = not (isinstance(file_list, list) and len(file_list) == 1 and file_list[0].startswith('Directory not found:'))
@@ -152,7 +152,7 @@ class RAGService:
 			if isinstance(event, AgentOutput):
 				chat_history.append(event.response)
 				chat_data = event.response.model_dump()
-				if isinstance(chat_data, dict) and 'role' in chat_data and 'content' in chat_data:
+				if 'role' in chat_data and 'content' in chat_data:
 					stream_chat_item: ChatHistoryItem = {
 						'content': str(chat_data['content']),
 						'role': chat_data['role'] if chat_data['role'] in ['user', 'assistant'] else 'assistant'
@@ -163,7 +163,7 @@ class RAGService:
 		chat_history_items: list[ChatHistoryItem] = []
 		for msg in chat_history:
 			msg_data = msg.model_dump()
-			if isinstance(msg_data, dict) and 'role' in msg_data and 'content' in msg_data:
+			if 'role' in msg_data and 'content' in msg_data:
 				final_chat_item: ChatHistoryItem = {
 					'content': str(msg_data['content']),
 					'role': msg_data['role'] if msg_data['role'] in ['user', 'assistant'] else 'assistant'
@@ -564,7 +564,7 @@ Respond only with the generated system prompt, without additional explanations."
 
 			content = response.choices[0].message.content
 			return content.strip() if content else f"You are an AI assistant specialized in {description}. You can help with questions and tasks related to this domain."
-		except Exception as e:
+		except Exception:
 			return f"You are an AI assistant specialized in {description}. You can help with questions and tasks related to this domain."
 
 
@@ -657,16 +657,16 @@ Respond only with the generated system prompt, without additional explanations."
 		return [p.name for p in self._INDICES_DIR.iterdir() if p.is_dir()]
 
 
-	def list_urls_in_rag(self, rag_name: str) -> list[dict]:
+	def list_urls_in_rag(self, rag_name: str) -> list[dict[str, str]]:
 		"""List all URLs in a RAG index."""
 		try:
 			index = self._load_index(rag_name)
-			documents = []
+			documents: list[dict[str, str]] = []
 			seen_urls: set[str] = set()
 
 			for node in index.docstore.docs.values():
 				if node.metadata.get('source_type') == 'web_page':
-					url = node.metadata.get('url', '')
+					url = cast(str, node.metadata.get('url', ''))
 					if url not in seen_urls:
 						seen_urls.add(url)
 						documents.append({
@@ -714,7 +714,7 @@ Respond only with the generated system prompt, without additional explanations."
 		index.storage_context.persist(persist_dir=str(persist_dir))
 
 
-	def save_directory(self, rag_name: str, directory_name: str, directory_content: dict) -> Path:
+	def save_directory(self, rag_name: str, directory_name: str, directory_content: dict[str, Any]) -> Path:
 		"""Save a directory structure to the RAG's document directory."""
 		files_path = self._FILES_DIR / rag_name
 		files_path.mkdir(parents=True, exist_ok=True)
@@ -722,7 +722,7 @@ Respond only with the generated system prompt, without additional explanations."
 		dir_path = files_path / directory_name
 		dir_path.mkdir(exist_ok=True)
 
-		def _create_structure(base_path: Path, structure: dict):
+		def _create_structure(base_path: Path, structure: dict[str, dict[str, Any] | bytes]):
 			for name, content in structure.items():
 				item_path = base_path / name
 				if isinstance(content, dict):
@@ -753,7 +753,7 @@ Respond only with the generated system prompt, without additional explanations."
 			raise FileNotFoundError(f'RAG "{rag_name}" not found.')
 
 		config_path = self._CONFIGS_DIR / f'{rag_name}.json'
-		config_path.write_text(json.dumps(config.to_dict(), indent=2))
+		config_path.write_text(config.model_dump_json(indent=4))
 
 
 	def _filter_documents_by_include_globs(self, documents: list[Document], include_globs: list[str]) -> list[Document]:
@@ -761,10 +761,10 @@ Respond only with the generated system prompt, without additional explanations."
 		import fnmatch
 		from pathlib import Path
 
-		filtered_docs = []
+		filtered_docs: list[Document] = []
 
 		for doc in documents:
-			file_path = doc.metadata.get('file_path', '')
+			file_path = cast(str, doc.metadata.get('file_path', ''))
 			if file_path:
 				file_name = Path(file_path).name
 
@@ -784,7 +784,7 @@ Respond only with the generated system prompt, without additional explanations."
 		"""Filter files list based on include and exclude glob patterns."""
 		import fnmatch
 
-		filtered_files = []
+		filtered_files: list[str] = []
 
 		for file in files:
 			excluded = False
@@ -867,11 +867,10 @@ Respond only with the generated system prompt, without additional explanations."
 
 		if config_path.exists():
 			try:
-				config_data = json.loads(config_path.read_text())
-				return RAGConfig.from_dict(config_data)
+				return RAGConfig.model_validate_json(config_path.read_text())
 			except (json.JSONDecodeError, KeyError) as e:
 				print(f'Warning: Invalid config file for RAG "{rag_name}": {e}. Using defaults.')
 
 		default_config = RAGConfig()
-		config_path.write_text(json.dumps(default_config.to_dict(), indent=2))
+		config_path.write_text(default_config.model_dump_json(indent=2))
 		return default_config

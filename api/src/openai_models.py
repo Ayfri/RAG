@@ -5,19 +5,27 @@ This module handles fetching and categorizing OpenAI models from the API,
 filtering out deprecated models and organizing them by type.
 """
 
-from datetime import datetime
 import re
+from datetime import datetime
+from typing import TypedDict
 
 import openai
 
-from .config import OPENAI_API_KEY
+from src.config import OPENAI_API_KEY
 
 
 # Configure OpenAI client
 openai.api_key = OPENAI_API_KEY
 
 
-async def get_openai_models() -> dict[str, list[dict[str, str]]]:
+class ModelInfo(TypedDict):
+	id: str
+	name: str
+	created: str
+	year: int
+
+
+async def get_openai_models() -> dict[str, list[ModelInfo]]:
 	"""
 	Fetch and categorize available OpenAI models.
 
@@ -36,11 +44,8 @@ async def get_openai_models() -> dict[str, list[dict[str, str]]]:
 		client = openai.OpenAI(api_key=OPENAI_API_KEY)
 		response = client.models.list()
 
-		# Current year for filtering recent models
-		current_year = datetime.now().year
-
 		# Initialize categorized model lists
-		categorized_models = {
+		categorized_models: dict[str, list[ModelInfo]] = {
 			'chat': [],
 			'embedding': [],
 			'thinking': [],
@@ -56,7 +61,7 @@ async def get_openai_models() -> dict[str, list[dict[str, str]]]:
 				continue
 
 			# Create model info object
-			model_info = {
+			model_info: ModelInfo = {
 				'id': model_id,
 				'name': _get_display_name(model_id),
 				'created': model_created.isoformat(),

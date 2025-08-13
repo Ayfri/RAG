@@ -3,14 +3,15 @@ RAG API router containing all endpoints for managing RAG indices and documents.
 """
 
 import json
-from typing import AsyncGenerator, Literal
+from collections.abc import AsyncGenerator
+from typing import Any, Literal
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from llama_index.core.base.llms.types import ChatMessage as LLamaIndexChatMessage
 from pydantic import BaseModel, Field
 
-from src.openai_models import get_openai_models
+from src.openai_models import ModelInfo, get_openai_models
 from src.rag import RAGService
 from src.rag_config import RAGConfig
 from src.types import StreamEvent
@@ -112,7 +113,7 @@ async def list_rags() -> list[str]:
 
 
 @router.get('/{rag_name}/config', response_model=dict)
-async def get_rag_config(rag_name: str) -> dict:
+async def get_rag_config(rag_name: str) -> dict[str, Any]:
 	"""
 	Get the configuration for a specific RAG.
 
@@ -122,13 +123,13 @@ async def get_rag_config(rag_name: str) -> dict:
 	"""
 	try:
 		config = rag_service.get_rag_config(rag_name)
-		return config.to_dict()
+		return config.model_dump()
 	except FileNotFoundError as exc:
 		raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.put('/{rag_name}/config', status_code=200)
-async def update_rag_config(rag_name: str, config_data: dict):
+async def update_rag_config(rag_name: str, config_data: dict[str, Any]):
 	"""
 	Update the configuration for a specific RAG.
 
@@ -138,7 +139,7 @@ async def update_rag_config(rag_name: str, config_data: dict):
 	:raises HTTPException: 404 if RAG not found, 400 if invalid config
 	"""
 	try:
-		config = RAGConfig.from_dict(config_data)
+		config = RAGConfig.model_validate(config_data)
 		rag_service.update_rag_config(rag_name, config)
 		return JSONResponse({'detail': 'Configuration updated successfully'})
 	except FileNotFoundError as exc:
@@ -147,8 +148,8 @@ async def update_rag_config(rag_name: str, config_data: dict):
 		raise HTTPException(status_code=400, detail=f'Invalid configuration: {str(exc)}') from exc
 
 
-@router.get('/models', response_model=dict)
-async def get_available_models() -> dict:
+@router.get('/models', response_model=dict[str, list[ModelInfo]])
+async def get_available_models() -> dict[str, list[ModelInfo]]:
 	"""
 	Get all available OpenAI models for chat and embeddings.
 
@@ -158,7 +159,7 @@ async def get_available_models() -> dict:
 
 
 @router.post('/{rag_name}/generate-prompt', response_model=dict)
-async def generate_system_prompt(rag_name: str, payload: GeneratePromptPayload) -> dict:
+async def generate_system_prompt(rag_name: str, payload: GeneratePromptPayload) -> dict[str, str]:
 	"""
 	Generate a system prompt based on a description.
 
@@ -223,8 +224,8 @@ async def remove_url_from_rag(rag_name: str, payload: UrlPayload):
 		raise HTTPException(status_code=400, detail=f'Failed to remove URL: {str(exc)}') from exc
 
 
-@router.get('/{rag_name}/urls', response_model=list[dict])
-async def list_urls_in_rag(rag_name: str) -> list[dict]:
+@router.get('/{rag_name}/urls', response_model=list[dict[str, str]])
+async def list_urls_in_rag(rag_name: str) -> list[dict[str, str]]:
 	"""
 	List all URLs in a RAG index.
 
@@ -255,8 +256,8 @@ async def delete_file(rag_name: str, filename: str):
 		raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.get('/{rag_name}/files', response_model=list[dict])
-async def list_files(rag_name: str) -> list[dict]:
+@router.get('/{rag_name}/files', response_model=list[dict[str, Any]])
+async def list_files(rag_name: str) -> list[dict[str, Any]]:
 	"""
 	List all files and directories in the RAG's document directory.
 
@@ -271,7 +272,7 @@ async def list_files(rag_name: str) -> list[dict]:
 
 
 @router.post('/{rag_name}/files', status_code=201)
-async def upload_file_or_create_folder(rag_name: str, request: Request, file: UploadFile = File(None)):
+async def upload_file_or_create_folder(rag_name: str, request: Request, file: UploadFile | None = File(None)):
 	"""
 	Upload a document to the RAG's files directory or create a folder with filters.
 

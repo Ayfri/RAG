@@ -52,7 +52,7 @@ class SearchResultItem(TypedDict):
 	urls: list[SearchResultUrl]
 
 
-StreamEventType = Literal[
+type StreamEventType = Literal[
 	'chat_history',
 	'documents',
 	'final',
@@ -192,7 +192,7 @@ class FinalStreamEvent(StreamEventBase):
 	type: Literal['final']
 
 
-StreamEvent = (
+type StreamEvent = (
 	ChatHistoryStreamEvent |
 	DocumentsStreamEvent |
 	FinalStreamEvent |

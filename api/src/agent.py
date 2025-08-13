@@ -9,6 +9,7 @@ from llama_index.llms.openai import OpenAI
 from src.config import OPENAI_API_KEY
 from src.rag_config import RAGConfig
 from src.types import DocumentItem, SearchResultItem, SearchResultUrl
+from openai.types.responses import ResponseOutputItem
 
 
 def search(query: str, search_number: Literal["low", "medium", "high"] = "medium") -> SearchResultItem:
@@ -30,7 +31,7 @@ def search(query: str, search_number: Literal["low", "medium", "high"] = "medium
 
 	urls: list[SearchResultUrl] = []
 
-	def extract_urls_from_output(output_item):
+	def extract_urls_from_output(output_item: ResponseOutputItem):
 		if output_item.type != 'message':
 			return
 		for content_item in output_item.content:

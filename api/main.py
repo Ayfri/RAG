@@ -6,9 +6,14 @@ for managing multiple RAG (Retrieval-Augmented Generation) instances.
 """
 
 from fastapi import FastAPI
+from src.logger import get_logger, setup_logging
 
 from services.rag_router import router as rag_router
 
+
+# Initialize logging early (default INFO; override via LOG_LEVEL env)
+setup_logging()
+log = get_logger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(

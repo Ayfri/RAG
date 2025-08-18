@@ -15,9 +15,11 @@ from src.openai_models import ModelInfo, get_openai_models
 from src.rag import RAGService
 from src.rag_config import RAGConfig
 from src.types import StreamEvent
+from src.logger import get_logger
 
 router = APIRouter(prefix='/rag', tags=['RAG'])
 rag_service = RAGService()
+log = get_logger(__name__)
 
 
 class ChatMessage(BaseModel):
@@ -418,11 +420,11 @@ async def stream_rag(rag_name: str, payload: QueryPayload):
 					event_json = json.dumps(event)
 					yield f"{event_json}\n"
 				except (TypeError, ValueError) as e:
-					print(f"Warning: Failed to serialize event: {e}")
+					log.warning(f"failed to serialize event: {e}")
 					# Continue with next event if one fails
 					continue
 		except Exception as exc:
-			print(f'Error during agent stream: {exc}')
+			log.exception(f'error during agent stream: {exc}')
 			# Send error as a JSON event
 			error_event = {
 				'type': 'error',
@@ -450,7 +452,7 @@ async def create_rag(rag_name: str):
 		rag_service.create_rag(rag_name)
 		return JSONResponse(status_code=200, content={'message': f'RAG "{rag_name}" created/rebuilt successfully.'})
 	except Exception as e:
-		print(f"Error creating RAG: {e}") # Log the full error
+		log.exception(f"error creating RAG: {e}")
 		raise HTTPException(status_code=500, detail=f'Failed to create RAG: {e}')
 
 
@@ -474,7 +476,7 @@ async def reindex_rag(rag_name: str):
 		rag_service.create_rag(rag_name)  # create_rag already handles rebuilding
 		return JSONResponse({'message': f'RAG "{rag_name}" reindexed successfully.'})
 	except Exception as e:
-		print(f"Error reindexing RAG: {e}")  # Log the full error
+		log.exception(f"error reindexing RAG: {e}")
 		raise HTTPException(status_code=500, detail=f'Failed to reindex RAG: {e}')
 
 

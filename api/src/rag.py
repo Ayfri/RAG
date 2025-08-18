@@ -22,6 +22,7 @@ from llama_index.core.agent.workflow import AgentOutput, ToolCallResult
 from llama_index.core.llms import ChatMessage
 from llama_index.core.readers.json import JSONReader
 from llama_index.core.response_synthesizers import ResponseMode
+from llama_index.core.query_engine import BaseQueryEngine
 from llama_index.core.schema import Document
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
@@ -34,6 +35,7 @@ from typing import Any, cast
 
 from src.agent import get_agent
 from src.config import OPENAI_API_KEY
+from src.logger import get_logger, log_step
 from src.rag_config import RAGConfig
 from src.types import (
 	ChatHistoryItem,
@@ -52,6 +54,8 @@ from src.types import (
 )
 
 openai.api_key = OPENAI_API_KEY
+
+logger = get_logger(__name__)
 
 
 class RAGService:
@@ -79,75 +83,89 @@ class RAGService:
 		documents: list[DocumentItem] = []
 		chat_history: list[ChatMessage] = history[:]
 
+		# Diagnostics: track simple counters for visibility
+		tokens_count = 0
+		documents_events = 0
+		sources_events = 0
+		chat_events = 0
+
+		logger.info(f"stream-start rag={rag_name} qlen={len(query)} history={len(history)}")
+
 		handler = agent.run(query, chat_history=history)
+		logger.debug(handler)
 		async for event in handler.stream_events():
 			if hasattr(event, 'delta') and event.delta:
 				token_content = str(event.delta)
 				token_event: TokenStreamEvent = {'type': 'token', 'data': token_content}
 				yield token_event
+				tokens_count += 1
 
 			if isinstance(event, ToolCallResult):
-				print(f"Tool call: {event.tool_name}, params: {event.tool_kwargs}")
+				logger.info(f"tool-call rag={rag_name} tool={event.tool_name}, params={event.tool_kwargs}")
+				try:
+					if event.tool_name.startswith('search'):
+						new_sources = event.tool_output.raw_output
+						if isinstance(new_sources, dict) and 'content' in new_sources and 'urls' in new_sources:
+							validated_source: SearchResultItem = cast(SearchResultItem, new_sources)
+							sources.append(validated_source)
+							sources_event: SourcesStreamEvent = {'type': 'sources', 'data': validated_source}
+							yield sources_event
+							sources_events += 1
+						else:
+							logger.warning(f"invalid search result format: {new_sources}")
 
-				if event.tool_name.startswith('search'):
-					new_sources = event.tool_output.raw_output
-					if isinstance(new_sources, dict) and 'content' in new_sources and 'urls' in new_sources:
-						validated_source: SearchResultItem = cast(SearchResultItem, new_sources)
-						sources.append(validated_source)
-						sources_event: SourcesStreamEvent = {'type': 'sources', 'data': validated_source}
-						yield sources_event
-					else:
-						print(f"Warning: Invalid search result format: {new_sources}")
+					elif 'rag' in event.tool_name:
+						new_documents = event.tool_output.raw_output
+						if isinstance(new_documents, list):
+							valid_documents = []
+							for doc in new_documents:
+								if isinstance(doc, dict) and 'content' in doc and 'source' in doc:
+									valid_documents.append(doc)
+								else:
+									logger.warning(f"invalid document format: {doc}")
+							documents.extend(valid_documents)
+							if valid_documents:
+								documents_event: DocumentsStreamEvent = {'type': 'documents', 'data': valid_documents}
+								yield documents_event
+								documents_events += 1
+						else:
+							logger.warning(f"invalid documents format: {new_documents}")
 
-				elif 'rag' in event.tool_name:
-					new_documents = event.tool_output.raw_output
-					if isinstance(new_documents, list):
-						valid_documents = []
-						for doc in new_documents:
-							if isinstance(doc, dict) and 'content' in doc and 'source' in doc:
-								valid_documents.append(doc)
-							else:
-								print(f"Warning: Invalid document format: {doc}")
-						documents.extend(valid_documents)
-						if valid_documents:
-							documents_event: DocumentsStreamEvent = {'type': 'documents', 'data': valid_documents}
-							yield documents_event
-					else:
-						print(f"Warning: Invalid documents format: {new_documents}")
+					elif event.tool_name == 'read_file_tool':
+						file_path = cast(str, event.tool_kwargs.get('rel_path', 'unknown'))
+						file_content = event.tool_output.raw_output
 
-				elif event.tool_name == 'read_file_tool':
-					file_path = cast(str, event.tool_kwargs.get('rel_path', 'unknown'))
-					file_content = event.tool_output.raw_output
+						success = not file_content.startswith('File not found:') and not file_content.startswith('Error reading file:')
+						error = None if success else file_content
 
-					success = not file_content.startswith('File not found:') and not file_content.startswith('Error reading file:')
-					error = None if success else file_content
+						read_file_result: FileReadResult = {
+							'content': file_content if success else '',
+							'file_path': file_path,
+							'success': success,
+							'error': error
+						}
 
-					read_file_result: FileReadResult = {
-						'content': file_content if success else '',
-						'file_path': file_path,
-						'success': success,
-						'error': error
-					}
+						read_file_event: ReadFileStreamEvent = {'type': 'read_file', 'data': read_file_result}
+						yield read_file_event
 
-					read_file_event: ReadFileStreamEvent = {'type': 'read_file', 'data': read_file_result}
-					yield read_file_event
+					elif event.tool_name == 'list_files_tool':
+						dir_path = cast(str, event.tool_kwargs.get('rel_dir', 'unknown'))
+						file_list = event.tool_output.raw_output
 
-				elif event.tool_name == 'list_files_tool':
-					dir_path = cast(str, event.tool_kwargs.get('rel_dir', 'unknown'))
-					file_list = event.tool_output.raw_output
+						success = not (isinstance(file_list, list) and len(file_list) == 1 and file_list[0].startswith('Directory not found:'))
+						error = None if success else (file_list[0] if isinstance(file_list, list) and len(file_list) == 1 else 'Unknown error')
 
-					success = not (isinstance(file_list, list) and len(file_list) == 1 and file_list[0].startswith('Directory not found:'))
-					error = None if success else (file_list[0] if isinstance(file_list, list) and len(file_list) == 1 else 'Unknown error')
+						list_files_result: FileListResult = {
+							'files': file_list if success else [],
+							'directory_path': dir_path,
+							'success': success,
+							'error': error
+						}
 
-					list_files_result: FileListResult = {
-						'files': file_list if success else [],
-						'directory_path': dir_path,
-						'success': success,
-						'error': error
-					}
-
-					list_files_event: ListFilesStreamEvent = {'type': 'list_files', 'data': list_files_result}
-					yield list_files_event
+						list_files_event: ListFilesStreamEvent = {'type': 'list_files', 'data': list_files_result}
+						yield list_files_event
+				except Exception as e:
+					logger.exception(f"tool processing failed: {e}")
 
 			if isinstance(event, AgentOutput):
 				chat_history.append(event.response)
@@ -159,6 +177,10 @@ class RAGService:
 					}
 					chat_event: ChatHistoryStreamEvent = {'type': 'chat_history', 'data': stream_chat_item}
 					yield chat_event
+					chat_events += 1
+
+		if handler.is_done() and handler.exception():
+			logger.error(f"stream failed rag={rag_name} error={handler.exception()}")
 
 		chat_history_items: list[ChatHistoryItem] = []
 		for msg in chat_history:
@@ -179,6 +201,11 @@ class RAGService:
 			}
 		}
 		yield final_event
+		if tokens_count == 0 and sources_events == 0 and documents_events == 0 and chat_events == 0:
+			logger.warning(f"stream produced no tokens or tool/chat events for rag={rag_name}; check OpenAI API key, model availability, and index contents")
+		logger.info(
+			f"stream-end rag={rag_name} tokens={tokens_count} sources_events={sources_events} documents_events={documents_events} chat_events={chat_events} final_chat_items={len(chat_history_items)}"
+		)
 
 
 	def add_url_to_rag(self, rag_name: str, url: str) -> None:
@@ -285,59 +312,47 @@ class RAGService:
 		Settings.embed_model = embed_model
 
 		try:
-			print(f"Creating index for {rag_name} with {len(docs)} documents")
-			index = VectorStoreIndex.from_documents(docs, show_progress=True)
-			self.save(rag_name, index)
-			print(f"Index created for {rag_name} with {len(docs)} documents")
+			with log_step(logger, f"create-index rag={rag_name} docs={len(docs)}"):
+				index = VectorStoreIndex.from_documents(docs, show_progress=True)
+				self.save(rag_name, index)
 
-			if len(docs) > 0:
-				print("Generating summary...")
+			with log_step(logger, f"generate-summary rag={rag_name} from=index"):
 				summary_llm = OpenAI(
 					api_key=OPENAI_API_KEY,
 					model="o4-mini",
 					reasoning_effort="high",
 				)
-				query_engine = index.as_query_engine(
-					llm=summary_llm,
-					response_mode=ResponseMode.COMPACT_ACCUMULATE,
-					similarity_top_k=30,
-				)
 				summary_prompt = """
 					Summarize the project based on the provided documents. Focus on key functionalities, architecture, and purpose. Pin any important information.
 					Use markdown formatting, be exhaustive and complete.
 				"""
+				query_engine: BaseQueryEngine
+				if len(docs) > 0:
+					query_engine = index.as_query_engine(
+						llm=summary_llm,
+						response_mode=ResponseMode.COMPACT_ACCUMULATE,
+						similarity_top_k=30,
+					)
+				else:
+					# If there are no local files/symlinks but URLs exist in the existing index, generate summary from that index
+					try:
+						existing_index = self._load_index(rag_name)
+						if existing_index.docstore.docs:
+							query_engine = existing_index.as_query_engine(
+								llm=summary_llm,
+								response_mode=ResponseMode.COMPACT_ACCUMULATE,
+								similarity_top_k=30,
+							)
+						else:
+							logger.info("no documents found, skipping summary generation")
+							return
+					except FileNotFoundError:
+						logger.info("no documents found, skipping summary generation")
+						return
+				
 				summary_response = query_engine.query(textwrap.dedent(summary_prompt).strip())
 				summary_path = self._RESUMES_DIR / f'{rag_name}.md'
-				summary_path.write_text(str(summary_response), encoding='utf-8')
-				print(f"Generated and saved summary for {rag_name} at {summary_path}")
-			else:
-				# If there are no local files/symlinks but URLs exist in the existing index, generate summary from that index
-				try:
-					existing_index = self._load_index(rag_name)
-					if existing_index.docstore.docs:
-						print("Generating summary from existing URL documents...")
-						summary_llm = OpenAI(
-							api_key=OPENAI_API_KEY,
-							model="o4-mini",
-							reasoning_effort="high",
-						)
-						query_engine = existing_index.as_query_engine(
-							llm=summary_llm,
-							response_mode=ResponseMode.COMPACT_ACCUMULATE,
-							similarity_top_k=30,
-						)
-						summary_prompt = """
-							Summarize the project based on the provided documents. Focus on key functionalities, architecture, and purpose. Pin any important information.
-							Use markdown formatting, be exhaustive and complete.
-						"""
-						summary_response = query_engine.query(textwrap.dedent(summary_prompt).strip())
-						summary_path = self._RESUMES_DIR / f'{rag_name}.md'
-						summary_path.write_text(str(summary_response), encoding='utf-8')
-						print(f"Generated and saved summary for {rag_name} at {summary_path}")
-					else:
-						print("No documents found, skipping summary generation")
-				except FileNotFoundError:
-					print("No documents found, skipping summary generation")
+				summary_path.write_text(str(summary_response.response or ''), encoding='utf-8')
 		finally:
 			Settings.embed_model = original_embed_model
 
@@ -566,7 +581,7 @@ Respond only with the generated system prompt, without additional explanations."
 
 			return response.output_text.strip()
 		except Exception as e:
-			print(f"Error generating system prompt: {e}")
+			logger.exception(f"error generating system prompt: {e}")
 			return f"You are an AI assistant specialized in {description}. You can help with questions and tasks related to this domain."
 
 
@@ -871,7 +886,7 @@ Respond only with the generated system prompt, without additional explanations."
 			try:
 				return RAGConfig.model_validate_json(config_path.read_text())
 			except (json.JSONDecodeError, KeyError) as e:
-				print(f'Warning: Invalid config file for RAG "{rag_name}": {e}. Using defaults.')
+				logger.warning(f'Invalid config file for RAG "{rag_name}": {e}. Using defaults.')
 
 		default_config = RAGConfig()
 		config_path.write_text(default_config.model_dump_json(indent=2))

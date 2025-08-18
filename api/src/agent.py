@@ -1,6 +1,7 @@
 import openai
 from pathlib import Path
-from typing import Callable, Literal, cast
+from typing import Literal, cast
+from collections.abc import Callable
 
 from llama_index.core import VectorStoreIndex
 from llama_index.core.agent.workflow import FunctionAgent

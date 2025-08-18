@@ -17,10 +17,12 @@ api/
 ├── src/
 │   ├── agent.py          # Agent and tools implementation
 │   ├── config.py         # Configuration management
+│   ├── document_manager.py # Document and URL management operations
 │   ├── openai_models.py  # OpenAI models management
-│   ├── rag.py            # RAGService implementation
+│   ├── rag.py            # RAGService implementation (core RAG operations)
 │   ├── rag_config.py     # RAG configuration classes
-│   └── types.py          # Shared TypedDict definitions
+│   ├── types.py          # Shared TypedDict definitions
+│   └── utils.py          # General utility functions
 ├── requirements.txt      # Python dependencies
 └── README.md             # This file
 ```

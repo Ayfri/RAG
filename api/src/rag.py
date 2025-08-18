@@ -8,13 +8,9 @@ All indices and source documents are stored on the local filesystem:
 """
 
 import json
-import os
-import re
-import time
-from pathlib import Path
 import textwrap
+from pathlib import Path
 from collections.abc import AsyncGenerator
-from urllib.parse import urlparse
 
 import openai
 from llama_index.core import SimpleDirectoryReader, StorageContext, VectorStoreIndex, Settings, load_index_from_storage
@@ -27,16 +23,17 @@ from llama_index.core.schema import Document
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
 
-import html2text
-import requests
-from bs4 import BeautifulSoup
-
 from typing import Any, cast
 
 from src.agent import get_agent
 from src.config import OPENAI_API_KEY
+from src.document_manager import RAGDocumentManager
 from src.logger import get_logger, log_step
 from src.rag_config import RAGConfig
+from src.utils import (
+	filter_documents_by_include_globs,
+	filter_files_by_globs
+)
 from src.types import (
 	ChatHistoryItem,
 	DocumentItem,
@@ -60,17 +57,13 @@ logger = get_logger(__name__)
 
 
 class RAGService:
-	_FILES_DIR: Path = Path('data/files')
-	_INDICES_DIR: Path = Path('data/indices')
-	_CONFIGS_DIR: Path = Path('data/configs')
 	_RESUMES_DIR: Path = Path('data/resumes')
 
-
 	def __init__(self):
-		self._FILES_DIR.mkdir(parents=True, exist_ok=True)
-		self._INDICES_DIR.mkdir(parents=True, exist_ok=True)
-		self._CONFIGS_DIR.mkdir(parents=True, exist_ok=True)
 		self._RESUMES_DIR.mkdir(parents=True, exist_ok=True)
+
+		# Initialize document manager - it handles its own directory setup
+		self.document_manager = RAGDocumentManager()
 
 
 	async def async_agent_stream(self, rag_name: str, query: str, history: list[ChatMessage] | None = None) -> AsyncGenerator[StreamEvent, None]:
@@ -226,44 +219,13 @@ class RAGService:
 
 	def add_url_to_rag(self, rag_name: str, url: str) -> None:
 		"""Add a URL as a document to a RAG index."""
-		existing_urls = self.list_urls_in_rag(rag_name)
-		for existing_url in existing_urls:
-			if existing_url['url'] == url:
-				raise Exception(f"URL '{url}' already exists in RAG '{rag_name}'")
-
-		document = self.fetch_url_content(url)
 		config = self._load_rag_config(rag_name)
-		embed_model = OpenAIEmbedding(
-			api_key=OPENAI_API_KEY,
-			model=config.embedding_model,
-		)
-
-		try:
-			index = self._load_index(rag_name)
-		except FileNotFoundError:
-			index = VectorStoreIndex.from_documents([])
-
-		original_embed_model = Settings.embed_model
-		Settings.embed_model = embed_model
-
-		try:
-			index.insert(document)
-			self.save(rag_name, index)
-		finally:
-			Settings.embed_model = original_embed_model
+		self.document_manager.add_url_to_rag(rag_name, url, config)
 
 
 	def create_folder(self, rag_name: str, folder_name: str) -> Path:
 		"""Create an empty folder in the RAG's document directory."""
-		files_path = self._FILES_DIR / rag_name
-		files_path.mkdir(parents=True, exist_ok=True)
-
-		folder_path = files_path / folder_name
-		if folder_path.exists():
-			raise FileExistsError(f'Folder "{folder_name}" already exists')
-
-		folder_path.mkdir(parents=True, exist_ok=True)
-		return folder_path
+		return self.document_manager.create_folder(rag_name, folder_name)
 
 
 	def create_rag(self, rag_name: str) -> None:
@@ -271,7 +233,7 @@ class RAGService:
 		Create or recreate an index from documents in data/files/<rag_name>/.
 		Handles symlinks, file filtering, and generates project summary.
 		"""
-		files_path = self._FILES_DIR / rag_name
+		files_path = self.document_manager.files_dir / rag_name
 		files_path.mkdir(parents=True, exist_ok=True)
 
 		config = self._load_rag_config(rag_name)
@@ -281,8 +243,8 @@ class RAGService:
 		)
 
 		docs: list[Document] = []
-		files = self.get_files(files_path)
-		symlinks = self.get_symlinks(files_path)
+		files = self.document_manager.get_files(files_path)
+		symlinks = self.document_manager.get_symlinks(files_path)
 
 		# Also include previously saved web URLs so reindexing keeps them
 		try:
@@ -305,13 +267,13 @@ class RAGService:
 					recursive=True,
 					encoding='utf-8'
 				).load_data(show_progress=True)
-				filtered_docs = self._filter_documents_by_include_globs(loaded_docs, filters['include'])
+				filtered_docs = filter_documents_by_include_globs(loaded_docs, filters['include'])
 				docs.extend(filtered_docs)
 
 		if files:
 			base_filters = config.get_file_filters_for_path('_base')
 			if all(file.endswith(".json") for file in files):
-				filtered_files = self._filter_files_by_globs(files, base_filters['include'], base_filters['exclude'])
+				filtered_files = filter_files_by_globs(files, base_filters['include'], base_filters['exclude'])
 				for file in filtered_files:
 					docs.extend(JSONReader().load_data(input_file=str(files_path / file)))
 			else:
@@ -321,7 +283,7 @@ class RAGService:
 					recursive=True,
 					encoding='utf-8'
 				).load_data(show_progress=True)
-				filtered_docs = self._filter_documents_by_include_globs(loaded_docs, base_filters['include'])
+				filtered_docs = filter_documents_by_include_globs(loaded_docs, base_filters['include'])
 				docs.extend(filtered_docs)
 
 		original_embed_model = Settings.embed_model
@@ -375,46 +337,19 @@ class RAGService:
 
 	def create_symlink(self, rag_name: str, target_path: str, link_name: str) -> Path:
 		"""Create a symbolic link in the RAG's document directory."""
-		files_path = self._FILES_DIR / rag_name
-		files_path.mkdir(parents=True, exist_ok=True)
-
-		target = Path(target_path)
-		if not target.exists():
-			raise FileNotFoundError(f'Target path "{target_path}" does not exist.')
-
-		link_path = files_path / link_name
-		if link_path.exists():
-			raise FileExistsError(f'Link "{link_name}" already exists in RAG "{rag_name}".')
-
-		if os.name == 'nt':
-			if target.is_dir():
-				link_path.symlink_to(target, target_is_directory=True)
-			else:
-				link_path.symlink_to(target)
-		else:
-			link_path.symlink_to(target)
-
-		return link_path
+		return self.document_manager.create_symlink(rag_name, target_path, link_name)
 
 
 	def delete_file(self, rag_name: str, filename: str) -> None:
 		"""Delete a specific file from the RAG's document directory."""
-		files_path = self._FILES_DIR / rag_name
-		if not files_path.exists():
-			raise FileNotFoundError(f'Files directory for RAG "{rag_name}" not found.')
-
-		file_path = files_path / filename
-		if not file_path.exists():
-			raise FileNotFoundError(f'File "{filename}" not found in RAG "{rag_name}".')
-
-		file_path.unlink()
+		self.document_manager.delete_file(rag_name, filename)
 
 
 	def delete_rag(self, rag_name: str) -> None:
 		"""Delete a RAG index and all its associated files."""
-		index_path = self._INDICES_DIR / rag_name
-		files_path = self._FILES_DIR / rag_name
-		config_path = self._CONFIGS_DIR / f'{rag_name}.json'
+		index_path = self.document_manager.indices_dir / rag_name
+		files_path = self.document_manager.files_dir / rag_name
+		config_path = self.document_manager.configs_dir / f'{rag_name}.json'
 
 		if not index_path.exists():
 			raise FileNotFoundError(f'RAG "{rag_name}" not found.')
@@ -437,129 +372,6 @@ class RAGService:
 		summary_path = self._RESUMES_DIR / f'{rag_name}.md'
 		if summary_path.exists():
 			summary_path.unlink()
-
-
-	def fetch_url_content(self, url: str) -> Document:
-		"""
-		Fetch content from a URL and convert it to a Document.
-		Handles HTML parsing, markdown conversion, and metadata extraction.
-		"""
-		try:
-			parsed_url = urlparse(url)
-			if not parsed_url.scheme or not parsed_url.netloc:
-				raise Exception(f"Invalid URL format: {url}")
-		except Exception:
-			raise Exception(f"Invalid URL: {url}")
-
-		try:
-			with requests.Session() as session:
-				session.headers.update({
-					'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-					'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-					'Accept-Language': 'en-US,en;q=0.5',
-					'Accept-Encoding': 'gzip, deflate',
-					'Connection': 'keep-alive',
-					'Upgrade-Insecure-Requests': '1',
-				})
-
-				timeout = (10, 30)
-				max_retries = 3
-				retry_delay = 1
-
-				response: requests.Response | None = None
-				for attempt in range(max_retries):
-					try:
-						response = session.get(
-							url,
-							timeout=timeout,
-							allow_redirects=True,
-							verify=True
-						)
-						response.raise_for_status()
-						break
-
-					except requests.exceptions.Timeout as e:
-						if attempt == max_retries - 1:
-							raise Exception(f"Request timeout after {max_retries} attempts: {url}")
-						time.sleep(retry_delay * (attempt + 1))
-						continue
-
-					except requests.exceptions.ConnectionError as e:
-						if attempt == max_retries - 1:
-							raise Exception(f"Connection failed after {max_retries} attempts: {url}")
-						time.sleep(retry_delay * (attempt + 1))
-						continue
-
-					except requests.exceptions.RequestException as e:
-						raise e
-
-				if response is None:
-					raise Exception(f"No response received from {url}")
-
-				content_type = response.headers.get('content-type', '').lower()
-				if not any(ct in content_type for ct in ['text/html', 'text/plain', 'application/xhtml+xml']):
-					raise Exception(f"Unsupported content type: {content_type}")
-
-				content_length = response.headers.get('content-length')
-				if content_length and int(content_length) > 10 * 1024 * 1024:
-					raise Exception(f"Content too large: {content_length} bytes")
-
-				soup = BeautifulSoup(response.content, 'html.parser')
-
-			for script in soup(["script", "style"]):
-				script.decompose()
-
-			title = soup.find('title')
-			title_text = title.get_text().strip() if title else ''
-
-			h = html2text.HTML2Text()
-			h.body_width = 0
-
-			html_content = str(soup)
-			markdown_content = h.handle(html_content)
-
-			markdown_content = re.sub(r'\n{3,}', '\n\n', markdown_content)
-			markdown_content = re.sub(r' {3,}', ' ', markdown_content)
-			markdown_content = markdown_content.strip()
-
-			metadata = {
-				'file_path': url,
-				'url': url,
-				'domain': parsed_url.netloc,
-				'title': title_text,
-				'source_type': 'web_page',
-				'content_type': 'text/markdown',
-				'content_length': len(markdown_content),
-				'response_status': response.status_code,
-				'response_headers': dict(response.headers)
-			}
-
-			document = Document(
-				text=markdown_content,
-				metadata=metadata
-			)
-
-			return document
-
-		except requests.exceptions.HTTPError as e:
-			if e.response.status_code == 404:
-				raise Exception(f"URL not found (404): {url}")
-			elif e.response.status_code == 403:
-				raise Exception(f"Access forbidden (403): {url}")
-			elif e.response.status_code == 401:
-				raise Exception(f"Unauthorized access (401): {url}")
-			elif e.response.status_code >= 500:
-				raise Exception(f"Server error ({e.response.status_code}): {url}")
-			else:
-				raise Exception(f"HTTP error {e.response.status_code}: {url}")
-		except requests.exceptions.ConnectionError:
-			raise Exception(f"Connection failed: {url}")
-		except requests.exceptions.Timeout:
-			raise Exception(f"Request timeout: {url}")
-		except requests.exceptions.RequestException as e:
-			raise Exception(f"Failed to fetch URL {url}: {str(e)}")
-		except Exception as e:
-			raise Exception(f"Failed to process URL {url}: {str(e)}")
 
 
 	def generate_system_prompt(self, description: str) -> str:
@@ -619,7 +431,7 @@ Respond only with the generated system prompt, without additional explanations."
 
 	def get_files(self, input_path: Path) -> list[str]:
 		"""Return list of file names (not directories or symlinks) in input_path."""
-		return [f.name for f in input_path.iterdir() if f.is_file() and not f.is_symlink()]
+		return self.document_manager.get_files(input_path)
 
 
 	def get_rag_config(self, rag_name: str) -> RAGConfig:
@@ -629,252 +441,59 @@ Respond only with the generated system prompt, without additional explanations."
 
 	def get_symlinks(self, input_path: Path) -> list[Path]:
 		"""Return list of symlink Paths in input_path."""
-		return [f for f in input_path.iterdir() if f.is_symlink()]
+		return self.document_manager.get_symlinks(input_path)
 
 
 	def list_files(self, rag_name: str) -> list[dict[str, Any]]:
 		"""List all files and directories in the RAG's document directory with metadata."""
-		files_path = self._FILES_DIR / rag_name
-		if not files_path.exists():
-			raise FileNotFoundError(f'Files directory for RAG "{rag_name}" not found.')
-
-		items: list[dict[str, Any]] = []
-		for item in files_path.iterdir():
-			item_info: dict[str, Any] = {
-				'name': item.name,
-				'type': 'directory' if item.is_dir() else 'file',
-				'is_symlink': item.is_symlink()
-			}
-
-			try:
-				stat = item.stat()
-				item_info['last_modified'] = stat.st_mtime
-			except OSError:
-				item_info['last_modified'] = None
-
-			if item.is_symlink():
-				try:
-					resolved_target = item.resolve()
-					item_info['target'] = str(item.readlink())
-					item_info['resolved_target_type'] = 'directory' if resolved_target.is_dir() else 'file'
-					if resolved_target.is_dir():
-						file_count, total_size = self._get_dir_stats(resolved_target)
-						item_info['file_count'] = file_count
-						item_info['size'] = total_size
-					else:
-						try:
-							item_info['size'] = resolved_target.stat().st_size
-						except OSError:
-							item_info['size'] = None
-				except OSError:
-					item_info['target'] = '<broken link>'
-					item_info['resolved_target_type'] = 'unknown'
-			else:
-				if item.is_dir():
-					file_count, total_size = self._get_dir_stats(item)
-					item_info['file_count'] = file_count
-					item_info['size'] = total_size
-				else:
-					try:
-						item_info['size'] = item.stat().st_size
-					except OSError:
-						item_info['size'] = None
-
-			items.append(item_info)
-
-		return sorted(items, key=lambda x: (x['type'], x['name'].lower()))
+		return self.document_manager.list_files(rag_name)
 
 
 	def list_rags(self) -> list[str]:
 		"""Return every available RAG name."""
-		return [p.name for p in self._INDICES_DIR.iterdir() if p.is_dir()]
+		return [p.name for p in self.document_manager.indices_dir.iterdir() if p.is_dir()]
 
 
 	def list_urls_in_rag(self, rag_name: str) -> list[dict[str, str]]:
 		"""List all URLs in a RAG index."""
-		try:
-			index = self._load_index(rag_name)
-			documents: list[dict[str, str]] = []
-			seen_urls: set[str] = set()
-
-			for node in index.docstore.docs.values():
-				if node.metadata.get('source_type') == 'web_page':
-					url = cast(str, node.metadata.get('url', ''))
-					if url not in seen_urls:
-						seen_urls.add(url)
-						documents.append({
-							'url': url,
-							'title': node.metadata.get('title', ''),
-							'domain': node.metadata.get('domain', ''),
-							'content_type': node.metadata.get('content_type', '')
-						})
-
-			return documents
-
-		except FileNotFoundError:
-			raise Exception(f"RAG '{rag_name}' not found")
+		config = self._load_rag_config(rag_name)
+		return self.document_manager.list_urls_in_rag(rag_name, config)
 
 
 	def remove_url_from_rag(self, rag_name: str, url: str) -> None:
 		"""Remove a URL document from a RAG index."""
-		try:
-			index = self._load_index(rag_name)
-
-			deleted_count = 0
-			for doc_id, doc in index.docstore.docs.items():
-				if doc.metadata.get('url') == url:
-					index.delete_ref_doc(doc_id, delete_from_docstore=True)
-					index.delete_nodes([doc.node_id], delete_from_docstore=True)
-					deleted_count += 1
-
-			if deleted_count == 0:
-				raise Exception(f"URL '{url}' not found in RAG '{rag_name}'")
-
-			self.save(rag_name, index)
-
-		except FileNotFoundError:
-			raise Exception(f"RAG '{rag_name}' not found")
+		config = self._load_rag_config(rag_name)
+		self.document_manager.remove_url_from_rag(rag_name, url, config)
 
 
 	def save(self, rag_name: str, index: VectorStoreIndex) -> None:
 		"""Save index to disk."""
-		persist_dir = self._INDICES_DIR / rag_name
-		if persist_dir.exists():
-			for child in persist_dir.iterdir():
-				child.unlink()
-		else:
-			persist_dir.mkdir(parents=True, exist_ok=True)
-		index.storage_context.persist(persist_dir=str(persist_dir))
+		self.document_manager.save_index(rag_name, index)
 
 
 	def save_directory(self, rag_name: str, directory_name: str, directory_content: dict[str, Any]) -> Path:
 		"""Save a directory structure to the RAG's document directory."""
-		files_path = self._FILES_DIR / rag_name
-		files_path.mkdir(parents=True, exist_ok=True)
-
-		dir_path = files_path / directory_name
-		dir_path.mkdir(exist_ok=True)
-
-		def _create_structure(base_path: Path, structure: dict[str, dict[str, Any] | bytes]):
-			for name, content in structure.items():
-				item_path = base_path / name
-				if isinstance(content, dict):
-					item_path.mkdir(exist_ok=True)
-					_create_structure(item_path, content)
-				else:
-					item_path.write_bytes(content)
-
-		_create_structure(dir_path, directory_content)
-		return dir_path
+		return self.document_manager.save_directory(rag_name, directory_name, directory_content)
 
 
 	def save_file(self, rag_name: str, filename: str, content: bytes) -> Path:
 		"""Save a file to the RAG's document directory."""
-		files_path = self._FILES_DIR / rag_name
-		files_path.mkdir(parents=True, exist_ok=True)
-
-		file_path = files_path / filename
-		file_path.parent.mkdir(parents=True, exist_ok=True)
-		file_path.write_bytes(content)
-		return file_path
+		return self.document_manager.save_file(rag_name, filename, content)
 
 
 	def update_rag_config(self, rag_name: str, config: RAGConfig) -> None:
 		"""Update the configuration for a specific RAG."""
-		index_path = self._INDICES_DIR / rag_name
+		index_path = self.document_manager.indices_dir / rag_name
 		if not index_path.exists():
 			raise FileNotFoundError(f'RAG "{rag_name}" not found.')
 
-		config_path = self._CONFIGS_DIR / f'{rag_name}.json'
+		config_path = self.document_manager.configs_dir / f'{rag_name}.json'
 		config_path.write_text(config.model_dump_json(indent=4))
-
-
-	def _filter_documents_by_include_globs(self, documents: list[Document], include_globs: list[str]) -> list[Document]:
-		"""Filter documents list based on include glob patterns applied to their file paths."""
-		import fnmatch
-		from pathlib import Path
-
-		filtered_docs: list[Document] = []
-
-		for doc in documents:
-			file_path = cast(str, doc.metadata.get('file_path', ''))
-			if file_path:
-				file_name = Path(file_path).name
-
-				included = False
-				for include_pattern in include_globs:
-					if fnmatch.fnmatch(file_name, include_pattern) or fnmatch.fnmatch(file_path, include_pattern):
-						included = True
-						break
-
-				if included:
-					filtered_docs.append(doc)
-
-		return filtered_docs
-
-
-	def _filter_files_by_globs(self, files: list[str], include_globs: list[str], exclude_globs: list[str]) -> list[str]:
-		"""Filter files list based on include and exclude glob patterns."""
-		import fnmatch
-
-		filtered_files: list[str] = []
-
-		for file in files:
-			excluded = False
-			for exclude_pattern in exclude_globs:
-				if fnmatch.fnmatch(file, exclude_pattern):
-					excluded = True
-					break
-
-			if excluded:
-				continue
-
-			included = False
-			for include_pattern in include_globs:
-				if fnmatch.fnmatch(file, include_pattern):
-					included = True
-					break
-
-			if included:
-				filtered_files.append(file)
-
-		return filtered_files
-
-
-	def _get_dir_stats(self, path: Path) -> tuple[int, int]:
-		"""Return (file_count, total_size) for all files under path recursively."""
-		file_count = 0
-		total_size = 0
-		for f in path.rglob('*'):
-			if f.is_file():
-				file_count += 1
-				try:
-					total_size += f.stat().st_size
-				except OSError:
-					pass
-		return file_count, total_size
-
-
-	def _is_json_object(self, text: str) -> bool:
-		"""Simple check for complete JSON objects only."""
-		if not text or not text.strip():
-			return False
-
-		text = text.strip()
-
-		if (text.startswith('{') and text.endswith('}')) or (text.startswith('[') and text.endswith(']')):
-			try:
-				json.loads(text)
-				return True
-			except:
-				return False
-
-		return False
 
 
 	def _load_index(self, rag_name: str) -> VectorStoreIndex:
 		"""Load a persisted RAG index from disk."""
-		persist_dir = self._INDICES_DIR / rag_name
+		persist_dir = self.document_manager.indices_dir / rag_name
 		if not persist_dir.exists():
 			raise FileNotFoundError(f'No index found for RAG "{rag_name}".')
 
@@ -896,7 +515,7 @@ Respond only with the generated system prompt, without additional explanations."
 
 	def _load_rag_config(self, rag_name: str) -> RAGConfig:
 		"""Load configuration for a specific RAG, creating default if not exists."""
-		config_path = self._CONFIGS_DIR / f'{rag_name}.json'
+		config_path = self.document_manager.configs_dir / f'{rag_name}.json'
 
 		if config_path.exists():
 			try:

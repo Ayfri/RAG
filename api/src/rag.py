@@ -175,7 +175,7 @@ class RAGService:
 						list_files_event: ListFilesStreamEvent = {'type': 'list_files', 'data': list_files_result}
 						yield list_files_event
 				except Exception as e:
-					logger.exception(f"tool processing failed: {e}")
+					logger.exception(f"tool processing failed: {e}", exc_info=True)
 
 			if isinstance(event, AgentOutput):
 				chat_history.append(event.response)
@@ -190,7 +190,7 @@ class RAGService:
 					chat_events += 1
 
 		if handler.is_done() and handler.exception():
-			logger.error(f"stream failed rag={rag_name} error={handler.exception()}")
+			logger.error(f"stream failed rag={rag_name} error={handler.exception()}", exc_info=True)
 
 		chat_history_items: list[ChatHistoryItem] = []
 		for msg in chat_history:
@@ -389,11 +389,10 @@ Respond only with the generated system prompt, without additional explanations."
 
 		try:
 			response = client.responses.create(
-				model='gpt-5-mini',
+				model='gpt-5',
 				input=prompt,
-				max_output_tokens=500,
 				reasoning={
-					"effort": "low",
+					"effort": "medium",
 				},
 				text={
 					"verbosity": "medium"
@@ -402,7 +401,7 @@ Respond only with the generated system prompt, without additional explanations."
 
 			return response.output_text.strip()
 		except Exception as e:
-			logger.exception(f"error generating system prompt: {e}")
+			logger.exception(f"error generating system prompt: {e}", exc_info=True)
 			return f"You are an AI assistant specialized in {description}. You can help with questions and tasks related to this domain."
 
 

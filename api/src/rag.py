@@ -18,7 +18,7 @@ from urllib.parse import urlparse
 
 import openai
 from llama_index.core import SimpleDirectoryReader, StorageContext, VectorStoreIndex, Settings, load_index_from_storage
-from llama_index.core.agent.workflow import AgentOutput, ToolCallResult
+from llama_index.core.agent.workflow import AgentOutput, ToolCall, ToolCallResult
 from llama_index.core.llms import ChatMessage
 from llama_index.core.readers.json import JSONReader
 from llama_index.core.response_synthesizers import ResponseMode
@@ -49,6 +49,7 @@ from src.types import (
 	ListFilesStreamEvent,
 	ChatHistoryStreamEvent,
 	FinalStreamEvent,
+	ToolCallStreamEvent,
 	FileReadResult,
 	FileListResult
 )
@@ -94,14 +95,29 @@ class RAGService:
 		handler = agent.run(query, chat_history=history)
 		logger.debug(handler)
 		async for event in handler.stream_events():
+			logger.info(f"stream-event rag={rag_name} event={type(event)}")
 			if hasattr(event, 'delta') and event.delta:
 				token_content = str(event.delta)
 				token_event: TokenStreamEvent = {'type': 'token', 'data': token_content}
 				yield token_event
 				tokens_count += 1
 
+			if isinstance(event, ToolCall):
+				safe_params = cast(dict[str, object], dict(getattr(event, 'tool_kwargs', {}) or {}))
+				logger.info(f"tool-call rag={rag_name} tool={event.tool_name}, params={safe_params}")
+				try:
+					tool_event: ToolCallStreamEvent = {
+						'type': 'tool_call',
+						'data': {
+							'tool_name': event.tool_name,
+							'params': safe_params,
+						}
+					}
+					yield tool_event
+				except Exception as e:
+					logger.warning(f"failed to emit tool_call event: {e}")
+
 			if isinstance(event, ToolCallResult):
-				logger.info(f"tool-call rag={rag_name} tool={event.tool_name}, params={event.tool_kwargs}")
 				try:
 					if event.tool_name.startswith('search'):
 						new_sources = event.tool_output.raw_output

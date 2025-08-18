@@ -59,6 +59,7 @@ type StreamEventType = Literal[
 	'list_files',
 	'read_file',
 	'sources',
+	'tool_call',
 	'token'
 ]
 
@@ -67,9 +68,8 @@ class StreamEventBase(TypedDict):
 	"""
 	Base structure for all streaming events.
 
-	:param type: The type of streaming event
+	Concrete events include a discriminant 'type' field.
 	"""
-	type: StreamEventType
 
 
 class TokenStreamEvent(StreamEventBase):
@@ -81,6 +81,28 @@ class TokenStreamEvent(StreamEventBase):
 	"""
 	data: str
 	type: Literal['token']
+
+
+class ToolCallInfo(TypedDict):
+	"""
+	Information about a tool invocation about to run.
+
+	:param tool_name: Name of the tool being called
+	:param params: Parameters provided to the tool
+	"""
+	params: dict[str, object]
+	tool_name: str
+
+
+class ToolCallStreamEvent(StreamEventBase):
+	"""
+	Streaming event emitted when the agent invokes a tool.
+
+	:param data: Tool call information
+	:param type: Always 'tool_call'
+	"""
+	data: ToolCallInfo
+	type: Literal['tool_call']
 
 
 class SourcesStreamEvent(StreamEventBase):
@@ -199,5 +221,6 @@ type StreamEvent = (
 	ListFilesStreamEvent |
 	ReadFileStreamEvent |
 	SourcesStreamEvent |
+	ToolCallStreamEvent |
 	TokenStreamEvent
 )

@@ -24,6 +24,7 @@ export class AgenticStreamingParser {
 	private documents: any[] = [];
 	private sources: any[] = [];
 	private fileLists: FileListResult[] = [];
+	private lastToolCallIdByKind: Record<string, string> = {};
 
 	/**
 	 * Ultra-robust streaming parser that works directly with typed events
@@ -35,6 +36,29 @@ export class AgenticStreamingParser {
 				// Pure text token - add directly to content
 				this.currentTextContent += event.data;
 				this.updateTextPart();
+				break;
+
+			case 'tool_call':
+				// Emit a transient activity so UI can show that a tool is running
+				const callActivity: ToolActivity = {
+					id: crypto.randomUUID(),
+					type: 'tool_call',
+					timestamp: new Date(),
+					data: event.data,
+					status: 'running',
+					startedAt: new Date(),
+					toolName: (event as any).data?.tool_name,
+					params: (event as any).data?.params ?? {}
+				};
+				this.toolActivities.push(callActivity);
+				this.contentParts.push({
+					type: 'tool',
+					content: '',
+					activity: callActivity
+				});
+				// remember latest activity id per kind to finish it later on its corresponding result
+				const kind = callActivity.toolName || 'unknown';
+				this.lastToolCallIdByKind[kind] = callActivity.id;
 				break;
 
 			case 'sources':
@@ -50,6 +74,8 @@ export class AgenticStreamingParser {
 					content: '',
 					activity: sourceActivity
 				});
+				// finish the latest search tool_call if any
+				this.finishLatestByKind('search');
 
 				if (Array.isArray(event.data)) {
 					this.sources.push(...event.data);
@@ -71,6 +97,7 @@ export class AgenticStreamingParser {
 					content: '',
 					activity: docActivity
 				});
+				this.finishLatestByKind('rag');
 
 				if (Array.isArray(event.data)) {
 					this.documents.push(...event.data);
@@ -92,6 +119,7 @@ export class AgenticStreamingParser {
 					content: '',
 					activity: readFileActivity
 				});
+				this.finishLatestByKind('read_file_tool');
 				break;
 
 			case 'list_files':
@@ -108,6 +136,7 @@ export class AgenticStreamingParser {
 					activity: listFilesActivity
 				});
 				this.fileLists.push(event.data);
+				this.finishLatestByKind('list_files_tool');
 				break;
 
 			case 'chat_history':
@@ -161,6 +190,17 @@ export class AgenticStreamingParser {
 		];
 	}
 
+	private finishLatestByKind(kind: string): void {
+		const id = this.lastToolCallIdByKind[kind];
+		if (!id) return;
+		const activity = this.toolActivities.find(a => a.id === id);
+		if (!activity || activity.status === 'completed') return;
+		activity.endedAt = new Date();
+		activity.durationMs = (activity.endedAt.getTime() - (activity.startedAt?.getTime() ?? activity.timestamp.getTime()));
+		activity.status = 'completed';
+		delete this.lastToolCallIdByKind[kind];
+	}
+
 	/**
 	 * No need for finalize with direct event processing
 	 */
@@ -200,5 +240,6 @@ export class AgenticStreamingParser {
 		this.documents = [];
 		this.sources = [];
 		this.fileLists = [];
+		this.lastToolCallIdByKind = {};
 	}
 }

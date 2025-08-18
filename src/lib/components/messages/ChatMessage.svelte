@@ -6,8 +6,9 @@
     import DocumentSources from '$lib/components/messages/DocumentSources.svelte';
 	import FilesSources from '$lib/components/messages/FilesSources.svelte';
 	import WebSources from '$lib/components/messages/WebSources.svelte';
-    import type {ChatMessage as ChatMessageType, FileListResult, FileReadResult, RagDocument, SearchResult} from '$lib/types.d.ts';
-	import {Bot, Copy, FileIcon, FileText, FolderOpen, Globe, Loader, Pencil, RefreshCcw, SendHorizontal, Trash2, User, X} from '@lucide/svelte';
+	import ToolActivityRow from '$lib/components/messages/ToolActivityRow.svelte';
+    import type {ChatMessage as ChatMessageType} from '$lib/types.d.ts';
+	import {Bot, Copy, Loader, Pencil, RefreshCcw, SendHorizontal, Trash2, User, X} from '@lucide/svelte';
 	import { countTokensFromText } from '$lib/helpers/tokenizer';
 
 	interface Props {
@@ -49,10 +50,20 @@
 		isEditing = false;
 	}
 
-	function formatTime(date: Date) {
+	function formatTimeShort(date: Date) {
 		return date.toLocaleTimeString('en-US', {
 			hour: '2-digit',
 			minute: '2-digit'
+		});
+	}
+
+	function formatTimeLong(date: Date) {
+		return date.toLocaleTimeString('en-US', {
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			hourCycle: 'h24',
+			timeZoneName: 'shortOffset'
 		});
 	}
 </script>
@@ -70,8 +81,8 @@
 			<span class="text-xs font-medium text-slate-300">
 				{message.role === 'user' ? 'You' : 'Assistant'}
 			</span>
-			<span class="text-xs text-slate-500">
-				{formatTime(message.timestamp)}
+			<span class="text-xs text-slate-500" title={formatTimeLong(message.timestamp)}>
+				{formatTimeShort(message.timestamp)}
 			</span>
 
 			<!-- Stats -->
@@ -159,90 +170,7 @@
 								{#if part.type === 'text' && part.content.trim()}
 									<Markdown content={part.content} />
 								{:else if part.type === 'tool' && part.activity}
-									{@const activity = part.activity}
-									<div class="flex items-center space-x-2 text-xs text-slate-400 bg-slate-900/30 rounded-lg px-2 py-1.5 border border-slate-700/50 my-1.5">
-										{#if activity.type === 'sources'}
-											{@const data = activity.data as SearchResult}
-											<Globe class="w-3 h-3 text-blue-400 flex-shrink-0" />
-											<div class="flex-1">
-												<div class="text-slate-300 mb-1">
-													Web search completed - found {data.urls?.length || 0} sources
-												</div>
-												{#if data.urls && data.urls.length > 0}
-													<div class="flex flex-wrap gap-1 items-center">
-														{#each data.urls as url}
-															<a href={url.url} target="_blank" rel="noopener" class="inline-block bg-blue-900/60 text-blue-200 px-2 py-0.5 rounded-full text-xs hover:bg-blue-800/80 hover:underline transition-all duration-150 shadow-sm border border-blue-700">
-																{url.title}
-															</a>
-														{/each}
-													</div>
-												{/if}
-											</div>
-										{:else if activity.type === 'documents'}
-											{@const data = activity.data as RagDocument[]}
-											<FileText class="w-3 h-3 text-green-400 flex-shrink-0" />
-											<span class="flex-1">
-												Document search completed - found {data.length} documents
-												{#if data.length > 0}
-													<span class="ml-2 text-slate-500">
-														({data.map(d => d.source.split('/').pop()).slice(0, 3).join(', ')}{data.length > 3 ? `, +${data.length - 3} more` : ''})
-													</span>
-												{/if}
-											</span>
-										{:else if activity.type === 'read_file'}
-											{@const data = activity.data as FileReadResult}
-											<FileIcon class="w-3 h-3 text-purple-400 flex-shrink-0" />
-											<div class="flex-1">
-												{#if data.success}
-													<div class="text-slate-300 mb-1">
-														File read: <span class="text-purple-300 font-mono">{data.file_path}</span>
-													</div>
-                                            <div class="text-slate-500 text-xs">
-                                                Content length: <MessageStats hideWhenEmpty={false} text={data.content} />
-                                            </div>
-												{:else}
-													<div class="text-red-300 mb-1">
-														Failed to read: <span class="text-red-200 font-mono">{data.file_path}</span>
-													</div>
-													<div class="text-red-400 text-xs">
-														{data.error}
-													</div>
-												{/if}
-											</div>
-										{:else if activity.type === 'list_files'}
-											{@const data = activity.data as FileListResult}
-											<FolderOpen class="w-3 h-3 text-orange-400 flex-shrink-0" />
-											<div class="flex-1">
-												{#if data.success}
-													<div class="text-slate-300 mb-1">
-														Directory listing: <span class="text-orange-300 font-mono">{data.directory_path}</span>
-													</div>
-													<div class="text-slate-500 text-xs">
-														Found {data.files.length} items
-														{#if data.files.length > 0}
-															<span class="ml-2">
-																({data.files.slice(0, 3).map(f => f.split(' ')[0]).join(', ')}{data.files.length > 3 ? `, +${data.files.length - 3} more` : ''})
-															</span>
-														{/if}
-													</div>
-												{:else}
-													<div class="text-red-300 mb-1">
-														Failed to list: <span class="text-red-200 font-mono">{data.directory_path}</span>
-													</div>
-													<div class="text-red-400 text-xs">
-														{data.error}
-													</div>
-												{/if}
-											</div>
-										{/if}
-										<span class="text-slate-500 text-xs">
-											{activity.timestamp.toLocaleTimeString('en-US', {
-												hour: '2-digit',
-												minute: '2-digit',
-												second: '2-digit'
-											})}
-										</span>
-									</div>
+									<ToolActivityRow activity={part.activity} />
 								{/if}
 							{/each}
 						</div>

@@ -35,7 +35,7 @@ export interface FileItem {
 }
 
 // Agentic streaming events
-export type StreamEventType = 'token' | 'sources' | 'documents' | 'read_file' | 'list_files' | 'chat_history' | 'final';
+export type StreamEventType = 'token' | 'sources' | 'documents' | 'read_file' | 'list_files' | 'chat_history' | 'tool_call' | 'final';
 
 export interface StreamEventBase {
 	type: StreamEventType;
@@ -54,6 +54,16 @@ export interface SourcesStreamEvent extends StreamEventBase {
 export interface DocumentsStreamEvent extends StreamEventBase {
 	type: 'documents';
 	data: RagDocument[];
+}
+
+export interface ToolCallInfo {
+	tool_name: string;
+	params: Record<string, unknown>;
+}
+
+export interface ToolCallStreamEvent extends StreamEventBase {
+	type: 'tool_call';
+	data: ToolCallInfo;
 }
 
 export interface ReadFileStreamEvent extends StreamEventBase {
@@ -87,14 +97,21 @@ export interface FinalStreamEvent extends StreamEventBase {
 	data: FinalStreamEventData;
 }
 
-export type StreamEvent = TokenStreamEvent | SourcesStreamEvent | DocumentsStreamEvent | ReadFileStreamEvent | ListFilesStreamEvent | ChatHistoryStreamEvent | FinalStreamEvent;
+export type StreamEvent = TokenStreamEvent | SourcesStreamEvent | DocumentsStreamEvent | ReadFileStreamEvent | ListFilesStreamEvent | ChatHistoryStreamEvent | ToolCallStreamEvent | FinalStreamEvent;
 
 // Tool activity for inline display
 export interface ToolActivity {
 	id: string;
-	type: 'sources' | 'documents' | 'read_file' | 'list_files' | 'chat_history';
+	type: 'sources' | 'documents' | 'read_file' | 'list_files' | 'chat_history' | 'tool_call';
 	timestamp: Date;
-	data: SearchResult | RagDocument[] | FileReadResult | FileListResult | ChatHistoryItem;
+	data: SearchResult | RagDocument[] | FileReadResult | FileListResult | ChatHistoryItem | ToolCallInfo;
+	// tool-call specific metadata
+	status?: 'running' | 'completed';
+	startedAt?: Date;
+	endedAt?: Date;
+	durationMs?: number;
+	toolName?: string;
+	params?: Record<string, unknown>;
 }
 
 export interface FileReadResult {

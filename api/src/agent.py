@@ -18,15 +18,21 @@ def search(query: str, search_number: Literal["low", "medium", "high"] = "medium
 	"""
 
 	response = openai.responses.create(
-		model="gpt-4.1",
+		model="gpt-5-mini",
 		input=query,
+		reasoning={
+			"effort": "minimal",
+		},
+		text={
+			"verbosity": "high"
+		},
 		tools=[{
 			"type": "web_search_preview",
 			"search_context_size": search_number,
 		}],
 		tool_choice={
-			"type": "web_search_preview",
-		}
+			"type": "web_search_preview"
+		},
 	)
 
 	urls: list[SearchResultUrl] = []

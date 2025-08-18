@@ -105,12 +105,12 @@ class RAGService:
 						valid_documents = []
 						for doc in new_documents:
 							if isinstance(doc, dict) and 'content' in doc and 'source' in doc:
-								valid_documents.append(doc)  # type: ignore
+								valid_documents.append(doc)
 							else:
 								print(f"Warning: Invalid document format: {doc}")
-						documents.extend(valid_documents)  # type: ignore
+						documents.extend(valid_documents)
 						if valid_documents:
-							documents_event: DocumentsStreamEvent = {'type': 'documents', 'data': valid_documents}  # type: ignore
+							documents_event: DocumentsStreamEvent = {'type': 'documents', 'data': valid_documents}
 							yield documents_event
 					else:
 						print(f"Warning: Invalid documents format: {new_documents}")
@@ -552,19 +552,21 @@ Generate a professional and detailed system prompt that clearly defines the role
 Respond only with the generated system prompt, without additional explanations."""
 
 		try:
-			response = client.chat.completions.create(
-				model='gpt-4.1-mini',
-				messages=[
-					{'role': 'system', 'content': 'You are an expert in writing system prompts.'},
-					{'role': 'user', 'content': prompt}
-				],
-				max_tokens=500,
-				temperature=0.7
+			response = client.responses.create(
+				model='gpt-5-mini',
+				input=prompt,
+				max_output_tokens=500,
+				reasoning={
+					"effort": "low",
+				},
+				text={
+					"verbosity": "medium"
+				}
 			)
 
-			content = response.choices[0].message.content
-			return content.strip() if content else f"You are an AI assistant specialized in {description}. You can help with questions and tasks related to this domain."
-		except Exception:
+			return response.output_text.strip()
+		except Exception as e:
+			print(f"Error generating system prompt: {e}")
 			return f"You are an AI assistant specialized in {description}. You can help with questions and tasks related to this domain."
 
 

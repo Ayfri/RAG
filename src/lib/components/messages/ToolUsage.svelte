@@ -24,6 +24,12 @@
 		const s = Math.round(ms / 100) / 10;
 		return `${s.toFixed(1)}s`;
 	}
+
+	function displayParams(params: Record<string, any>): string {
+		return Object.entries(params)
+			.map(([key, value]) => `${key}: ${value}`)
+			.join(', ');
+	}
 </script>
 
 <div class="flex items-center space-x-2 text-xs text-slate-400 bg-slate-900/30 rounded-lg px-2 py-1.5 border border-slate-700/50 my-1.5">
@@ -35,7 +41,7 @@
 			</div>
 			{#if activity.params && Object.keys(activity.params).length > 0}
 				<div class="text-slate-500 text-[0.65rem]">
-					with {Object.keys(activity.params).slice(0,3).join(', ')}{Object.keys(activity.params).length > 3 ? `, +${Object.keys(activity.params).length - 3} more` : ''}
+					with {displayParams(activity.params)}
 				</div>
 			{/if}
 		</div>
@@ -52,6 +58,8 @@
 					<div class="mt-1 text-[0.7rem]">
 						{@render WebUrlChips(urls)}
 					</div>
+				{:else}
+					<div class="mt-1 text-slate-500 text-[0.65rem]">No URLs found</div>
 				{/if}
 			{/if}
 		</div>
@@ -63,11 +71,23 @@
 				<div class="mt-1">
 					{@render DocNamesInline(activity.data, 5)}
 				</div>
+			{:else}
+				<div class="mt-1 text-slate-500 text-[0.65rem]">No documents found</div>
 			{/if}
 		</div>
 	{:else if activity.type === 'read_file'}
 		<FileIcon class="w-3 h-3 text-purple-400 flex-shrink-0" />
 		<div class="flex-1">File read</div>
+		{#if activity.data && typeof activity.data === 'object' && 'file_path' in activity.data}
+			<div class="mt-1 text-slate-500 text-[0.65rem]">
+				File: <span class="font-mono">{activity.data.file_path}</span>
+			</div>
+			{#if activity.data.error}
+				<div class="mt-1 text-slate-500 text-[0.65rem]">
+					Error: <span class="font-mono">{activity.data.error}</span>
+				</div>
+			{/if}
+		{/if}
 	{:else if activity.type === 'list_files'}
 		<FolderOpen class="w-3 h-3 text-orange-400 flex-shrink-0" />
 		<div class="flex-1">

@@ -22,7 +22,7 @@ def search(query: str, search_number: Literal["low", "medium", "high"] = "medium
 		model="gpt-5-mini",
 		input=query,
 		reasoning={
-			"effort": "minimal",
+			"effort": "low",
 		},
 		text={
 			"verbosity": "high"
@@ -31,9 +31,6 @@ def search(query: str, search_number: Literal["low", "medium", "high"] = "medium
 			"type": "web_search_preview",
 			"search_context_size": search_number,
 		}],
-		tool_choice={
-			"type": "web_search_preview"
-		},
 	)
 
 	urls: list[SearchResultUrl] = []

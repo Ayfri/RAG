@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type {SearchResult, SearchResultUrl} from '$lib/types.d.ts';
 	import {ChevronDown, Globe} from '@lucide/svelte';
+	import { WebUrlChips } from '$lib/components/snippets.svelte';
 
 	interface Props {
 		sources: SearchResult[];
@@ -56,17 +57,7 @@
 					{#each filteredSources as source}
 						<div class="mb-2">
 							{#if source.urls && source.urls.length > 0}
-								<div class="flex flex-wrap gap-1 items-center mt-1">
-									{#each source.urls.toSorted((a: SearchResultUrl, b: SearchResultUrl) => a.title.localeCompare(b.title)) as url}
-										{#if isUrl(url.url)}
-											<a href={url.url} target="_blank" rel="noopener" class="inline-block bg-cyan-900/60 text-cyan-200 px-2 py-0.5 rounded-full font-mono hover:bg-cyan-800/80 hover:underline transition-all duration-150 shadow-sm border border-cyan-700">
-												{url.title}
-											</a>
-										{:else}
-											<span class="inline-block bg-slate-700/80 text-slate-100 px-3 py-1 rounded-full font-mono border border-slate-600 shadow-sm">{url.url}</span>
-										{/if}
-									{/each}
-								</div>
+								{@render WebUrlChips(source.urls)}
 							{/if}
 						</div>
 					{/each}

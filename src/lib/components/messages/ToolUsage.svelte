@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Wrench, Globe, FileText, FileIcon, FolderOpen } from '@lucide/svelte';
 	import type { ToolActivity } from '$lib/types.d.ts';
+	import { WebUrlChips, DocNamesInline, FileNamesInline } from '$lib/components/snippets.svelte';
 
 	interface Props {
 		activity: ToolActivity;
@@ -23,8 +24,6 @@
 		const s = Math.round(ms / 100) / 10;
 		return `${s.toFixed(1)}s`;
 	}
-
-	$inspect(activity);
 </script>
 
 <div class="flex items-center space-x-2 text-xs text-slate-400 bg-slate-900/30 rounded-lg px-2 py-1.5 border border-slate-700/50 my-1.5">
@@ -45,17 +44,40 @@
 		</div>
 	{:else if activity.type === 'sources'}
 		<Globe class="w-3 h-3 text-blue-400 flex-shrink-0" />
-		<div class="flex-1">Web search completed</div>
+		<div class="flex-1">
+			<div>Web search completed</div>
+			{#if 'urls' in activity.data}
+				{@const urls = activity.data.urls}
+				{#if urls.length > 0}
+					<div class="mt-1 text-[0.7rem]">
+						{@render WebUrlChips(urls)}
+					</div>
+				{/if}
+			{/if}
+		</div>
 	{:else if activity.type === 'documents'}
 		<FileText class="w-3 h-3 text-green-400 flex-shrink-0" />
-		<div class="flex-1">Document search completed</div>
+		<div class="flex-1">
+			<div>Document search completed</div>
+			{#if activity.data && Array.isArray(activity.data)}
+				<div class="mt-1">
+					{@render DocNamesInline(activity.data, 5)}
+				</div>
+			{/if}
+		</div>
 	{:else if activity.type === 'read_file'}
 		<FileIcon class="w-3 h-3 text-purple-400 flex-shrink-0" />
 		<div class="flex-1">File read</div>
 	{:else if activity.type === 'list_files'}
 		<FolderOpen class="w-3 h-3 text-orange-400 flex-shrink-0" />
-		<div class="flex-1">Directory listing</div>
+		<div class="flex-1">
+			<div>Directory listing</div>
+			{#if activity.data && typeof activity.data === 'object' && 'files' in activity.data}
+				<div class="mt-1">
+					{@render FileNamesInline(activity.data, 6)}
+				</div>
+			{/if}
+		</div>
 	{/if}
 </div>
 
-<style></style>

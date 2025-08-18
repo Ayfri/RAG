@@ -6,7 +6,7 @@
     import DocumentSources from '$lib/components/messages/DocumentSources.svelte';
 	import FilesSources from '$lib/components/messages/FilesSources.svelte';
 	import WebSources from '$lib/components/messages/WebSources.svelte';
-	import ToolActivityRow from '$lib/components/messages/ToolActivityRow.svelte';
+	import ToolUsage from '$lib/components/messages/ToolUsage.svelte';
     import type {ChatMessage as ChatMessageType} from '$lib/types.d.ts';
 	import {Bot, Copy, Loader, Pencil, RefreshCcw, SendHorizontal, Trash2, User, X} from '@lucide/svelte';
 	import { countTokensFromText } from '$lib/helpers/tokenizer';
@@ -170,7 +170,7 @@
 								{#if part.type === 'text' && part.content.trim()}
 									<Markdown content={part.content} />
 								{:else if part.type === 'tool' && part.activity}
-									<ToolActivityRow activity={part.activity} />
+									<ToolUsage activity={part.activity} />
 								{/if}
 							{/each}
 						</div>

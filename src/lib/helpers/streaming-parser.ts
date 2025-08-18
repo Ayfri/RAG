@@ -198,6 +198,9 @@ export class AgenticStreamingParser {
 		activity.endedAt = new Date();
 		activity.durationMs = (activity.endedAt.getTime() - (activity.startedAt?.getTime() ?? activity.timestamp.getTime()));
 		activity.status = 'completed';
+		// remove the running placeholder from inline content once completed
+		const idx = this.contentParts.findIndex(p => p.type === 'tool' && p.activity?.id === id);
+		if (idx !== -1) this.contentParts.splice(idx, 1);
 		delete this.lastToolCallIdByKind[kind];
 	}
 

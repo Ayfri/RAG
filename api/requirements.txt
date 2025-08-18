@@ -1,8 +1,8 @@
 # llama-index
-llama-index-core==0.13.1
+llama-index-core==0.13.2
 llama-index-embeddings-openai==0.5.0
-llama-index-llms-openai==0.5.3
-llama-index-readers-file==0.5.1
+llama-index-llms-openai==0.5.4
+llama-index-readers-file==0.5.2
 
 # openai
 openai==1.99.9
@@ -21,3 +21,6 @@ python-dotenv==1.1.1
 beautifulsoup4==4.13.4
 html2text==2025.4.15
 requests==2.32.4
+
+# pretty logging
+rich==14.1.0

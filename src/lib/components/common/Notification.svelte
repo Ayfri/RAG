@@ -2,7 +2,7 @@
 	import { notifications, type Notification } from '$lib/stores/notifications';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { X, Info, CheckCircle, AlertTriangle, AlertCircle } from '@lucide/svelte';
+	import { X, Info, CircleCheck, TriangleAlert, CircleAlert } from '@lucide/svelte';
 	import Button from '$lib/components/common/Button.svelte';
 
 	interface Props {
@@ -13,9 +13,9 @@
 
 	const icons = {
 		info: Info,
-		success: CheckCircle,
-		warning: AlertTriangle,
-		error: AlertCircle
+		success: CircleCheck,
+		warning: TriangleAlert,
+		error: CircleAlert
 	};
 
 	const colors = {

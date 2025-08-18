@@ -2,7 +2,7 @@
 	import Button from '$lib/components/common/Button.svelte';
 	import Input from '$lib/components/common/Input.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
-	import {ArrowLeft, ArrowRight, CheckCircle, File, Loader, Plus, Upload, X} from '@lucide/svelte';
+	import {ArrowLeft, ArrowRight, CircleCheck, File, Loader, Plus, Upload, X} from '@lucide/svelte';
 
 	interface Props {
 		oncreated: (event: CustomEvent<string>) => void;
@@ -208,7 +208,7 @@
 
 	{:else if step === 'creating'}
 		<div class="text-center py-12">
-			<CheckCircle class="w-20 h-20 text-cyan-400 mx-auto mb-6" />
+			<CircleCheck class="w-20 h-20 text-cyan-400 mx-auto mb-6" />
 			<h3 class="text-2xl font-bold text-slate-100 mb-3">RAG Created Successfully!</h3>
 			<p class="text-slate-400 text-lg">Your RAG "{ragName}" is ready to use.</p>
 		</div>

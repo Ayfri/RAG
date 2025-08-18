@@ -6,8 +6,8 @@
     import DocumentSources from '$lib/components/messages/DocumentSources.svelte';
 	import FilesSources from '$lib/components/messages/FilesSources.svelte';
 	import WebSources from '$lib/components/messages/WebSources.svelte';
-    import type {ChatMessage as ChatMessageType, FileListResult, FileReadResult, RagDocument, SearchResult, ToolActivity} from '$lib/types.d.ts';
-	import {Bot, Copy, Edit, FileIcon, FileText, FolderOpen, Globe, Loader, RefreshCcw, SendHorizontal, Trash2, User, X} from '@lucide/svelte';
+    import type {ChatMessage as ChatMessageType, FileListResult, FileReadResult, RagDocument, SearchResult} from '$lib/types.d.ts';
+	import {Bot, Copy, FileIcon, FileText, FolderOpen, Globe, Loader, Pencil, RefreshCcw, SendHorizontal, Trash2, User, X} from '@lucide/svelte';
 	import { countTokensFromText } from '$lib/helpers/tokenizer';
 
 	interface Props {
@@ -93,7 +93,7 @@
 			<div class="flex items-center lg:opacity-0 group-hover:opacity-100 transition-opacity duration-200">
 				{#if message.role === 'user' && !isEditing}
 					<Button title="Edit" onclick={startEditing} size="icon" variant="secondary">
-						<Edit size={14} />
+						<Pencil size={14} />
 					</Button>
 				{/if}
 				<Button title="Copy" onclick={copyToClipboard} size="icon" variant="secondary">

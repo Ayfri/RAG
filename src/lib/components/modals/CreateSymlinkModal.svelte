@@ -3,7 +3,7 @@
 	import Input from '$lib/components/common/Input.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import {notifications} from '$lib/stores/notifications';
-	import {AlertCircle, Check, FolderOpen, Link, Loader, Plus, X} from '@lucide/svelte';
+	import {CircleAlert, Check, FolderOpen, Link, Loader, Plus, X} from '@lucide/svelte';
 
 	interface Props {
 		ragName: string;
@@ -353,7 +353,7 @@
 		<!-- Examples -->
 		<div class="bg-slate-800/50 rounded-lg p-4">
 			<h4 class="text-slate-300 text-sm font-medium mb-2 flex items-center gap-2">
-				<AlertCircle size={16} />
+				<CircleAlert size={16} />
 				Pattern Examples
 			</h4>
 			<div class="space-y-1 text-xs text-slate-400">

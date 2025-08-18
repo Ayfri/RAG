@@ -3,7 +3,7 @@
 	import Input from '$lib/components/common/Input.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import {notifications} from '$lib/stores/notifications';
-	import {AlertCircle, Check, Globe, Loader, Plus, X} from '@lucide/svelte';
+	import {CircleAlert, Globe, Loader, X} from '@lucide/svelte';
 
 	interface Props {
 		ragName: string;
@@ -100,7 +100,7 @@
 			/>
 			{#if error}
 				<div class="flex items-center space-x-2 mt-2 text-red-400 text-sm">
-					<AlertCircle size={16} />
+					<CircleAlert size={16} />
 					<span>{error}</span>
 				</div>
 			{/if}

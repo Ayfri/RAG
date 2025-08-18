@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CheckCircle, Loader, RefreshCw, Save, Settings, Sparkles, X } from '@lucide/svelte';
+	import { Loader, RefreshCw, Save, Settings, Sparkles, X } from '@lucide/svelte';
     import { openAIModels } from '$lib/stores/openai-models.js';
     import Button from '$lib/components/common/Button.svelte';
     import MessageStats from '$lib/components/common/MessageStats.svelte';

@@ -5,7 +5,7 @@
 	import {dispatchUI} from '$lib/helpers/ui-events';
 	import {notifications} from '$lib/stores/notifications';
 	import {selectedState} from '$lib/stores/selectedState';
-	import {Loader2, MessageSquare, Pencil, Plus, Trash2} from '@lucide/svelte';
+	import {LoaderCircle, MessageSquare, Pencil, Plus, Trash2} from '@lucide/svelte';
 
 	interface Props {
 		ragName: string;
@@ -258,7 +258,7 @@
 	<div class="flex-1 overflow-y-auto">
 		{#if loading}
 			<div class="p-4 text-center text-slate-400">
-				<Loader2 size={32} class="mx-auto mb-2 text-slate-600" />
+				<LoaderCircle size={32} class="mx-auto mb-2 text-slate-600" />
 				<p class="text-sm">Loading sessions...</p>
 			</div>
 		{:else if sessions.length === 0}

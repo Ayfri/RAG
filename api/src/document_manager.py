@@ -5,6 +5,7 @@ Manages file operations, directory structures, URL documents, and document metad
 for RAG systems. Separated from core RAG functionality for better organization.
 """
 
+import json
 import os
 from pathlib import Path
 from typing import Any, cast
@@ -23,16 +24,24 @@ logger = get_logger(__name__)
 class RAGDocumentManager:
 	"""Manages document operations for RAG systems including files, directories, and URLs."""
 
-	def __init__(self, files_dir: Path | None = None, indices_dir: Path | None = None, configs_dir: Path | None = None):
+	def __init__(self, files_dir: Path | None = None, indices_dir: Path | None = None, configs_dir: Path | None = None, resumes_dir: Path | None = None):
 		"""Initialize the document manager with directory paths."""
 		self._FILES_DIR = files_dir or Path('data/files')
 		self._INDICES_DIR = indices_dir or Path('data/indices')
 		self._CONFIGS_DIR = configs_dir or Path('data/configs')
+		self._RESUMES_DIR = resumes_dir or Path('data/resumes')
 
 		# Ensure directories exist
 		self._FILES_DIR.mkdir(parents=True, exist_ok=True)
 		self._INDICES_DIR.mkdir(parents=True, exist_ok=True)
 		self._CONFIGS_DIR.mkdir(parents=True, exist_ok=True)
+		self._RESUMES_DIR.mkdir(parents=True, exist_ok=True)
+
+
+	@property
+	def configs_dir(self) -> Path:
+		"""Get the configs directory path."""
+		return self._CONFIGS_DIR
 
 
 	@property
@@ -40,15 +49,17 @@ class RAGDocumentManager:
 		"""Get the files directory path."""
 		return self._FILES_DIR
 
+
 	@property
 	def indices_dir(self) -> Path:
 		"""Get the indices directory path."""
 		return self._INDICES_DIR
 
+
 	@property
-	def configs_dir(self) -> Path:
-		"""Get the configs directory path."""
-		return self._CONFIGS_DIR
+	def resumes_dir(self) -> Path:
+		"""Get the resumes directory path."""
+		return self._RESUMES_DIR
 
 
 	def add_url_to_rag(self, rag_name: str, url: str, config: RAGConfig) -> None:
@@ -134,6 +145,16 @@ class RAGDocumentManager:
 		return [f.name for f in input_path.iterdir() if f.is_file() and not f.is_symlink()]
 
 
+	def get_rag_config(self, rag_name: str) -> RAGConfig:
+		"""Get the configuration for a specific RAG."""
+		return self._load_rag_config(rag_name)
+
+
+	def get_summary_path(self, rag_name: str) -> Path:
+		"""Get the path to the summary file for a RAG."""
+		return self._RESUMES_DIR / f'{rag_name}.md'
+
+
 	def get_symlinks(self, input_path: Path) -> list[Path]:
 		"""Return list of symlink Paths in input_path."""
 		return [f for f in input_path.iterdir() if f.is_symlink()]
@@ -217,6 +238,11 @@ class RAGDocumentManager:
 			raise Exception(f"RAG '{rag_name}' not found")
 
 
+	def load_index(self, rag_name: str) -> VectorStoreIndex:
+		"""Load a persisted RAG index from disk. Public method for external use."""
+		return self._load_index(rag_name, self._load_rag_config(rag_name))
+
+
 	def remove_url_from_rag(self, rag_name: str, url: str, config: RAGConfig) -> None:
 		"""Remove a URL document from a RAG index."""
 		try:
@@ -268,7 +294,7 @@ class RAGDocumentManager:
 		file_path.parent.mkdir(parents=True, exist_ok=True)
 		file_path.write_bytes(content)
 		return file_path
-	
+
 
 	def save_index(self, rag_name: str, index: VectorStoreIndex) -> None:
 		"""Save index to disk."""
@@ -279,6 +305,23 @@ class RAGDocumentManager:
 		else:
 			persist_dir.mkdir(parents=True, exist_ok=True)
 		index.storage_context.persist(persist_dir=str(persist_dir))
+
+
+	def save_summary(self, rag_name: str, summary: str) -> None:
+		"""Save a project summary for a RAG."""
+		summary_path = self.get_summary_path(rag_name)
+		summary_path.write_text(summary, encoding='utf-8')
+
+
+	def update_rag_config(self, rag_name: str, config: RAGConfig) -> None:
+		"""Update the configuration for a specific RAG."""
+		index_path = self._INDICES_DIR / rag_name
+		if not index_path.exists():
+			raise FileNotFoundError(f'RAG "{rag_name}" not found.')
+
+		config_path = self._CONFIGS_DIR / f'{rag_name}.json'
+		config_path.write_text(config.model_dump_json(indent=4))
+
 
 	def _load_index(self, rag_name: str, config: RAGConfig) -> VectorStoreIndex:
 		"""Load a persisted RAG index from disk."""
@@ -299,3 +342,18 @@ class RAGDocumentManager:
 			return load_index_from_storage(storage_context, use_async=True)  # type: ignore[attr-defined]
 		finally:
 			Settings.embed_model = original_embed_model
+
+
+	def _load_rag_config(self, rag_name: str) -> RAGConfig:
+		"""Load configuration for a specific RAG, creating default if not exists."""
+		config_path = self._CONFIGS_DIR / f'{rag_name}.json'
+
+		if config_path.exists():
+			try:
+				return RAGConfig.model_validate_json(config_path.read_text())
+			except (json.JSONDecodeError, KeyError) as e:
+				logger.warning(f'Invalid config file for RAG "{rag_name}": {e}. Using defaults.')
+
+		default_config = RAGConfig()
+		config_path.write_text(default_config.model_dump_json(indent=2))
+		return default_config

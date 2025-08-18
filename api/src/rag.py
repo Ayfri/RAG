@@ -7,13 +7,12 @@ All indices and source documents are stored on the local filesystem:
 - data/configs/<rag_name>.json : configuration per RAG
 """
 
-import json
 import textwrap
 from pathlib import Path
 from collections.abc import AsyncGenerator
 
 import openai
-from llama_index.core import SimpleDirectoryReader, StorageContext, VectorStoreIndex, Settings, load_index_from_storage
+from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, Settings
 from llama_index.core.agent.workflow import AgentOutput, ToolCall, ToolCallResult
 from llama_index.core.llms import ChatMessage
 from llama_index.core.readers.json import JSONReader
@@ -57,13 +56,15 @@ logger = get_logger(__name__)
 
 
 class RAGService:
-	_RESUMES_DIR: Path = Path('data/resumes')
-
 	def __init__(self):
-		self._RESUMES_DIR.mkdir(parents=True, exist_ok=True)
-
 		# Initialize document manager - it handles its own directory setup
 		self.document_manager = RAGDocumentManager()
+
+
+	def add_url_to_rag(self, rag_name: str, url: str) -> None:
+		"""Add a URL as a document to a RAG index."""
+		config = self.document_manager.get_rag_config(rag_name)
+		self.document_manager.add_url_to_rag(rag_name, url, config)
 
 
 	async def async_agent_stream(self, rag_name: str, query: str, history: list[ChatMessage] | None = None) -> AsyncGenerator[StreamEvent, None]:
@@ -217,12 +218,6 @@ class RAGService:
 		)
 
 
-	def add_url_to_rag(self, rag_name: str, url: str) -> None:
-		"""Add a URL as a document to a RAG index."""
-		config = self._load_rag_config(rag_name)
-		self.document_manager.add_url_to_rag(rag_name, url, config)
-
-
 	def create_folder(self, rag_name: str, folder_name: str) -> Path:
 		"""Create an empty folder in the RAG's document directory."""
 		return self.document_manager.create_folder(rag_name, folder_name)
@@ -236,7 +231,7 @@ class RAGService:
 		files_path = self.document_manager.files_dir / rag_name
 		files_path.mkdir(parents=True, exist_ok=True)
 
-		config = self._load_rag_config(rag_name)
+		config = self.document_manager.get_rag_config(rag_name)
 		embed_model = OpenAIEmbedding(
 			api_key=OPENAI_API_KEY,
 			model=config.embedding_model,
@@ -248,7 +243,7 @@ class RAGService:
 
 		# Also include previously saved web URLs so reindexing keeps them
 		try:
-			existing_index = self._load_index(rag_name)
+			existing_index = self.document_manager.load_index(rag_name)
 			for node in existing_index.docstore.docs.values():
 				if node.metadata.get('source_type') == 'web_page':
 					text = getattr(node, 'text', '')
@@ -292,7 +287,7 @@ class RAGService:
 		try:
 			with log_step(logger, f"create-index rag={rag_name} docs={len(docs)}"):
 				index = VectorStoreIndex.from_documents(docs, show_progress=True)
-				self.save(rag_name, index)
+				self.document_manager.save_index(rag_name, index)
 
 			with log_step(logger, f"generate-summary rag={rag_name} from=index"):
 				summary_llm = OpenAI(
@@ -314,7 +309,7 @@ class RAGService:
 				else:
 					# If there are no local files/symlinks but URLs exist in the existing index, generate summary from that index
 					try:
-						existing_index = self._load_index(rag_name)
+						existing_index = self.document_manager.load_index(rag_name)
 						if existing_index.docstore.docs:
 							query_engine = existing_index.as_query_engine(
 								llm=summary_llm,
@@ -329,8 +324,7 @@ class RAGService:
 						return
 				
 				summary_response = query_engine.query(textwrap.dedent(summary_prompt).strip())
-				summary_path = self._RESUMES_DIR / f'{rag_name}.md'
-				summary_path.write_text(str(summary_response.response or ''), encoding='utf-8')
+				self.document_manager.save_summary(rag_name, str(summary_response.response or ''))
 		finally:
 			Settings.embed_model = original_embed_model
 
@@ -369,10 +363,9 @@ class RAGService:
 		if config_path.exists():
 			config_path.unlink()
 
-		summary_path = self._RESUMES_DIR / f'{rag_name}.md'
+		summary_path = self.document_manager.get_summary_path(rag_name)
 		if summary_path.exists():
 			summary_path.unlink()
-
 
 	def generate_system_prompt(self, description: str) -> str:
 		"""Generate a system prompt based on a description using OpenAI."""
@@ -415,8 +408,8 @@ Respond only with the generated system prompt, without additional explanations."
 
 	def get_agent(self, rag_name: str):
 		"""Return a FunctionAgent for the given rag_name with tools for local RAG, search, file read, and file list."""
-		config = self._load_rag_config(rag_name)
-		summary_path = self._RESUMES_DIR / f'{rag_name}.md'
+		config = self.document_manager.get_rag_config(rag_name)
+		summary_path = self.document_manager.get_summary_path(rag_name)
 		project_summary = ''
 		if summary_path.exists():
 			project_summary = summary_path.read_text(encoding='utf-8')
@@ -425,7 +418,7 @@ Respond only with the generated system prompt, without additional explanations."
 			rag_name=rag_name,
 			config=config,
 			project_summary=project_summary,
-			load_index=self._load_index,
+			load_index=self.document_manager.load_index,
 		)
 
 
@@ -436,7 +429,7 @@ Respond only with the generated system prompt, without additional explanations."
 
 	def get_rag_config(self, rag_name: str) -> RAGConfig:
 		"""Get the configuration for a specific RAG."""
-		return self._load_rag_config(rag_name)
+		return self.document_manager.get_rag_config(rag_name)
 
 
 	def get_symlinks(self, input_path: Path) -> list[Path]:
@@ -456,19 +449,14 @@ Respond only with the generated system prompt, without additional explanations."
 
 	def list_urls_in_rag(self, rag_name: str) -> list[dict[str, str]]:
 		"""List all URLs in a RAG index."""
-		config = self._load_rag_config(rag_name)
+		config = self.document_manager.get_rag_config(rag_name)
 		return self.document_manager.list_urls_in_rag(rag_name, config)
 
 
 	def remove_url_from_rag(self, rag_name: str, url: str) -> None:
 		"""Remove a URL document from a RAG index."""
-		config = self._load_rag_config(rag_name)
+		config = self.document_manager.get_rag_config(rag_name)
 		self.document_manager.remove_url_from_rag(rag_name, url, config)
-
-
-	def save(self, rag_name: str, index: VectorStoreIndex) -> None:
-		"""Save index to disk."""
-		self.document_manager.save_index(rag_name, index)
 
 
 	def save_directory(self, rag_name: str, directory_name: str, directory_content: dict[str, Any]) -> Path:
@@ -483,46 +471,4 @@ Respond only with the generated system prompt, without additional explanations."
 
 	def update_rag_config(self, rag_name: str, config: RAGConfig) -> None:
 		"""Update the configuration for a specific RAG."""
-		index_path = self.document_manager.indices_dir / rag_name
-		if not index_path.exists():
-			raise FileNotFoundError(f'RAG "{rag_name}" not found.')
-
-		config_path = self.document_manager.configs_dir / f'{rag_name}.json'
-		config_path.write_text(config.model_dump_json(indent=4))
-
-
-	def _load_index(self, rag_name: str) -> VectorStoreIndex:
-		"""Load a persisted RAG index from disk."""
-		persist_dir = self.document_manager.indices_dir / rag_name
-		if not persist_dir.exists():
-			raise FileNotFoundError(f'No index found for RAG "{rag_name}".')
-
-		config = self._load_rag_config(rag_name)
-		embed_model = OpenAIEmbedding(
-			api_key=OPENAI_API_KEY,
-			model=config.embedding_model,
-		)
-
-		original_embed_model = Settings.embed_model
-		Settings.embed_model = embed_model
-
-		try:
-			storage_context = StorageContext.from_defaults(persist_dir=str(persist_dir))
-			return load_index_from_storage(storage_context, use_async=True)  # type: ignore[attr-defined]
-		finally:
-			Settings.embed_model = original_embed_model
-
-
-	def _load_rag_config(self, rag_name: str) -> RAGConfig:
-		"""Load configuration for a specific RAG, creating default if not exists."""
-		config_path = self.document_manager.configs_dir / f'{rag_name}.json'
-
-		if config_path.exists():
-			try:
-				return RAGConfig.model_validate_json(config_path.read_text())
-			except (json.JSONDecodeError, KeyError) as e:
-				logger.warning(f'Invalid config file for RAG "{rag_name}": {e}. Using defaults.')
-
-		default_config = RAGConfig()
-		config_path.write_text(default_config.model_dump_json(indent=2))
-		return default_config
+		self.document_manager.update_rag_config(rag_name, config)
